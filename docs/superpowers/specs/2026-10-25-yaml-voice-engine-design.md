@@ -1,10 +1,12 @@
-# YAML voice workflow engine
+# Libretto: YAML voice workflow engine
 
 Date: 2026-10-25
 
 Status: proposed design for user review; implementation has not started.
 
 ## Purpose and decisions already made
+
+The user selected **Libretto** as the project name. The engine is the main project; the generic receptionist is its first demo. A separate name for the demo has not been selected.
 
 Build a reusable YAML-driven voice workflow engine. A generic receptionist is its first complete example, rather than the engine being incidental to a single demo. The engine supports distinct conversational stages with focused prompts, tools, knowledge, and completion/transition rules, while retaining shared identity and conversational continuity.
 

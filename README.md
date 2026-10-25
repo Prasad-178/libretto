@@ -1,4 +1,6 @@
-# YAML voice workflow engine
+# Libretto
+
+Voice workflows, written in YAML.
 
 A planned developer tool for defining staged voice agents in YAML. A generic receptionist will be the first complete example: answer questions from documents, find a destination, simulate a transfer, recover by taking a message, and wrap up.
 
