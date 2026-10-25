@@ -10,6 +10,8 @@ Build a reusable YAML-driven voice workflow engine. A generic receptionist is it
 
 The user chose the more complex receptionist workflow, requested real retrieval-augmented generation (RAG), offered an OpenRouter key, suggested Deepgram transcription and a fast model such as Gemini 3.5 Flash, and authorized initializing Git here with regular implementation commits.
 
+The user subsequently specified English only for the current release, including English transcription/context hints, and reiterated regular commits throughout implementation.
+
 The intended reader/user is a developer building conversational workflows. The eventual portfolio article should explain the runtime, the limits of deterministic control, and findings from this independent experiment. The article's thesis, outline, and results remain undecided.
 
 All public material must be original to this project or supported by public documentation. Use synthetic company facts, contacts, documents, prompts, scenarios, and traces. Do not reuse private application code, prompts, datasets, configuration, measurements, or implementation history. The existing local research file is untracked and is not a publication artifact.
@@ -20,7 +22,7 @@ These are assistant recommendations, not additional user decisions:
 
 - Python package for the engine, Pydantic schema validation, a small FastAPI service, and a React/TypeScript browser client built with Vite. Exact supported versions are to be pinned during implementation.
 - The engine is independent of the HTTP service, voice adapter, and example business. Text and voice submit the same committed-turn input to the same runtime.
-- Single-user local development, English first, browser microphone and playback, typed chat, a read-only graph, and an inspector. Bind the backend to localhost by default.
+- Single-user local development, English only for this release, browser microphone and playback, typed chat, a read-only graph, and an inspector. Bind the backend to localhost by default. Multilingual behavior and language switching are outside the current acceptance scope.
 - YAML is the source of truth; render the graph from its validated intermediate representation. No visual workflow editor in the first release.
 - One provider family initially: OpenRouter for interpretation, response generation, transcription, and speech. Provider interfaces allow later direct streaming speech adapters without changing the graph engine.
 - Public demo actions simulate transfers and save synthetic messages locally. They do not initiate telephone calls, contact anyone, send messages, or use live account data.
@@ -107,6 +109,7 @@ Public provider documentation and the unauthenticated OpenRouter catalog were ch
 
 - Speaking and evaluator model default: `google/gemini-3.5-flash` through OpenRouter, independently configurable per role; request minimal reasoning where the active provider supports it. Start with the same model for both roles to avoid changing two variables; compare a smaller evaluator later.
 - STT default: `deepgram/nova-3`, listed by `/api/v1/models?output_modalities=transcription`.
+- English is the configured STT language where supported, and all shared/stage prompts and the selected TTS voice use English. YAML may supply global and stage-specific speech hints for synthetic names, department names, product terms, and spelled callback details. Use a typed hint list rather than allowing hints to override system instructions. Pass language/keyterm/context hints only through verified adapter-supported fields; otherwise expose the unsupported capability in validation/the inspector rather than silently claiming the hints are active. Keep prompt vocabulary and directory aliases consistent with these hints. Hints bias recognition; they do not establish a fact, resolve an ambiguous recipient, or bypass confirmation. Provide a patient collection setting for names and spelled details, with push-to-talk available when automatic endpointing cuts a speaker off.
 - TTS first candidate: `deepgram/aura-2`, listed by `/api/v1/models?output_modalities=speech`. Confirm supported voice/output-format fields before enabling it. Use a documented available TTS alternative through the same adapter if integration reveals a capability mismatch; record and disclose the change.
 - OpenRouter transcription documentation specifies completed-audio HTTP requests. It does not establish live Deepgram WebSocket transcription. The initial one-key mode captures an utterance, submits it for transcription, then runs the engine. Label this mode accurately and include endpointing/upload/transcription delay in timings.
 - Provide push-to-talk as a reliable baseline and automatic local endpointing for hands-free turns. Exact VAD library and audio format are builder choices to be verified for browser compatibility before dependency selection. Expose endpointing behavior so long pauses and spelled callback numbers can be tested.
@@ -143,6 +146,7 @@ Functional acceptance:
 - Multi-field input, corrections, refusals, ambiguous recipients, detours/resume, new requests, stop/cancel, and wrap-up work.
 - Duplicate turns/action requests cannot create duplicate saved messages. Timeouts/uncertain action outcomes do not produce false confirmations.
 - Text and voice use the same runtime. Playback interruption cancels stale output; fresh turns cannot release old audio or stale model output.
+- English names, department/product terms, spelled details, and long pauses are covered in voice scenarios. The inspector reports which language/hint settings the active adapter actually applied.
 - Prompt injection in retrieved material cannot change tool permissions or permitted graph edges.
 - The tiny second workflow runs without receptionist-specific changes in the engine.
 
@@ -163,6 +167,8 @@ Report sample counts, configuration/index versions, mode, model/provider, and co
 7. Use findings to prepare the article brief and approved outline before drafting.
 
 Initialize Git in this directory. Commit coherent milestones and keep required hooks/checks enabled. Review the staged file list and diff before every commit. Never stage private research, credentials, recordings, generated indexes, or incidental session data. Commit messages describe real changes; do not imply provider validation or completed features before they exist.
+
+Make regular commits throughout implementation: schema/runtime, text receptionist and retrieval, provider integration, voice, inspector, and fixes should each have reviewable commits as they become coherent and appropriately verified. Do not leave the whole implementation for one final commit. These are suggested milestone boundaries, not a requirement to wait until an entire subsystem is finished before committing a smaller complete change.
 
 ## Public references
 
