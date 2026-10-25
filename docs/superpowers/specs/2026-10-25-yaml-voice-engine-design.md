@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 Updated: 2026-10-26 after public documentation research and further scope discussion.
 
-Status: proposed design for user review; implementation has not started.
+Status: under revision after latency requirements were clarified; implementation has not started. The [latency-first proposal](2026-10-26-latency-first-proposal.md) supersedes this document's earlier recommendations for a mandatory sequential evaluator, FAQ-gated retrieval, and deferred preemptive LLM generation. Those scheduling/timing choices remain under discussion; do not implement the earlier pipeline as an approved decision.
 
 ## Purpose and decisions already made
 
@@ -17,6 +17,8 @@ The user chose the more complex receptionist workflow, requested real retrieval-
 The user subsequently specified English only for the current release, including English transcription/context hints, and reiterated regular commits throughout implementation.
 
 The user wants hosting itself to remain free, accepts paid API usage, and offered a subdomain of `prasadjs.me`. The user proposed in-memory storage for short conversations. The current recommendation is an ephemeral, database-free demo with a bounded call lifetime, subject to confirmation of session-reset behavior and access to a direct Deepgram key. Speech-provider recommendations below were revised after checking current streaming and turn-detection documentation; they are not claims of successful integration.
+
+The user subsequently set the call cap to **180 seconds**, requested optional visitor-supplied keys when a small server-funded API budget runs out, and prioritized roughly 1.0-1.2 seconds to first speech with 1.5 seconds as the desired ceiling. Treat these timings as the user's product target rather than an established universal industry standard. Measure meaningful browser playback from acoustic end, including endpointing and network time, and distinguish cold starts and tool-dependent answers.
 
 The intended reader/user is a developer building conversational workflows. The eventual portfolio article should explain the runtime, the limits of deterministic control, and findings from this independent experiment. The article's thesis, outline, and results remain undecided.
 
@@ -133,7 +135,7 @@ Public provider documentation and the unauthenticated OpenRouter catalog were ch
 - Speech-start/manual interrupt stops browser playback and cancels stale pending text/audio; send provider `Interrupt` and handle its lifecycle response. Correlate all server events and audio chunks with turn/revision IDs, and discard stale output. Test echo behavior with headphones first; enable browser echo cancellation where available. Never label interruption as a rollback of a completed action. Test false interruptions from backchannels and noise rather than assuming every microphone event represents a new caller request.
 - Direct streaming requires `DEEPGRAM_API_KEY` alongside `OPENROUTER_API_KEY`; neither credential has yet been validated by this project. API spending is accepted by the user. Confirm direct key availability before choosing the live adapter path.
 
-Keys are read on the backend from an ignored `.env`, never placed in browser bundles, YAML, commits, logs, or traces. `.env.example` contains names/placeholders only. Configure a maximum output size, bounded turns/tool loops, provider timeouts, and a configurable per-session request cap. Use reported usage/cost when supplied; otherwise mark cost as unavailable or estimated, never invent a charge. The user has offered a key but none has yet been configured. Live provider validation waits for that key; automated tests use fakes.
+Server-funded keys are read on the backend from an ignored `.env` locally and deployment environment variables when hosted. They never appear in browser bundles, YAML, commits, logs, or traces. Visitor-supplied keys follow the session-only handling described in the latency-first proposal; they are not persisted. `.env.example` contains names/placeholders only. Configure a maximum output size, bounded turns/tool loops, provider timeouts, and a configurable per-session request cap. Use reported usage/cost when supplied; otherwise mark cost as unavailable or estimated, never invent a charge. No credential has yet been validated by this project. Live provider validation waits for configured credentials; automated tests use fakes.
 
 ## Drafts, commits, and optional overlap
 
@@ -151,7 +153,7 @@ CLI commands will validate a workflow, inspect/export its normalized graph, run 
 
 For the first demo, keep each conversation, mock message receipts, pending tasks, deduplication keys, and trace ring buffer in one session object owned by one WebSocket connection. The full text-and-audio interaction stays on that connection; do not depend on a process-global session dictionary being reachable from arbitrary HTTP requests. There is no application database or database service. Read-only bundled knowledge can be indexed once per warm instance and reused.
 
-On Vercel, a WebSocket is pinned to one instance for its connection lifetime. Hobby's documented function maximum is 300 seconds, so cap demo calls at 240 seconds with an explicit expiry UI and bounded cleanup margin. A disconnection, restart, deployment, or expiry ends this ephemeral session; reconnection starts a fresh session with a visible reset, not an implied recovery. Captured messages are demonstration artifacts, not durable mailboxes. Offer an explicit local JSON download for traces/messages before ending a session; do not retain server recordings by default. Durable resume, long calls, and production delivery would require revisiting storage/hosting.
+On Vercel, a WebSocket is pinned to one instance for its connection lifetime. Hobby's documented function maximum is 300 seconds; the user chose a shorter **180-second** demo cap, with an explicit expiry UI and bounded cleanup margin. A disconnection, restart, deployment, or expiry ends this ephemeral session; reconnection starts a fresh session with a visible reset, not an implied recovery. Captured messages are demonstration artifacts, not durable mailboxes. Offer an explicit local JSON download for traces/messages before ending a session; do not retain server recordings by default. Durable resume, long calls, and production delivery would require revisiting storage/hosting.
 
 Target Vercel Hobby for this personal demo at `libretto.prasadjs.me`, within its included quotas. Do not promise unlimited free traffic or self-invoke functions to evade duration limits. API costs are separate and accepted. Add modest demo session/request/audio-size caps, backend-only credentials, and explicit provider error states. Public launch and DNS configuration happen after a verified preview; no hosting account, domain, or deployment has yet been modified. Multi-user account features, real telephony, and a general integration marketplace are outside the initial scope.
 
@@ -169,7 +171,7 @@ Functional acceptance:
 - English names, department/product terms, spelled details, and long pauses are covered in voice scenarios. The inspector reports which language/hint settings the active adapter actually applied.
 - Flux turn-detection configuration changes are acknowledged and visible. Verify the normal/patient profiles without unnecessary added silence timers; eager mode stays disabled in baseline tests.
 - Verify progressive speech playback, whitespace across streamed text deltas, provider/browser interruption cleanup, and exclusion of control JSON from speech.
-- Verify separate concurrent sessions, the 240-second demo limit, and the explicit fresh-session behavior on disconnection/reload. No fake resume or durable-message claim is allowed.
+- Verify separate concurrent sessions, the 180-second demo limit, and the explicit fresh-session behavior on disconnection/reload. No fake resume or durable-message claim is allowed.
 - Prompt injection in retrieved material cannot change tool permissions or permitted graph edges.
 - The tiny second workflow runs without receptionist-specific changes in the engine.
 
