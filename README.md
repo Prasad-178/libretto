@@ -2,7 +2,7 @@
 
 Voice workflows, written in YAML.
 
-A planned developer tool for defining staged voice agents in YAML. A generic receptionist will be the first complete example: answer questions from documents, find a destination, simulate a transfer, recover by taking a message, and wrap up.
+A planned developer tool for defining staged voice agents in YAML. A generic receptionist will be the first complete example: answer questions from documents, find a destination, simulate a transfer, recover by taking a message, and wrap up. The proposed first demo keeps conversations and captured messages in session-only memory.
 
 The initial release is English only, with configurable speech hints where supported by the active provider adapter.
 
