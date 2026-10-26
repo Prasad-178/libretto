@@ -43,6 +43,14 @@ npm --prefix web run build
 
 The UI is an agent workspace with synchronized prompt forms and an editable YAML source, a bundled knowledge base, and a voice/text test panel. Apply changes validates the definition; every test uses a fixed snapshot of that YAML. Changes stay in the tab; Export YAML downloads a file. Active/pending stage, facts, passages, trace, countdown and simulated outcomes are inspectable during tests.
 
+### Provider boundaries
+
+Provider replaceability is a design requirement. Libretto owns streaming orchestration between microphone capture, transcription events, LLM text deltas, TTS input and browser playback, alongside its workflow/state/RAG/tool logic. OpenRouter and Deepgram currently supply the model APIs; speech recognition, Flux turn detection and synthesis segmentation run inside the speech provider.
+
+The prototype has a dedicated Deepgram speech adapter and generic speaking/evaluator interfaces. Speech selection is still wired directly in the server, and STT/TTS share one adapter, so changing speech providers currently requires an adapter and wiring changes. Independent STT/TTS contracts with explicit capabilities are the next portability improvement. A provider without eager-turn events or spoken-prefix alignment must expose that limitation rather than emulate an unsupported guarantee.
+
+Reusable libraries or open frameworks are acceptable when provider-specific behavior remains behind replaceable adapters. Rebuilding every component from scratch is not a project requirement.
+
 ## Sessions and credentials
 
 One WebSocket owns one in-memory conversation, capped at 180 seconds. Disconnecting or reconnecting starts fresh. There is no database, cross-instance session lookup or durable message storage. An explicit downloaded trace contains conversation details and should be treated accordingly.
