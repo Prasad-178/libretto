@@ -125,9 +125,11 @@ class Session:
         sources = list(
             dict.fromkeys(self.workflow.common_knowledge + self.workflow.nodes[snapshot.stage].knowledge)
         )
-        query = " ".join(m.content for m in snapshot.history[-3:] if m.role == "user") + " " + text
-        passages = self.retriever.search(query, sources, 3)
-        await self.emit("retrieval", query=query, passages=[asdict(p) for p in passages])
+        reference = " ".join(
+            m.content for m in snapshot.history[-3:] if m.role == "user" and m.turn_id != turn_id
+        )
+        passages = self.retriever.search(text, sources, 3, context=reference)
+        await self.emit("retrieval", query=text, context=reference, passages=[asdict(p) for p in passages])
         context = compose_prompt(
             self.workflow, snapshot, passages, turn_id=turn_id, text=text, directory=self.directory
         )

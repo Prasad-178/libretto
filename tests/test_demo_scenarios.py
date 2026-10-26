@@ -51,3 +51,32 @@ def test_scenario_fixtures_do_not_contain_provider_credentials():
     text = path.read_text()
     assert not any(token in text.lower() for token in ("sk-or-v1-", "api_key", "authorization"))
     assert isinstance(json.loads(text), list)
+
+
+async def test_scripted_followups_receive_current_question_facts_in_real_runtime_prompts():
+    from test_runtime import Evaluator, next_event
+
+    from libretto.retrieval import build_index
+    from libretto.runtime import Session
+    from libretto.schema import load_workflow
+    from libretto.tools import ToolRegistry
+
+    fixtures = {s["id"]: s for s in json.loads(Path("examples/test-scenarios.json").read_text())}
+    flow = load_workflow(Path("examples/receptionist.yaml"))
+    for scenario_id, expected in [("room-policy", "24 hours"), ("side-question", "£32")]:
+        contexts = []
+
+        class Speaker:
+            async def stream_reply(self, context):
+                contexts.append(context)
+                yield "Controlled test response."
+
+        session = Session(flow, Speaker(), Evaluator(), build_index(flow, Path("examples")), ToolRegistry())
+        try:
+            for i, step in enumerate(fixtures[scenario_id]["steps"][:2]):
+                await session.submit_turn(step["say"], f"{scenario_id}-{i}")
+                await next_event(session, "response_done")
+            assert expected in contexts[-1].system, scenario_id
+            assert len(contexts[-1].passages) <= 3
+        finally:
+            await session.close()

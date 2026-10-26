@@ -10,7 +10,7 @@ class Speaker:
 
 
 class Search:
-    def search(self, query, sources, limit=3):
+    def search(self, query, sources, limit=3, *, context=""):
         return []
 
 

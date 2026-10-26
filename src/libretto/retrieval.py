@@ -58,23 +58,25 @@ class RetrievalIndex:
                     )
         return cls(passages)
 
-    def search(self, query: str, sources: list[str], limit: int = 3) -> list[Passage]:
+    def search(self, query: str, sources: list[str], limit: int = 3, *, context: str = "") -> list[Passage]:
         from dataclasses import replace
 
-        terms = set(tokens(query[-1600:]))
+        terms = {word: 1.0 for word in tokens(query[-1600:])}
+        for word in tokens(context[-1600:]):
+            terms.setdefault(word, 0.2)
         ranked = []
         for index, passage in enumerate(self.passages):
             if passage.source not in sources:
                 continue
             score = 0.0
-            for word in terms:
+            for word, weight in terms.items():
                 count = self.terms[index].get(word, 0)
                 if not count:
                     continue
                 df, total = self.frequency[word], len(self.passages)
                 idf = math.log(1 + (total - df + 0.5) / (df + 0.5))
                 denominator = count + 1.2 * (0.25 + 0.75 * self.lengths[index] / max(self.average, 1))
-                score += idf * count * 2.2 / denominator
+                score += weight * idf * count * 2.2 / denominator
             if score > 0:
                 ranked.append(replace(passage, score=round(score, 5)))
         return sorted(ranked, key=lambda p: p.score, reverse=True)[: max(0, min(limit, 5))]
