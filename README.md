@@ -6,6 +6,8 @@ An English voice-agent prototype with a Python workflow engine and a React demo.
 
 The runtime enforces graph transitions, typed state, stage-scoped capabilities and action prerequisites. Models interpret the caller and generate speech; their interpretation and wording are probabilistic. A YAML graph does not make an LLM deterministic.
 
+The studio opens on a read-only Workflow canvas generated from YAML: stage cards, routed transitions, full condition/prompt details, zoom/fit controls and live stage highlights. Edit the same definition in Agent or YAML, then return to Workflow to inspect it. During a test, the canvas shows the running snapshot; edits apply to the next test.
+
 ## Run locally
 
 Requires Python 3.12+, [uv](https://docs.astral.sh/uv/) and Node.js 22.12+ (Node 24 recommended).
