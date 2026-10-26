@@ -228,3 +228,110 @@ async def test_correction_cannot_reuse_readback_from_an_earlier_turn():
         assert session.state.receipts == []
     finally:
         await session.close()
+
+
+async def test_late_evaluator_cannot_confirm_its_own_corrected_readback():
+    from libretto.state import Fact, Message, details_fingerprint
+
+    class Readback:
+        async def stream_reply(self, context):
+            yield "billing Sam 5550100 Please call. Correct?"
+
+    evaluator = Evaluator(
+        block=True,
+        updates={
+            "message": {"value": "Please call", "evidence": "Please call"},
+            "message_confirmed": {"value": True, "evidence": "yes"},
+        },
+    )
+    session = make_session(
+        evaluator, speaker=Readback(), flow=load_workflow(Path("examples/receptionist.yaml"))
+    )
+    session.state.active_stage = "confirm_message"
+    details = {
+        "recipient": "billing",
+        "caller_name": "Sam",
+        "callback_number": "5550100",
+        "message": "Please call tomorrow",
+        "message_consent": True,
+    }
+    session.state.facts = {k: Fact(v, "answered", str(v), "old") for k, v in details.items()}
+    session.state.history = [
+        Message("assistant", "billing Sam 5550100 Please call tomorrow. Correct?", "old")
+    ]
+    session.state.readback_fingerprint = details_fingerprint(details)
+    try:
+        await session.submit_turn("Change it to Please call, yes.", "correction")
+        await next_event(session, "response_done")
+        evaluator.release.set()
+        await next_event(session, "evaluation")
+        assert not session.state.values().get("message_confirmed")
+        assert not session.state.receipts
+    finally:
+        evaluator.release.set()
+        await session.close()
+
+
+async def test_end_node_closes_runtime_and_rejects_further_input():
+    session = make_session(Evaluator(matches=["answered"]))
+    await session.submit_turn("Useful.", "last")
+    await next_event(session, "ended")
+    assert session.closed
+    size = len(session.state.history)
+    await session.submit_turn("Another turn", "late")
+    assert len(session.state.history) == size
+
+
+async def test_partial_emitted_text_is_preserved_as_interrupted_history():
+    class Paused:
+        async def stream_reply(self, context):
+            yield "Would you like billing?"
+            await asyncio.Event().wait()
+
+    session = make_session(Evaluator(), speaker=Paused())
+    try:
+        await session.submit_turn("Connect me", "first")
+        await next_event(session, "text_delta")
+        await session.interrupt()
+        last = session.state.history[-1]
+        assert last.role == "assistant"
+        assert last.content == "Would you like billing?"
+        assert last.interrupted
+    finally:
+        await session.close()
+
+
+async def test_new_input_establishes_output_cancellation_before_generation():
+    cancelled = []
+    session = make_session(Evaluator())
+
+    async def cancel():
+        cancelled.append(session.epoch)
+
+    session.cancel_output = cancel
+    try:
+        await session.submit_turn("First", "one")
+        await next_event(session, "response_done")
+        await session.submit_turn("Correction", "two")
+        await next_event(session, "response_done")
+        assert len(cancelled) == 2
+        assert len([e for e in session.trace if e.type == "interrupted"]) == 2
+    finally:
+        await session.close()
+
+
+async def test_voice_history_uses_only_played_or_aligned_text():
+    session = make_session(Evaluator())
+    session.defer_actions = True
+    try:
+        await session.submit_turn("Hello", "voice")
+        event = await next_event(session, "response_done")
+        message_id = event.data["message_id"]
+        assert session.state.history[-1].content == ""
+        session.bind_speech("speech-a", message_id)
+        await session.interrupt()
+        session.reconcile_speech("speech-a", "A useful", interrupted=True)
+        assert session.state.history[-1].content == "A useful"
+        assert session.state.history[-1].interrupted
+    finally:
+        await session.close()

@@ -98,7 +98,7 @@ async def test_cancel_request_preserves_history_but_clears_task():
     session.state.facts["message"] = Fact("Old request", "answered", "Old request", "old")
     try:
         await session.submit_turn("Cancel that request", "cancel")
-        await next_event(session, "interrupted")
+        await next_event(session, "state")
         assert session.state.active_stage == "identify"
         assert session.state.values() == {}
         assert session.state.history[0].content == "Cancel that request"

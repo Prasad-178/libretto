@@ -158,3 +158,33 @@ async def test_failed_second_speech_connection_closes_the_first(monkeypatch):
         await speech.open()
     assert partial.closed
     await session.close()
+
+
+async def test_informational_warning_does_not_acknowledge_interrupt():
+    speech, session, _, _ = adapter()
+    await speech.speak_text("Old reply", 1)
+    await speech.handle_tts({"type": "SpeechStarted", "speech_id": "old"})
+    await speech.interrupt(0)
+    await speech.handle_tts({"type": "Warning", "code": "PRONUNCIATION_WARNINGS"})
+    assert not speech._interrupt_ready.is_set()
+    assert speech._speech_id == "old"
+    await session.close()
+
+
+async def test_ignored_interrupt_replaces_tts_connection_before_reuse(monkeypatch):
+    speech, session, controls, audio = adapter()
+    replacement = Socket()
+
+    async def connect(*args, **kwargs):
+        return replacement
+
+    monkeypatch.setattr("libretto.providers.deepgram.websockets.connect", connect)
+    await speech.speak_text("Old reply", 1)
+    await speech.handle_tts({"type": "SpeechStarted", "speech_id": "old"})
+    await speech.interrupt(0)
+    await speech.handle_tts({"type": "Warning", "code": "NO_AUDIO_GENERATED"})
+    assert speech.tts is replacement
+    await speech.speak_text("New reply", 2)
+    assert json.loads(replacement.sent[-1])["text"] == "New reply"
+    await session.close()
+    await speech.close()

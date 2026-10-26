@@ -20,6 +20,8 @@ class DeepgramSpeechAdapter:
         self.stt = self.tts = None
         self.tasks: list[asyncio.Task] = []
         self._epochs: deque[int] = deque()
+        self._message_ids: deque[str] = deque()
+        self._active_message_id = ""
         self._text_open = False
         self._active_epoch = 0
         self._speech_id = ""
@@ -29,6 +31,12 @@ class DeepgramSpeechAdapter:
         self._interrupt_ready.set()
         self._patient = None
         self._prefix = "voice"
+        self._tts_task = None
+        self._connection_settings = None
+        self._tts_url = ""
+        self._playback_base = 0.0
+        self._last_playback = 0.0
+        self._retired = []
 
     async def open(self) -> None:
         key = self.credentials.key("deepgram")
@@ -53,6 +61,8 @@ class DeepgramSpeechAdapter:
             }
         )
         speak = urlencode({"model": "flux-haley-en", "encoding": "linear16", "sample_rate": 24000})
+        self._connection_settings = settings
+        self._tts_url = "wss://api.deepgram.com/v2/speak?" + speak
         self._prefix = "voice-" + uuid.uuid4().hex[:8]
         try:
             connections = await asyncio.gather(
@@ -71,8 +81,9 @@ class DeepgramSpeechAdapter:
             raise ProviderError("speech_connection_failed", "Could not connect to live speech.") from exc
         self.tasks = [
             asyncio.create_task(self._receive(self.stt, self.handle_stt)),
-            asyncio.create_task(self._receive(self.tts, self.handle_tts)),
         ]
+        self._tts_task = asyncio.create_task(self._receive(self.tts, self.handle_tts))
+        self.tasks.append(self._tts_task)
         await self.configure(patient=False)
 
     async def _receive(self, socket, handler) -> None:
@@ -149,7 +160,7 @@ class DeepgramSpeechAdapter:
         if self.stt:
             await self.stt.send(json.dumps({"type": "ForceEndTurn"}))
 
-    async def speak_text(self, text: str, epoch: int) -> None:
+    async def speak_text(self, text: str, epoch: int, message_id: str = "") -> None:
         if not self.tts:
             return
         try:
@@ -161,6 +172,7 @@ class DeepgramSpeechAdapter:
             ) from exc
         if not self._text_open:
             self._epochs.append(epoch)
+            self._message_ids.append(message_id)
             self._text_open = True
         await self.tts.send(json.dumps({"type": "Speak", "text": text}))
 
@@ -170,18 +182,52 @@ class DeepgramSpeechAdapter:
             self._text_open = False
 
     async def interrupt(self, playback_ms: float | None = None) -> None:
+        if playback_ms is not None:
+            self._last_playback = playback_ms
         self._discard_audio = True
         if self.tts and (self._text_open or self._speech_id or self._epochs) and not self._interrupting:
             self._interrupting = True
             self._interrupt_ready.clear()
             packet = {"type": "Interrupt"}
-            if playback_ms is not None and playback_ms > 0:
-                packet["playback_offset"] = {"type": "time_ms", "value": playback_ms}
+            if playback_ms is not None:
+                packet["playback_offset"] = {
+                    "type": "time_ms",
+                    "value": max(0, playback_ms - self._playback_base),
+                }
             await self.tts.send(json.dumps(packet))
+
+    async def cancel_output(self, playback_ms: float = 0) -> None:
+        await self.interrupt(playback_ms)
+        if self._interrupting:
+            try:
+                async with asyncio.timeout(1):
+                    await self._interrupt_ready.wait()
+            except TimeoutError:
+                await self._replace_tts()
+
+    async def _replace_tts(self) -> None:
+        old = self.tts
+        task = self._tts_task
+        if task and task is not asyncio.current_task():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        if old:
+            await old.close()
+        if self._speech_id:
+            self.session.reconcile_speech(self._speech_id, "", interrupted=True)
+        self.tts = await websockets.connect(self._tts_url, **(self._connection_settings or {}))
+        self._playback_base = self._last_playback
+        self._interrupted()
+        self._discard_audio = True
+        self._tts_task = asyncio.create_task(self._receive(self.tts, self.handle_tts))
+        self.tasks.append(self._tts_task)
+        if task is asyncio.current_task() and old:
+            self._retired.append(old)
 
     def _interrupted(self) -> None:
         if self._interrupting:
             self._epochs.clear()
+            self._message_ids.clear()
             self._speech_id = ""
             self._text_open = False
             self._interrupting = False
@@ -197,6 +243,8 @@ class DeepgramSpeechAdapter:
             self._speech_id = packet["speech_id"]
             if self._epochs:
                 self._active_epoch = self._epochs.popleft()
+                self._active_message_id = self._message_ids.popleft()
+            self.session.bind_speech(self._speech_id, self._active_message_id)
             if not self._interrupting:
                 self._discard_audio = False
             await self.send_control(
@@ -205,6 +253,7 @@ class DeepgramSpeechAdapter:
                     "speech_id": self._speech_id,
                     "epoch": self._active_epoch,
                     "sample_rate": 24000,
+                    "message_id": self._active_message_id,
                 }
             )
         elif kind == "SpeechMetadata":
@@ -219,11 +268,18 @@ class DeepgramSpeechAdapter:
             self._speech_id = ""
             self._interrupted()
         elif kind == "SpeechInterrupted":
+            speech_id = packet.get("metadata", {}).get("speech_id", self._speech_id)
+            self.session.reconcile_speech(speech_id, packet.get("text_spoken", ""), interrupted=True)
             self._interrupted()
-            await self.send_control({"type": "speech_interrupted", "metadata": packet})
+            await self.send_control(
+                {"type": "speech_interrupted", "metadata": packet, "message_id": self._active_message_id}
+            )
         elif kind == "Warning":
-            if self._interrupting:
-                self._interrupted()
+            if self._interrupting and packet.get("code") in {
+                "NO_AUDIO_GENERATED",
+                "INVALID_INTERRUPT_OFFSET",
+            }:
+                await self._replace_tts()
             await self.send_control({"type": "tts_status", "code": packet.get("code")})
         elif kind == "Error":
             self._interrupted()
@@ -250,5 +306,6 @@ class DeepgramSpeechAdapter:
         self.stt = self.tts = None
         self.tasks.clear()
         self._epochs.clear()
+        self._message_ids.clear()
         self._text_open = self._interrupting = False
         self._interrupt_ready.set()

@@ -4,7 +4,7 @@ import asyncio
 import re
 import time
 from collections import deque
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import AsyncIterator, Callable
 
 from libretto.events import ServerEvent
@@ -56,6 +56,9 @@ class Session:
         self._seen_turns: set[str] = set()
         self._actions: dict[str, dict] = {}
         self.directory = ""
+        self.cancel_output = None
+        self._message_count = 0
+        self._speech_messages: dict[str, str] = {}
 
     def _spawn(self, awaitable) -> asyncio.Task:
         task = asyncio.create_task(awaitable)
@@ -81,7 +84,8 @@ class Session:
             self.state.revision,
             self.epoch,
             dict(self.state.values()),
-            tuple(self.state.history),
+            tuple(replace(m) for m in self.state.history),
+            self.state.readback_fingerprint,
         )
 
     async def publish_state(self) -> None:
@@ -108,7 +112,7 @@ class Session:
             await self.emit("error", code="turn_limit", message="Session turn limit reached.")
             return
         # New input invalidates undispatched work before any action can progress.
-        await self.interrupt(notify=False)
+        await self.interrupt()
         self._seen_turns.add(turn_id)
         self._current = (text, turn_id, self.epoch)
         self._confirmed = asyncio.Event()
@@ -145,6 +149,7 @@ class Session:
     async def _respond(self, context: GenerationContext) -> None:
         epoch = context.snapshot.epoch
         collected: list[str] = []
+        message = None
         try:
             async for delta in self.responder.stream_reply(context):
                 if epoch != self.epoch or self.closed:
@@ -152,7 +157,16 @@ class Session:
                 if not delta:
                     continue
                 if not collected:
-                    await self.emit("first_text", turn_id=context.turn_id)
+                    self._message_count += 1
+                    message = Message(
+                        "assistant",
+                        "",
+                        context.turn_id,
+                        id=f"reply-{self._message_count}",
+                        epoch=epoch,
+                        delivered=not self.defer_actions,
+                    )
+                    await self.emit("first_text", turn_id=context.turn_id, message_id=message.id)
                 collected.append(delta)
                 if sum(map(len, collected)) > 4000:
                     raise ValueError("Response output limit exceeded")
@@ -162,16 +176,29 @@ class Session:
                     # Release the buffered first delta only after input commit.
                 if epoch != self.epoch:
                     return
+                if message not in self.state.history:
+                    self.state.history.append(message)
+                message.generated_content += delta
+                if message.delivered:
+                    message.content += delta
                 await self.emit(
-                    "text_delta", text=delta, turn_id=context.turn_id, stage=context.snapshot.stage
+                    "text_delta",
+                    text=delta,
+                    turn_id=context.turn_id,
+                    stage=context.snapshot.stage,
+                    message_id=message.id,
                 )
             if epoch == self.epoch and not self.closed:
                 output = "".join(collected)
-                if output:
-                    self.state.history.append(Message("assistant", output, context.turn_id))
+                if output and message:
                     self._record_readback()
                 self._speaking = False
-                await self.emit("response_done", text=output, turn_id=context.turn_id)
+                await self.emit(
+                    "response_done",
+                    text=output,
+                    turn_id=context.turn_id,
+                    message_id=message.id if message else "",
+                )
                 await self._progress()
         except asyncio.CancelledError:
             raise
@@ -197,7 +224,9 @@ class Session:
             for key, patch in evaluation.updates.items():
                 if key not in self.workflow.fields:
                     raise ValueError("Unconfigured fact")
-                if not patch.evidence.strip() or normalized(patch.evidence) not in normalized(context.text):
+                if not normalized(patch.evidence) or normalized(patch.evidence) not in normalized(
+                    context.text
+                ):
                     raise ValueError("Evidence does not occur in current turn")
                 value = (
                     self.workflow.fields[key].validate_value(patch.value)
@@ -216,8 +245,9 @@ class Session:
             self._record_readback()
             if "message_confirmed" in proposals:
                 if (
-                    self.state.readback_fingerprint == details_fingerprint(self.state.values())
-                    and self.state.readback_fingerprint
+                    not changed.intersection(DETAIL_FIELDS)
+                    and context.snapshot.readback_fingerprint
+                    and context.snapshot.readback_fingerprint == details_fingerprint(self.state.values())
                 ):
                     self.state.facts["message_confirmed"] = proposals["message_confirmed"]
             self.state.revision += 1
@@ -273,6 +303,8 @@ class Session:
             current_user = next((m for m in reversed(self.state.history) if m.role == "user"), None)
             if (
                 last
+                and last.delivered
+                and not last.interrupted
                 and current_user
                 and last.turn_id == current_user.turn_id
                 and "?" in last.content
@@ -321,7 +353,12 @@ class Session:
                 await self.emit("transition", source=source, destination=target, edge=edge.id)
                 await self.publish_state()
                 if node.kind == "end":
+                    if self.defer_actions:
+                        await self._playback_done.wait()
+                        if epoch != self.epoch:
+                            return
                     await self.emit("ended", message="Conversation complete.")
+                    await self.close()
                     return
                 if node.kind == "action":
                     arguments = {key: values[field] for key, field in node.arguments.items()}
@@ -347,8 +384,22 @@ class Session:
                     source, edge, target = target, next_edge, next_edge.to
                     continue
                 if node.kind == "say":
-                    await self.emit("text_delta", text=node.text, turn_id="literal", stage=target)
-                    await self.emit("response_done", text=node.text, turn_id="literal")
+                    self._message_count += 1
+                    message = Message(
+                        "assistant",
+                        "" if self.defer_actions else node.text,
+                        "literal",
+                        id=f"reply-{self._message_count}",
+                        generated_content=node.text,
+                        epoch=epoch,
+                        delivered=not self.defer_actions,
+                    )
+                    self.state.history.append(message)
+                    await self.emit("first_text", turn_id="literal", message_id=message.id)
+                    await self.emit(
+                        "text_delta", text=node.text, turn_id="literal", stage=target, message_id=message.id
+                    )
+                    await self.emit("response_done", text=node.text, turn_id="literal", message_id=message.id)
                     source, edge, target = target, node.edges[0], node.edges[0].to
                     continue
                 deterministic = next(
@@ -396,10 +447,37 @@ class Session:
         self._speaking = True
         await self._respond(context)
 
-    def playback_finished(self) -> None:
-        self._playback_done.set()
+    def bind_speech(self, speech_id: str, message_id: str) -> None:
+        self._speech_messages[speech_id] = message_id
+
+    def reconcile_speech(self, speech_id: str, spoken: str, *, interrupted: bool) -> None:
+        message_id = self._speech_messages.get(speech_id)
+        message = next((m for m in self.state.history if m.id == message_id), None)
+        if message:
+            message.content = spoken[:4000]
+            message.delivered = not interrupted
+            message.interrupted = interrupted
+            if interrupted:
+                self.state.readback_fingerprint = None
+
+    def playback_finished(self, speech_id: str = "") -> None:
+        message_id = self._speech_messages.get(speech_id)
+        message = next((m for m in self.state.history if m.id == message_id), None)
+        if speech_id and not message:
+            return
+        if message and message.epoch == self.epoch and not message.interrupted:
+            message.content = message.generated_content
+            message.delivered = True
+            self._record_readback()
+        if all(
+            m.delivered or m.interrupted
+            for m in self.state.history
+            if m.role == "assistant" and m.epoch == self.epoch
+        ):
+            self._playback_done.set()
 
     async def interrupt(self, notify: bool = True) -> None:
+        was_speaking = self._speaking
         if self._current and not self._confirmed.is_set():
             self._seen_turns.discard(self._current[1])
         self.epoch += 1
@@ -410,13 +488,35 @@ class Session:
         self._pending = None
         self.state.pending_stage = None
         self._speaking = False
+        for message in self.state.history:
+            if message.role == "assistant" and (
+                not message.delivered
+                or (
+                    was_speaking
+                    and message.epoch == self.epoch - 1
+                    and self._current
+                    and message.turn_id == self._current[1]
+                )
+            ):
+                message.interrupted = True
+        if (
+            self.state.history
+            and self.state.history[-1].role == "assistant"
+            and self.state.history[-1].interrupted
+        ):
+            self.state.readback_fingerprint = None
         if notify:
             await self.emit("interrupted")
+        if self.cancel_output and not self.closed:
+            await self.cancel_output()
 
     async def close(self) -> None:
         if self.closed:
             return
         self.closed = True
         await self.interrupt(notify=False)
+        tasks = [task for task in self._tasks if task is not asyncio.current_task()]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         if not self.queue.full():
             self.queue.put_nowait(None)

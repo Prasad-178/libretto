@@ -42,6 +42,10 @@ class Message:
     content: str
     turn_id: str
     interrupted: bool = False
+    id: str = ""
+    generated_content: str = ""
+    epoch: int = 0
+    delivered: bool = True
 
 
 @dataclass(frozen=True)
@@ -62,6 +66,7 @@ class StageSnapshot:
     epoch: int
     facts: dict[str, Any]
     history: tuple[Message, ...]
+    readback_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)
