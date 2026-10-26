@@ -59,7 +59,7 @@ For a funded public demo, use provider-side limits on dedicated low-budget keys.
 vercel deploy
 ```
 
-Initial deployment: https://libretto-khaki.vercel.app. The Vercel project also has `libretto.prasadjs.me` attached; DNS is pending. At Cloudflare add a DNS-only CNAME named `libretto` targeting `4df64d3f7d5dc4a6.vercel-dns-017.com` (proxy disabled). Do not change the domain nameservers or other records. Local research, credentials and session data are excluded by `.gitignore` and `.vercelignore`.
+Live demo: **https://libretto.prasadjs.me**. Cloudflare has a DNS-only CNAME named `libretto` targeting `4df64d3f7d5dc4a6.vercel-dns-017.com`. Vercel verifies the domain and serves HTTPS. Homepage, frontend assets, API routes and the secure WebSocket were checked on this hostname. Local research, credentials and session data are excluded by `.gitignore` and `.vercelignore`.
 
 Vercel documents [FastAPI frontend builds and WebSockets](https://vercel.com/docs/frameworks/backend/fastapi); connections remain subject to [function duration limits](https://vercel.com/docs/functions/configuring-functions/duration).
 
