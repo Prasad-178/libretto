@@ -24,7 +24,12 @@ libretto = "libretto.cli:main"
 packages = ["src/libretto"]
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1"]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest>=8,<10",
+    "pytest-asyncio>=0.25,<2",
+    "ruff>=0.11,<1",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

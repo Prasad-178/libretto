@@ -400,6 +400,8 @@ class Session:
         self._playback_done.set()
 
     async def interrupt(self, notify: bool = True) -> None:
+        if self._current and not self._confirmed.is_set():
+            self._seen_turns.discard(self._current[1])
         self.epoch += 1
         current = asyncio.current_task()
         for task in tuple(self._tasks):
