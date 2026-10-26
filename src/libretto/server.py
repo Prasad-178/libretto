@@ -11,8 +11,7 @@ from typing import Literal
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, PlainTextResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
 from libretto.providers.base import ProviderError, SessionCredentials
@@ -41,12 +40,15 @@ class ClientEvent(StrictModel):
     evaluator_model: str = Field(default="", max_length=100)
 
 
-def create_app(*, load_environment: bool = True, model_factory=OpenRouterAdapter) -> FastAPI:
+def create_app(
+    *, load_environment: bool = True, model_factory=OpenRouterAdapter, asset_root: Path | None = None
+) -> FastAPI:
+    root = asset_root or ROOT
     if load_environment:
-        load_dotenv(ROOT / ".env")
-    workflow = load_workflow(ROOT / "examples/receptionist.yaml")
-    index = build_index(workflow, ROOT / "examples")
-    directory = json.loads((ROOT / "examples/directory.json").read_text())
+        load_dotenv(root / ".env")
+    workflow = load_workflow(root / "examples/receptionist.yaml")
+    index = build_index(workflow, root / "examples")
+    directory = json.loads((root / "examples/directory.json").read_text())
     ToolRegistry(directory).validate(workflow)
 
     @asynccontextmanager
@@ -71,7 +73,7 @@ def create_app(*, load_environment: bool = True, model_factory=OpenRouterAdapter
 
     @app.get("/api/workflow.yaml", response_class=PlainTextResponse)
     async def yaml_source():
-        return (ROOT / "examples/receptionist.yaml").read_text()
+        return (root / "examples/receptionist.yaml").read_text()
 
     @app.get("/api/config")
     async def config():
@@ -281,13 +283,6 @@ def create_app(*, load_environment: bool = True, model_factory=OpenRouterAdapter
             if credentials:
                 credentials.clear()
 
-    public = ROOT / "public"
-    if public.exists():
-        if (public / "assets").exists():
-            app.mount("/assets", StaticFiles(directory=public / "assets"), name="assets")
-
-        @app.get("/")
-        async def home():
-            return FileResponse(public / "index.html")
+    app.frontend("/", directory=root / "public", fallback="index.html", check_dir=False)
 
     return app

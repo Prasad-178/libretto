@@ -66,3 +66,33 @@ def test_yaml_source_route_returns_the_same_public_workflow():
         assert response.status_code == 200
         assert "northline-receptionist" in response.text
         assert "shared_prompt:" in response.text
+
+
+def test_deployment_entrypoint_uses_explicit_asset_root(monkeypatch, tmp_path):
+    import shutil
+    from pathlib import Path
+
+    from libretto.server import create_app
+
+    source = Path(__file__).resolve().parents[1]
+    shutil.copytree(source / "examples", tmp_path / "examples")
+    (tmp_path / "public").mkdir()
+    (tmp_path / "public/index.html").write_text("deployment frontend")
+    monkeypatch.chdir("/")
+    with TestClient(create_app(load_environment=False, asset_root=tmp_path)) as client:
+        assert client.get("/").text == "deployment frontend"
+        assert client.get("/api/config").status_code == 200
+
+
+def test_frontend_route_survives_build_after_app_discovery(tmp_path):
+    import shutil
+    from pathlib import Path
+
+    from libretto.server import create_app
+
+    shutil.copytree(Path(__file__).resolve().parents[1] / "examples", tmp_path / "examples")
+    app = create_app(load_environment=False, asset_root=tmp_path)
+    (tmp_path / "public").mkdir()
+    (tmp_path / "public/index.html").write_text("built after discovery")
+    with TestClient(app) as client:
+        assert client.get("/").text == "built after discovery"

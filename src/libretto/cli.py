@@ -15,6 +15,7 @@ def main() -> None:
         import uvicorn
 
         from libretto.server import create_app
+
         uvicorn.run(create_app(), host="127.0.0.1", port=args.port)
     else:
         workflow = load_workflow(Path(args.workflow))
