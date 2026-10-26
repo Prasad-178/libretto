@@ -56,3 +56,13 @@ def test_real_runtime_is_driven_through_one_websocket_with_injected_provider():
             assert any(p["type"] == "text_delta" and "weekends" in p["data"]["text"] for p in packets)
             assert "visitor-test" not in str(packets)
             ws.send_json({"type": "close"})
+
+
+def test_yaml_source_route_returns_the_same_public_workflow():
+    from libretto.server import create_app
+
+    with TestClient(create_app(load_environment=False)) as client:
+        response = client.get("/api/workflow.yaml")
+        assert response.status_code == 200
+        assert "northline-receptionist" in response.text
+        assert "shared_prompt:" in response.text

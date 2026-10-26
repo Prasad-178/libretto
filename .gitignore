@@ -26,3 +26,8 @@ coverage/
 playwright-report/
 test-results/
 .DS_Store
+
+# Generated web bundle and deployment metadata.
+/public/
+.vercel/
+*.tsbuildinfo

@@ -11,7 +11,7 @@ from typing import Literal
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field, SecretStr, ValidationError
 
@@ -68,6 +68,10 @@ def create_app(*, load_environment: bool = True, model_factory=OpenRouterAdapter
     @app.get("/api/health")
     async def health():
         return {"status": "ok", "version": "0.1.0"}
+
+    @app.get("/api/workflow.yaml", response_class=PlainTextResponse)
+    async def yaml_source():
+        return (ROOT / "examples/receptionist.yaml").read_text()
 
     @app.get("/api/config")
     async def config():

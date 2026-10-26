@@ -14,7 +14,8 @@ def main() -> None:
     if args.command == "serve":
         import uvicorn
 
-        uvicorn.run("app:app", host="127.0.0.1", port=args.port)
+        from libretto.server import create_app
+        uvicorn.run(create_app(), host="127.0.0.1", port=args.port)
     else:
         workflow = load_workflow(Path(args.workflow))
         if args.command == "validate":
