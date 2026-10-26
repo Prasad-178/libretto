@@ -30,3 +30,9 @@ Show what the graph/runtime guarantees and where probabilistic interpretation re
 An independent whole-branch review of `52edd00..4901865` found six Important issues in confirmation ordering, interruption/cancellation, terminal cleanup, fresh-call playback and spoken history. These were reproduced and fixed with regressions. The subsequent user-requested workspace/YAML editor was tested directly; it was outside that independent review range. No merge-readiness or CI verdict is claimed.
 
 The code editor is lazy-loaded. Forms and YAML share one document. The backend validates bounded YAML, registered mock tools and bundled knowledge paths. A new connection receives its own immutable workflow definition; changes never mutate another active caller.
+
+## Hosted verification
+
+Application commit `fa8ee5d` deployed successfully on the existing Vercel Hobby plan, region `iad1`, with no funded provider keys. Homepage, generated JS/CSS/icon, public config/health and YAML routes returned 200. Hosted source validation accepts the unrelated minimal workflow and rejects invalid YAML with 422. A WebSocket start with that definition returns its workflow snapshot; the probe closed without requesting model output. Chrome verified the hosted workspace and actionable missing-key dialog.
+
+`libretto.prasadjs.me` is attached to the project but does not yet resolve. Cloudflare DNS needs the DNS-only CNAME documented in README. No DNS change was made. The current usable URL is https://libretto-khaki.vercel.app.

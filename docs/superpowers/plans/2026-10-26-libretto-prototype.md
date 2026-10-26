@@ -56,83 +56,81 @@ Tasks 1–6 implemented and committed. The user subsequently replaced the showca
 
 **Interfaces:** `load_workflow(path: Path) -> Workflow`; `Workflow` contains shared prompt, typed fields, knowledge/tool bindings, ordered nodes/edges, start ID and schema version. Node kinds are conversation/action/say/end. `SessionState`, `StageSnapshot`, `Evaluation`, `FactPatch`, `ToolResult`, `ClientEvent`, `ServerEvent` are typed records; wire events use a discriminated `type` field.
 
-- [ ] Write schema tests that reject duplicate YAML keys, unknown node/tool/source references, arbitrary expression operators, and unsupported versions; verify the receptionist and a tiny unrelated graph both load.
-- [ ] Run `uv run pytest tests/test_schema.py -q`; confirm the missing loader/schema behavior fails before implementing it.
-- [ ] Implement safe bounded YAML loading and typed graph validation. Use an explicit predicate vocabulary, ordered conditions, and next-response transition timing; action prerequisites are explicit bindings.
-- [ ] Run focused tests and the current full suite; inspect normalized graph output. Resolve/pin dependencies in the lockfile.
-- [ ] Commit `feat: validate staged YAML workflows`.
-
+- [x] Write schema tests that reject duplicate YAML keys, unknown node/tool/source references, arbitrary expression operators, and unsupported versions; verify the receptionist and a tiny unrelated graph both load.
+- [x] Run `uv run pytest tests/test_schema.py -q`; confirm the missing loader/schema behavior fails before implementing it.
+- [x] Implement safe bounded YAML loading and typed graph validation. Use an explicit predicate vocabulary, ordered conditions, and next-response transition timing; action prerequisites are explicit bindings.
+- [x] Run focused tests and the current full suite; inspect normalized graph output. Resolve/pin dependencies in the lockfile.
+- [x] Commit `feat: validate staged YAML workflows`.
 ### Task 2: Concurrent session runtime and authoritative state
 
 **Files:** runtime/state/events modules; `tests/test_runtime.py`; `tests/fakes.py`.
 
 **Interfaces:** `Session(workflow: Workflow, responder: Responder, evaluator: Evaluator, retriever: Retriever, tools: ToolRegistry, clock: Callable[[], float])`; `async submit_turn(text: str, turn_id: str, speculative: bool = False) -> None`; `async confirm_turn(text: str, turn_id: str) -> None`; `async interrupt() -> None`; `async close() -> None`; `events() -> AsyncIterator[ServerEvent]`. Protocols provide `stream_reply(context: GenerationContext) -> AsyncIterator[str]`, `async evaluate(context: EvaluationContext) -> Evaluation`, and `search(query: str, sources: list[str], limit: int) -> list[Passage]`.
 
-- [ ] Write event-controlled async tests: a blocked evaluator cannot delay first response text; a pending stage takes effect at the next generation boundary; a late result cannot overwrite a newer epoch; interruption blocks an undispatched action; unconfirmed speculation cannot reach speech; mocked clock expiry occurs at 180 seconds.
-- [ ] Run `uv run pytest tests/test_runtime.py -q`; observe missing behavior failures.
-- [ ] Implement per-session task ownership and immutable generation snapshots. Launch evaluation alongside speaking, apply valid pending transitions at boundaries, serialize only short state/action commits, and cancel stale work without holding locks across model waits. Gate actions on authoritative prerequisites; deduplicate within the live session.
-- [ ] Run focused concurrency tests and the full suite. Use explicit events instead of timing-sensitive sleeps to prove the nonblocking property.
-- [ ] Commit `feat: run speaking and stage evaluation concurrently`.
-
+- [x] Write event-controlled async tests: a blocked evaluator cannot delay first response text; a pending stage takes effect at the next generation boundary; a late result cannot overwrite a newer epoch; interruption blocks an undispatched action; unconfirmed speculation cannot reach speech; mocked clock expiry occurs at 180 seconds.
+- [x] Run `uv run pytest tests/test_runtime.py -q`; observe missing behavior failures.
+- [x] Implement per-session task ownership and immutable generation snapshots. Launch evaluation alongside speaking, apply valid pending transitions at boundaries, serialize only short state/action commits, and cancel stale work without holding locks across model waits. Gate actions on authoritative prerequisites; deduplicate within the live session.
+- [x] Run focused concurrency tests and the full suite. Use explicit events instead of timing-sensitive sleeps to prove the nonblocking property.
+- [x] Commit `feat: run speaking and stage evaluation concurrently`.
 ### Task 3: Complete text receptionist with retrieval and mock outcomes
 
 **Files:** retrieval/prompts/tools modules; example documents/directory/workflow; `tests/test_receptionist.py`, `test_retrieval.py`.
 
 **Interfaces:** `RetrievalIndex.from_directory(path: Path) -> RetrievalIndex`; `search(...)` from Task 2; `compose_prompt(workflow: Workflow, snapshot: StageSnapshot, passages: list[Passage]) -> GenerationContext`; `ToolRegistry` resolves typed registered actions and returns `ToolResult`. `Passage` carries document/chunk IDs, heading, hash, text, and score.
 
-- [ ] Write tests for contextual weekend-hours retrieval, source filtering, missing evidence, shared+stage prompt composition, failed transfer -> offered message -> corrected readback -> confirmed capture, FAQ side question -> resume task, duplicate capture, and cancel versus end-call.
-- [ ] Run `uv run pytest tests/test_retrieval.py tests/test_receptionist.py -q`; confirm missing behavior fails.
-- [ ] Implement section-aware Markdown chunks and in-memory BM25 search on each nonempty user turn without a classifier/query-rewriter call. Implement synthetic directory/transfer/capture actions and explicit normal/ambiguity/failure paths. Record only session receipts, never imply durable delivery.
-- [ ] Run the full suite and scripted scenarios asserting state/action results rather than wording alone.
-- [ ] Commit `feat: add receptionist retrieval and session actions`.
-
+- [x] Write tests for contextual weekend-hours retrieval, source filtering, missing evidence, shared+stage prompt composition, failed transfer -> offered message -> corrected readback -> confirmed capture, FAQ side question -> resume task, duplicate capture, and cancel versus end-call.
+- [x] Run `uv run pytest tests/test_retrieval.py tests/test_receptionist.py -q`; confirm missing behavior fails.
+- [x] Implement section-aware Markdown chunks and in-memory BM25 search on each nonempty user turn without a classifier/query-rewriter call. Implement synthetic directory/transfer/capture actions and explicit normal/ambiguity/failure paths. Record only session receipts, never imply durable delivery.
+- [x] Run the full suite and scripted scenarios asserting state/action results rather than wording alone.
+- [x] Commit `feat: add receptionist retrieval and session actions`.
 ### Task 4: OpenRouter streaming, structured evaluation, and credentials
 
 **Files:** `src/libretto/providers/base.py`, `src/libretto/providers/openrouter.py`; `tests/test_openrouter.py`, `tests/test_credentials.py`; `.env.example`.
 
 **Interfaces:** `SessionCredentials` stores optional per-provider visitor overrides separately from environment defaults and has a redacted representation. `OpenRouterAdapter` implements the responder/evaluator protocols. `ProviderError` exposes a safe code and retryability without embedding request headers/keys.
 
-- [ ] Write contract tests for fragmented SSE, structured evaluation validation, provider credit/auth/rate-limit distinctions, two-session credential isolation, and credential-free event/trace/export serialization.
-- [ ] Run focused tests and observe failures before implementing the adapter.
-- [ ] Verify current public request contracts, implement pooled async HTTP streaming and independently configurable speaker/evaluator model settings. Avoid mutable shared default credentials and silent provider substitution. Default speaking candidate is Gemini 3.5 Flash with minimal supported reasoning; evaluator remains independently selectable.
+- [x] Write contract tests for fragmented SSE, structured evaluation validation, provider credit/auth/rate-limit distinctions, two-session credential isolation, and credential-free event/trace/export serialization.
+- [x] Run focused tests and observe failures before implementing the adapter.
+- [x] Verify current public request contracts, implement pooled async HTTP streaming and independently configurable speaker/evaluator model settings. Avoid mutable shared default credentials and silent provider substitution. Default speaking candidate is Gemini 3.5 Flash with minimal supported reasoning; evaluator remains independently selectable.
 - [ ] Run provider contract tests and full suite. Once a key exists, run one small live text/evaluation smoke check and report it separately from fake-transport results.
-- [ ] Commit `feat: integrate OpenRouter and session credential overrides`.
-
+- [x] Commit `feat: integrate OpenRouter and session credential overrides`.
 ### Task 5: Live speech and one-connection service
 
 **Files:** Deepgram adapter, server/CLI/root entrypoint; `tests/test_speech.py`, `test_server.py`.
 
 **Interfaces:** the speech adapter maps Flux STT StartOfTurn/EagerEndOfTurn/TurnResumed/EndOfTurn events into Task 2 methods; accepted reply deltas go to Flux TTS Speak, response completion to Flush, interruption to Interrupt. The WebSocket carries typed control events and framed PCM bytes containing epoch/speech metadata. `create_app() -> FastAPI` exposes health, public normalized workflow, and `/api/ws`.
 
-- [ ] Write contract/scenario tests for eager/confirmed/resumed input, acknowledged stage-specific threshold/keyterm changes, whitespace-preserving raw text streaming, cancellation/late audio, 180-second expiry, fresh reconnect, and socket/provider cleanup.
-- [ ] Run `uv run pytest tests/test_speech.py tests/test_server.py -q`; verify missing behavior failures.
-- [ ] Verify current Flux STT/TTS wire contracts before coding adapters. Use live English STT and Flux TTS, persistent per-session sockets, bounded queues, and no extra fixed silence timer. Keep TTS out of unaccepted speculative generations. Require OpenRouter for text and both providers for voice; missing keys yield actionable status.
+- [x] Write contract/scenario tests for eager/confirmed/resumed input, acknowledged stage-specific threshold/keyterm changes, whitespace-preserving raw text streaming, cancellation/late audio, 180-second expiry, fresh reconnect, and socket/provider cleanup.
+- [x] Run `uv run pytest tests/test_speech.py tests/test_server.py -q`; verify missing behavior failures.
+- [x] Verify current Flux STT/TTS wire contracts before coding adapters. Use live English STT and Flux TTS, persistent per-session sockets, bounded queues, and no extra fixed silence timer. Keep TTS out of unaccepted speculative generations. Require OpenRouter for text and both providers for voice; missing keys yield actionable status.
 - [ ] Run the full suite and a local WebSocket scenario using fake transports. With credentials, run separate live STT/TTS smoke checks; record model, voice, timings, and any unavailable capability.
-- [ ] Commit `feat: add interruptible Flux voice sessions`.
-
+- [x] Commit `feat: add interruptible Flux voice sessions`.
 ### Task 6: Browser demo, graph, inspector, and voice playback
 
 **Files:** `web/src/App.tsx`, `web/src/client.ts`, `web/src/audio.ts`, `web/src/capture.worklet.ts`, `web/src/playback.worklet.ts`, `web/src/styles.css`; `web/package.json`, `web/package-lock.json`, Vite/TypeScript configuration; `web/src/client.test.ts`, `web/src/audio.test.ts`.
 
 **Interfaces:** typed client for Task 5 events/framed audio; masked session-only credentials; `connect`, `sendText`, `startMicrophone`, `interrupt`, `close`, and explicit local trace download. Audio uses verified raw PCM/resampling, bounded buffers, playback progress, and epoch-based stale-frame rejection.
 
-- [ ] Add focused browser protocol tests for stale audio rejection, expiry/reset, and credential-free export; run them before implementing their handlers.
-- [ ] Build a restrained paper/ink interface with one accent, a stage rail/graph generated from normalized YAML, conversation area, and inspectable facts/sources/timing. Provide text and microphone controls, countdown, transfer-outcome selector, key fallback, and explicit simulated/session-only labels. Avoid an editor, auth system, or database UI.
+- [x] Add focused browser protocol tests for stale audio rejection, expiry/reset, and credential-free export; run them before implementing their handlers.
+- [x] Build a restrained paper/ink interface with one accent, a stage rail/graph generated from normalized YAML, conversation area, and inspectable facts/sources/timing. Provide text and microphone controls, countdown, transfer-outcome selector, key fallback, and explicit simulated/session-only labels. Avoid an editor, auth system, or database UI.
 - [ ] Verify responsive layout, keyboard/microphone interaction, reduced motion, playback ordering, backpressure, and interrupted versus actually played text. Run `npm --prefix web run build`, browser protocol tests, backend suite, then inspect the real browser.
-- [ ] Commit `feat: add the Libretto voice workflow demo`.
-
+- [x] Commit `feat: add the Libretto voice workflow demo`.
 ### Task 7: Verify latency, prepare hosting, and capture article evidence
 
 **Files:** deployment config, CLI/scenario runner, README, ignored local evidence and an evidence-summary template.
 
 **Interfaces:** `libretto validate <yaml>`, `libretto graph <yaml>`, `libretto serve`, and scripted scenario runner using the same runtime. Deployment packages the Python entrypoint and built React assets; confirm Vercel's current supported FastAPI/static-build layout rather than assuming cross-request memory affinity.
 
-- [ ] Run full backend/frontend checks and acceptance scenarios. Check tracked content/history for excluded private references and staged content for credentials/session data before committing.
+- [x] Run full backend/frontend checks and acceptance scenarios. Check tracked content/history for excluded private references and staged content for credentials/session data before committing.
 - [ ] Measure acoustic-end -> meaningful browser playback, recording endpointing, retrieval, speaking/evaluator request, TTS, cancellation, and actual playback events. Include sample counts, model/provider/config versions, cold/warm conditions, and turns over 1.5 seconds; do not claim the target from synthetic tests or filler.
 - [ ] Prepare a verified Vercel preview under Hobby limits; use the user's existing subdomain authorization only after preview verification and available account/DNS access. Use no paid hosting/database integration. Public-provider smoke checks and deployment remain explicitly incomplete if credentials/access are unavailable.
-- [ ] Update README with exact setup/run commands, session-reset behavior, BYOK handling, supported capabilities, and measured limitations. Save factual notes for the future article without drafting unapproved claims.
-- [ ] Commit `chore: verify the prototype and document deployment` and report the actual completed scope, validation, latency, and remaining external dependencies.
+- [x] Update README with exact setup/run commands, session-reset behavior, BYOK handling, supported capabilities, and measured limitations. Save factual notes for the future article without drafting unapproved claims.
+- [x] Commit `chore: verify the prototype and document deployment` and report the actual completed scope, validation, latency, and remaining external dependencies.
 
 ## Execution recommendation
 
 Use native execution in this session, then an independent whole-change review. The tasks share runtime/event interfaces and the first prototype is tightly scoped; one implementer avoids handoff overhead. The user has approved the design direction; plan review and execution-method selection remain the next workflow checkpoint.
+
+### Final verification update
+
+The revised studio is deployed on the existing Hobby project at https://libretto-khaki.vercel.app (application commit `fa8ee5d`). Browser checks cover prompt/YAML synchronization, invalid-definition feedback, bundled documents and hosted missing-key handling. Hosted edited-YAML validation and a custom-workflow WebSocket handshake pass without sending a model request. Live provider calls, microphone/mobile behavior and acoustic measurements remain pending. Custom DNS is attached in Vercel but unresolved at Cloudflare.
