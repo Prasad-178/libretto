@@ -2,7 +2,7 @@
 
 Voice workflows, written in YAML.
 
-An English voice-agent prototype with a Python workflow engine and a React demo. Jamie, receptionist at the fictional Northline Studio, answers document-backed questions, finds departments, confirms simulated transfers, recovers by taking a message, and wraps up.
+An English voice-agent prototype with a Python workflow engine and a React demo. Jamie, receptionist at the fictional Northline Workspace coworking space, answers document-backed membership and room questions, finds departments, confirms simulated transfers, recovers by taking a message, and wraps up.
 
 The runtime enforces graph transitions, typed state, stage-scoped capabilities and action prerequisites. Models interpret the caller and generate speech; their interpretation and wording are probabilistic. A YAML graph does not make an LLM deterministic.
 
@@ -59,7 +59,7 @@ One WebSocket owns one in-memory conversation, capped at 180 seconds. Disconnect
 
 Visitor keys stay in tab memory and their backend session, over HTTPS/WSS when hosted. They are not placed in browser storage, URLs, traces or exports. Server keys stay on the backend. Provider credentials are independent; replacing an OpenRouter key does not replenish Deepgram credit. Changing keys does not restart the timer. Provider hosts are fixed in code.
 
-For a funded public demo, use provider-side limits on dedicated low-budget keys. Session duration and in-process counters are not a global spending cap. With no server keys the site is BYOK. API usage is billed by the providers.
+For a funded public demo, use provider-side limits on dedicated low-budget keys. Session duration and in-process counters are not a global spending cap. Public Vercel deployments default to BYOK, even if provider keys are accidentally configured. A shared hosted budget requires `LIBRETTO_ALLOW_HOSTED_KEYS=true`; local .env development remains supported. API usage is billed by the providers. See [access boundaries and remaining risks](docs/security.md).
 
 ## Hosting
 
@@ -73,6 +73,10 @@ Live demo: **https://libretto.prasadjs.me**. Cloudflare has a DNS-only CNAME nam
 
 Vercel documents [FastAPI frontend builds and WebSockets](https://vercel.com/docs/frameworks/backend/fastapi); connections remain subject to [function duration limits](https://vercel.com/docs/functions/configuring-functions/duration).
 
+## Guided fictional tests
+
+The test panel’s **Scenarios** tab contains 15 scripted cases with fake caller details, expected sources and manual checks. Preparing a scenario sets the transfer outcome and drafts a line; it never starts paid requests automatically. See [testing the coworking front desk](docs/testing.md) for the reference facts and repeatable procedure.
+
 ## Validation and limits
 
 Backend tests exercise concurrency, stale-result rejection, confirmation invalidation, retrieval, mock actions, provider transport contracts and WebSocket handling. Browser protocol tests check framed PCM, epochs and safe export. Controlled transports do not establish that a live model or speech account works.
@@ -81,4 +85,4 @@ Interrupted voice history retains provider-aligned spoken text when available; o
 
 **Live provider calls and acoustic latency are not yet validated.** The target is 1.0–1.2 seconds from acoustic end to meaningful playback, flagging turns above 1.5 seconds. The UI's RMS-based response gap is an estimate, not that benchmark. Model/voice defaults are candidates, not measured winners. Record warm/cold and tool paths separately before publishing performance claims; see the [evidence checklist](docs/evidence.md).
 
-Deferred: multilingual support, real telephony, durable delivery, vector retrieval, speculative TTS, production abuse controls, deployment-wide metering and a visual node editor.
+Deferred: multilingual support, real telephony, durable delivery, vector retrieval, speculative TTS, distributed abuse controls, deployment-wide metering and a visual node editor.
