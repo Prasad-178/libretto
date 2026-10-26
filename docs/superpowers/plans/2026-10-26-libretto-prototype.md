@@ -10,6 +10,10 @@
 
 **Spec:** [Approved latency-first direction](../specs/2026-10-26-latency-first-proposal.md), with the [foundational design](../specs/2026-10-25-yaml-voice-engine-design.md) applying wherever it does not conflict.
 
+## Execution status
+
+Tasks 1–6 implemented and committed. Task 7 hosting/setup checks completed; real-provider calls, microphone/mobile verification and acoustic latency remain pending credentials and device testing. See `docs/evidence.md`.
+
 ## Global Constraints
 
 - English only. Cap each demo conversation at **180 seconds**, including when credentials change.
