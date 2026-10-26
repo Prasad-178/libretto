@@ -67,13 +67,15 @@ export class SessionClient {
         });
       }
     };
-    socket.onerror = () =>
+    socket.onerror = () => {
+      if (this.socket !== socket) return;
       this.onEvent({
         type: "error",
         epoch: this.gate.current,
         at: 0,
         data: { message: "Cannot reach the demo server." },
       });
+    };
     socket.onclose = () => {
       if (this.socket === socket) {
         this.socket = null;

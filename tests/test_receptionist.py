@@ -133,3 +133,34 @@ async def test_faq_side_question_keeps_message_task_and_uses_real_sources():
         assert session.state.values()["caller_name"] == "Sam"
     finally:
         await session.close()
+
+
+async def test_a_later_confirmation_of_an_existing_readback_can_capture():
+    from libretto.runtime import Session
+    from libretto.state import Fact, Message, details_fingerprint
+    from libretto.tools import ToolRegistry
+
+    session = Session(
+        load_workflow(Path("examples/receptionist.yaml")),
+        Speaker(),
+        Evaluator(updates={"message_confirmed": {"value": True, "evidence": "Yes"}}),
+        Search(),
+        ToolRegistry(),
+    )
+    session.state.active_stage = "confirm_message"
+    values = {
+        "recipient": "billing",
+        "caller_name": "Sam",
+        "callback_number": "5550100",
+        "message": "Please call",
+        "message_consent": True,
+    }
+    session.state.facts = {k: Fact(v, "answered", str(v), "old") for k, v in values.items()}
+    session.state.history = [Message("assistant", "billing Sam 5550100 Please call. Correct?", "old")]
+    session.state.readback_fingerprint = details_fingerprint(values)
+    try:
+        await session.submit_turn("Yes.", "approval")
+        assert (await next_event(session, "tool_result")).data["status"] == "captured"
+        assert len(session.state.receipts) == 1
+    finally:
+        await session.close()

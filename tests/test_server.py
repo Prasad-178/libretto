@@ -96,3 +96,103 @@ def test_frontend_route_survives_build_after_app_discovery(tmp_path):
     (tmp_path / "public/index.html").write_text("built after discovery")
     with TestClient(app) as client:
         assert client.get("/").text == "built after discovery"
+
+
+def test_yaml_validation_and_session_use_edited_definition():
+    from pathlib import Path
+
+    from libretto.server import create_app
+    from libretto.state import Evaluation
+
+    source = (Path(__file__).resolve().parents[1] / "examples/minimal.yaml").read_text()
+    seen = []
+
+    class Model:
+        async def evaluate(self, context):
+            return Evaluation()
+
+        async def stream_reply(self, context):
+            seen.append(context.system)
+            yield "Custom survey response."
+
+        async def close(self):
+            pass
+
+    with TestClient(create_app(load_environment=False, model_factory=lambda *a, **kw: Model())) as client:
+        valid = client.post("/api/workflow/validate", json={"source": source})
+        assert valid.status_code == 200
+        assert valid.json()["workflow"]["id"] == "tiny-survey"
+        invalid = client.post("/api/workflow/validate", json={"source": "version: 9"})
+        assert invalid.status_code == 422
+        with client.websocket_connect("/api/ws") as ws:
+            ws.send_json({"type": "start", "mode": "text", "openrouter_key": "test", "workflow_yaml": source})
+            assert ws.receive_json()["data"]["workflow"]["id"] == "tiny-survey"
+            ws.send_json({"type": "text", "text": "Hello", "turn_id": "edited"})
+            while ws.receive_json()["type"] != "response_done":
+                pass
+            ws.send_json({"type": "close"})
+        assert "what makes a useful demo" in seen[0].lower()
+
+
+def test_edited_yaml_cannot_read_knowledge_outside_bundled_examples():
+    from pathlib import Path
+
+    from libretto.server import create_app
+
+    source = (Path(__file__).resolve().parents[1] / "examples/receptionist.yaml").read_text()
+    source = source.replace("company: knowledge", "company: ../../")
+    with TestClient(create_app(load_environment=False)) as client:
+        response = client.post("/api/workflow/validate", json={"source": source})
+        assert response.status_code == 422
+
+
+async def test_terminal_event_closes_socket_and_provider():
+    import asyncio
+    import json
+
+    from libretto.server import create_app
+    from libretto.state import Evaluation
+
+    class Model:
+        closed = False
+
+        async def evaluate(self, context):
+            return Evaluation(control="end_call")
+
+        async def stream_reply(self, context):
+            yield "Goodbye."
+
+        async def close(self):
+            self.closed = True
+
+    class Socket:
+        headers = {}
+
+        def __init__(self):
+            self.incoming = asyncio.Queue()
+            for item in [
+                {"type": "start", "mode": "text", "openrouter_key": "test"},
+                {"type": "text", "text": "End call", "turn_id": "end"},
+            ]:
+                self.incoming.put_nowait({"type": "websocket.receive", "text": json.dumps(item)})
+            self.sent = []
+
+        async def accept(self):
+            pass
+
+        async def receive(self):
+            return await self.incoming.get()
+
+        async def send_json(self, data):
+            self.sent.append(data)
+
+        async def close(self, **kwargs):
+            self.incoming.put_nowait({"type": "websocket.disconnect"})
+
+    model, socket = Model(), Socket()
+    app = create_app(load_environment=False, model_factory=lambda *a, **kw: model)
+    handler = next(r.endpoint for r in app.routes if getattr(r, "path", "") == "/api/ws")
+    async with app.router.lifespan_context(app):
+        await asyncio.wait_for(handler(socket), 0.3)
+    assert any(p["type"] == "ended" for p in socket.sent)
+    assert model.closed

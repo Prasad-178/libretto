@@ -174,7 +174,10 @@ UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _ma
 
 
 def load_workflow(path: Path) -> Workflow:
-    text = path.read_text()
+    return parse_workflow(path.read_text())
+
+
+def parse_workflow(text: str) -> Workflow:
     if len(text.encode()) > 100_000:
         raise ValueError("Workflow exceeds 100 KB")
     depth = 0

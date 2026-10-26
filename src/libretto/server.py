@@ -10,7 +10,7 @@ from typing import Literal
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
@@ -19,7 +19,7 @@ from libretto.providers.deepgram import DeepgramSpeechAdapter
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.retrieval import build_index
 from libretto.runtime import Session
-from libretto.schema import Models, StrictModel, load_workflow
+from libretto.schema import Models, StrictModel, load_workflow, parse_workflow
 from libretto.tools import ToolRegistry
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,8 +36,14 @@ class ClientEvent(StrictModel):
     playback_ms: float = Field(default=0, ge=0, le=200_000)
     drained: bool = False
     epoch: int = 0
+    speech_id: str = Field(default="", max_length=100)
     speaker_model: str = Field(default="", max_length=100)
     evaluator_model: str = Field(default="", max_length=100)
+    workflow_yaml: str = Field(default="", max_length=100_000)
+
+
+class WorkflowSource(StrictModel):
+    source: str = Field(max_length=100_000)
 
 
 def create_app(
@@ -50,6 +56,14 @@ def create_app(
     index = build_index(workflow, root / "examples")
     directory = json.loads((root / "examples/directory.json").read_text())
     ToolRegistry(directory).validate(workflow)
+
+    def compile_source(source: str):
+        definition = parse_workflow(source)
+        # Visitor edits select only bundled documents and registered simulations.
+        if any(path not in workflow.knowledge.values() for path in definition.knowledge.values()):
+            raise ValueError("Knowledge must use a bundled document directory")
+        ToolRegistry(directory).validate(definition)
+        return definition, build_index(definition, root / "examples")
 
     @asynccontextmanager
     async def lifespan(app):
@@ -82,7 +96,22 @@ def create_app(
             "call_limit_seconds": 180,
             "credentials": hosted().public_status(),
             "directory": directory,
+            "knowledge_documents": [
+                {"document": p.document, "heading": p.heading, "text": p.text} for p in index.passages
+            ],
         }
+
+    @app.post("/api/workflow/validate")
+    async def validate_source(body: WorkflowSource):
+        try:
+            definition, _ = compile_source(body.source)
+            return {"workflow": definition.model_dump()}
+        except (ValueError, TypeError, OSError) as exc:
+            if isinstance(exc, ValidationError):
+                issues = [{"path": ".".join(map(str, e["loc"])), "message": e["msg"]} for e in exc.errors()]
+            else:
+                issues = [{"path": "source", "message": str(exc)[:500]}]
+            raise HTTPException(status_code=422, detail=issues) from None
 
     @app.websocket("/api/ws")
     async def conversation(ws: WebSocket):
@@ -104,6 +133,7 @@ def create_app(
         background: list[asyncio.Task] = []
         started_at = None
         last_playback = 0.0
+        session_workflow = workflow
 
         async def control(kind, **data):
             async with send_lock:
@@ -131,18 +161,28 @@ def create_app(
                 if speech:
                     try:
                         if event.type == "text_delta" and event.epoch == session.epoch:
-                            await speech.speak_text(event.data["text"], event.epoch)
+                            await speech.speak_text(
+                                event.data["text"], event.epoch, event.data.get("message_id", "")
+                            )
                         elif event.type == "response_done" and event.epoch == session.epoch:
                             await speech.finish_response()
-                        elif event.type == "interrupted":
+                        elif event.type == "interrupted" and event.epoch == session.epoch:
                             await speech.interrupt(last_playback)
                         elif event.type == "state":
-                            node = workflow.nodes[session.state.active_stage]
+                            node = session_workflow.nodes[session.state.active_stage]
                             await speech.configure(patient=node.patient)
                     except ProviderError as exc:
                         await control("error", code=exc.code, message=exc.public_message)
                 if event.type == "response_done" and getattr(adapter, "usage", None):
                     await control("usage", requests=list(adapter.usage))
+                if event.type in {"ended", "expired"}:
+                    await session.close()
+                    if speech:
+                        await speech.close()
+                    await adapter.close()
+                    credentials.clear()
+                    await ws.close(code=1000)
+                    return
 
         async def expire():
             await asyncio.sleep(max(0, 180 - (time.monotonic() - started_at)))
@@ -162,7 +202,7 @@ def create_app(
                         await speech.send_input(frame["bytes"])
                     continue
                 raw = frame.get("text", "")
-                if len(raw) > 20_000:
+                if len(raw) > 128_000:
                     await control("error", code="message_limit", message="Message is too large.")
                     continue
                 try:
@@ -178,6 +218,17 @@ def create_app(
                             "error",
                             code="already_started",
                             message="Start a new connection for a fresh session.",
+                        )
+                        continue
+                    try:
+                        session_workflow, session_index = (
+                            compile_source(event.workflow_yaml) if event.workflow_yaml else (workflow, index)
+                        )
+                    except (ValueError, TypeError, OSError):
+                        await control(
+                            "error",
+                            code="invalid_workflow",
+                            message="The YAML workflow is invalid. Validate your changes before testing.",
                         )
                         continue
                     credentials = hosted().with_overrides(
@@ -199,23 +250,29 @@ def create_app(
                         )
                         continue
                     models = Models(
-                        speaker=event.speaker_model or workflow.models.speaker,
-                        evaluator=event.evaluator_model or workflow.models.evaluator,
+                        speaker=event.speaker_model or session_workflow.models.speaker,
+                        evaluator=event.evaluator_model or session_workflow.models.evaluator,
                     )
                     adapter = model_factory(credentials, models, client=app.state.pool)
-                    session = Session(workflow, adapter, adapter, index, ToolRegistry(directory))
+                    session = Session(
+                        session_workflow, adapter, adapter, session_index, ToolRegistry(directory)
+                    )
                     session.directory = json.dumps(directory)
                     session.state.transfer_outcome = event.transfer_outcome
                     session.defer_actions = event.mode == "voice"
                     started_at = time.monotonic()
                     if event.mode == "voice":
                         speech = DeepgramSpeechAdapter(credentials, session, audio, speech_control)
+                        session.cancel_output = lambda: speech.cancel_output(last_playback)
                         try:
                             await speech.open()
                         except ProviderError as exc:
                             await control("error", code=exc.code, message=exc.public_message)
                             await session.close()
                             await speech.close()
+                            await adapter.close()
+                            credentials.clear()
+                            adapter = credentials = None
                             session = speech = None
                             continue
                     await control(
@@ -224,6 +281,7 @@ def create_app(
                         credentials=credentials.public_status(),
                         call_limit_seconds=180,
                         models=models.model_dump(),
+                        workflow=session_workflow.model_dump(),
                     )
                     await session.publish_state()
                     background.extend([asyncio.create_task(pump()), asyncio.create_task(expire())])
@@ -239,7 +297,7 @@ def create_app(
                         last_playback = max(last_playback, event.playback_ms)
                         await session.emit("playback", playback_ms=last_playback, drained=event.drained)
                         if event.drained:
-                            session.playback_finished()
+                            session.playback_finished(event.speech_id)
                     elif event.type == "credentials":
                         await session.interrupt()
                         replacement = credentials.with_overrides(

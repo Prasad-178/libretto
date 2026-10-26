@@ -20,3 +20,26 @@ it("rejects malformed audio rather than playing arbitrary bytes", () => {
   new DataView(bytes).setUint32(0, 5000);
   expect(() => decodeAudioFrame(bytes)).toThrow();
 });
+
+it("rejects output after closing and accepts a fresh session with lower epochs", async () => {
+  const { VoiceAudio } = await import("./audio");
+  const audio = new VoiceAudio();
+  const posted: unknown[] = [];
+  const fakePlayer = {
+    port: { postMessage: (data: unknown) => posted.push(data) },
+    disconnect: () => {},
+  };
+  (audio as any).player = fakePlayer;
+  audio.push({ epoch: 8, speechId: "old", samples: new Float32Array([0.2]) });
+  expect(posted.length).toBe(0);
+  audio.beginSession();
+  (audio as any).player = fakePlayer;
+  audio.push({ epoch: 8, speechId: "old", samples: new Float32Array([0.2]) });
+  await audio.close();
+  (audio as any).player = fakePlayer;
+  audio.push({ epoch: 8, speechId: "late", samples: new Float32Array([0.2]) });
+  expect(posted.length).toBe(1);
+  audio.beginSession();
+  audio.push({ epoch: 1, speechId: "fresh", samples: new Float32Array([0.2]) });
+  expect(posted.length).toBe(2);
+});

@@ -41,7 +41,7 @@ npm --prefix web run build
 - Browser AudioWorklets capture 16 kHz PCM and progressively play 24 kHz PCM. Epochs reject stale audio after interruption. Listening profiles allow longer pauses while collecting contact details.
 - Transfers and message captures are **simulations**. Receipts exist only in the current session. They do not contact a real person or create a durable ticket.
 
-The UI shows the executable graph, active/pending stage, facts, retrieved passages, trace, countdown, simulated outcomes and explicit session export.
+The UI is an agent workspace with synchronized prompt forms and an editable YAML source, a bundled knowledge base, and a voice/text test panel. Apply changes validates the definition; every test uses a fixed snapshot of that YAML. Changes stay in the tab; Export YAML downloads a file. Active/pending stage, facts, passages, trace, countdown and simulated outcomes are inspectable during tests.
 
 ## Sessions and credentials
 
@@ -59,7 +59,7 @@ For a funded public demo, use provider-side limits on dedicated low-budget keys.
 vercel deploy
 ```
 
-Initial deployment: https://libretto-khaki.vercel.app. The custom subdomain requires a DNS record at the current DNS provider. Local research, credentials and session data are excluded by `.gitignore` and `.vercelignore`.
+Initial deployment: https://libretto-khaki.vercel.app. The Vercel project also has `libretto.prasadjs.me` attached; DNS is pending. At Cloudflare add a DNS-only CNAME named `libretto` targeting `4df64d3f7d5dc4a6.vercel-dns-017.com` (proxy disabled). Do not change the domain nameservers or other records. Local research, credentials and session data are excluded by `.gitignore` and `.vercelignore`.
 
 Vercel documents [FastAPI frontend builds and WebSockets](https://vercel.com/docs/frameworks/backend/fastapi); connections remain subject to [function duration limits](https://vercel.com/docs/functions/configuring-functions/duration).
 
@@ -67,6 +67,8 @@ Vercel documents [FastAPI frontend builds and WebSockets](https://vercel.com/doc
 
 Backend tests exercise concurrency, stale-result rejection, confirmation invalidation, retrieval, mock actions, provider transport contracts and WebSocket handling. Browser protocol tests check framed PCM, epochs and safe export. Controlled transports do not establish that a live model or speech account works.
 
+Interrupted voice history retains provider-aligned spoken text when available; otherwise it records an unknown prefix with an interruption marker, never an invented heard suffix.
+
 **Live provider calls and acoustic latency are not yet validated.** The target is 1.0–1.2 seconds from acoustic end to meaningful playback, flagging turns above 1.5 seconds. The UI's RMS-based response gap is an estimate, not that benchmark. Model/voice defaults are candidates, not measured winners. Record warm/cold and tool paths separately before publishing performance claims; see the [evidence checklist](docs/evidence.md).
 
-Deferred: multilingual support, real telephony, durable delivery, vector retrieval, speculative TTS, production abuse controls, deployment-wide metering and a visual editor.
+Deferred: multilingual support, real telephony, durable delivery, vector retrieval, speculative TTS, production abuse controls, deployment-wide metering and a visual node editor.

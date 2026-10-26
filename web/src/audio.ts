@@ -36,11 +36,26 @@ export class VoiceAudio {
   private source: MediaStreamAudioSourceNode | null = null;
   private stream: MediaStream | null = null;
   private latestEpoch = 0;
+  private active = false;
+  private lifecycle = 0;
   playedMs = 0;
   lastVoiceAt = 0;
-  onProgress: (ms: number, drained: boolean, epoch: number) => void = () => {};
+  onProgress: (
+    ms: number,
+    drained: boolean,
+    epoch: number,
+    speechId: string,
+  ) => void = () => {};
+  onError: (message: string) => void = () => {};
   onLevel: (level: number) => void = () => {};
+  beginSession(): void {
+    this.active = true;
+    this.latestEpoch = 0;
+    this.playedMs = 0;
+    this.lastVoiceAt = 0;
+  }
   async ensure(): Promise<void> {
+    const lifecycle = this.lifecycle;
     if (!this.context) {
       this.context = new AudioContext({
         latencyHint: "interactive",
@@ -49,19 +64,34 @@ export class VoiceAudio {
       await this.context.audioWorklet.addModule(
         new URL("./audio/playback.worklet.js", import.meta.url).href,
       );
+      if (lifecycle !== this.lifecycle || !this.context)
+        throw new Error("Audio session ended");
       this.player = new AudioWorkletNode(this.context, "libretto-playback");
       this.player.connect(this.context.destination);
       this.player.port.onmessage = ({ data }) => {
+        if (!this.active || lifecycle !== this.lifecycle) return;
+        if (data.type === "overflow") {
+          this.onError(
+            "Audio buffering exceeded the limit. The response was interrupted.",
+          );
+          return;
+        }
         this.playedMs = data.playedMs;
-        this.onProgress(data.playedMs, data.type === "drained", data.epoch);
+        this.onProgress(
+          data.playedMs,
+          data.type === "drained",
+          data.epoch,
+          data.speechId || "",
+        );
       };
     }
     await this.context.resume();
   }
   async startMicrophone(send: (buffer: ArrayBuffer) => void): Promise<void> {
+    const lifecycle = this.lifecycle;
     await this.ensure();
     if (this.stream) return;
-    this.stream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
         echoCancellation: true,
@@ -69,10 +99,17 @@ export class VoiceAudio {
         autoGainControl: true,
       },
     });
+    if (lifecycle !== this.lifecycle || !this.active) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("Audio session ended");
+    }
+    this.stream = stream;
     const context = this.context!;
     await context.audioWorklet.addModule(
       new URL("./audio/capture.worklet.js", import.meta.url).href,
     );
+    if (lifecycle !== this.lifecycle || !this.active)
+      throw new Error("Audio session ended");
     this.capture = new AudioWorkletNode(context, "libretto-capture");
     this.capture.port.onmessage = ({ data }) => {
       if (data.rms > 0.025) this.lastVoiceAt = performance.now();
@@ -93,28 +130,36 @@ export class VoiceAudio {
     this.capture = null;
   }
   push(frame: AudioFrame): void {
-    if (frame.epoch < this.latestEpoch || !this.player) return;
+    if (!this.active || frame.epoch < this.latestEpoch || !this.player) return;
     this.latestEpoch = frame.epoch;
     this.player.port.postMessage(
-      { type: "audio", samples: frame.samples, epoch: frame.epoch },
+      {
+        type: "audio",
+        samples: frame.samples,
+        epoch: frame.epoch,
+        speechId: frame.speechId,
+      },
       [frame.samples.buffer],
     );
   }
-  finish(epoch: number): void {
-    if (epoch >= this.latestEpoch)
-      this.player?.port.postMessage({ type: "finish", epoch });
+  finish(epoch: number, speechId: string): void {
+    if (this.active && epoch >= this.latestEpoch)
+      this.player?.port.postMessage({ type: "finish", epoch, speechId });
   }
   interrupt(epoch: number): void {
     this.latestEpoch = Math.max(epoch, this.latestEpoch);
     this.player?.port.postMessage({ type: "clear", epoch: this.latestEpoch });
   }
   async close(): Promise<void> {
+    this.active = false;
+    this.lifecycle++;
     this.stopMicrophone();
     this.player?.disconnect();
-    if (this.context) await this.context.close();
+    const context = this.context;
     this.context = null;
     this.player = null;
     this.latestEpoch = 0;
     this.playedMs = 0;
+    if (context && context.state !== "closed") await context.close();
   }
 }

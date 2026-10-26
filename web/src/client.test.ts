@@ -23,3 +23,37 @@ describe("session protocol", () => {
     expect(source.data.openrouter_key).toBe("private");
   });
 });
+
+it("ignores errors from a replaced socket", async () => {
+  const { vi } = await import("vitest");
+  const { SessionClient } = await import("./client");
+  class Socket {
+    static OPEN = 1;
+    readyState = 1;
+    binaryType = "";
+    onopen: (() => void) | null = null;
+    onmessage: ((event: any) => void) | null = null;
+    onerror: (() => void) | null = null;
+    onclose: (() => void) | null = null;
+    send() {}
+    close() {}
+  }
+  vi.stubGlobal("location", { protocol: "http:", host: "localhost:8000" });
+  vi.stubGlobal("WebSocket", Socket);
+  try {
+    const events: unknown[] = [];
+    const client = new SessionClient(
+      (event) => events.push(event),
+      () => {},
+      () => {},
+    );
+    client.connect({ mode: "text" });
+    const old = client.socket as unknown as Socket;
+    client.connect({ mode: "text" });
+    old.onerror?.();
+    expect(events).toEqual([]);
+    client.close();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

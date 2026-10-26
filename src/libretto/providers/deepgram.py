@@ -39,6 +39,7 @@ class DeepgramSpeechAdapter:
         self._retired = []
 
     async def open(self) -> None:
+        self._playback_base = self._last_playback
         key = self.credentials.key("deepgram")
         if not key:
             raise ProviderError("missing_deepgram_key", "Add a Deepgram key to enable live voice.")

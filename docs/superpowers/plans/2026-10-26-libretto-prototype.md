@@ -12,7 +12,7 @@
 
 ## Execution status
 
-Tasks 1–6 implemented and committed. Task 7 hosting/setup checks completed; real-provider calls, microphone/mobile verification and acoustic latency remain pending credentials and device testing. See `docs/evidence.md`.
+Tasks 1–6 implemented and committed. The user subsequently replaced the showcase UI with an ElevenLabs-style agent configuration/YAML/testing workspace; functional YAML editing supersedes the original no-editor constraint. Task 7 hosting/setup checks completed; real-provider calls, microphone/mobile verification and acoustic latency remain pending credentials and device testing. See `docs/evidence.md`.
 
 ## Global Constraints
 
