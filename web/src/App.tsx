@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   AudioLines,
   ArrowLeft,
@@ -33,6 +40,8 @@ import { AgentEditor } from "./AgentEditor";
 import { readWorkflow, type Workflow } from "./workflow";
 import { SessionClient, safeExport, type EventPacket } from "./client";
 import { decodeAudioFrame, VoiceAudio } from "./audio";
+
+const WorkflowGraph = lazy(() => import("./WorkflowGraph"));
 
 type Chat = {
   id: string;
@@ -79,7 +88,7 @@ export default function App() {
   const [receipts, setReceipts] = useState<any[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [input, setInput] = useState("");
-  const [view, setView] = useState("agent");
+  const [view, setView] = useState("workflow");
   const [source, setSource] = useState("");
   const [originalSource, setOriginalSource] = useState("");
   const [validatedSource, setValidatedSource] = useState("");
@@ -564,6 +573,7 @@ export default function App() {
           <div role="tablist" aria-label="Agent settings">
             {[
               { id: "agent", label: "Agent" },
+              { id: "workflow", label: "Workflow" },
               { id: "yaml", label: "YAML" },
               { id: "knowledge", label: "Knowledge base" },
             ].map((t) => (
@@ -607,7 +617,29 @@ export default function App() {
         </div>
         <div className="editor-layout">
           <main className="definition-panel">
-            {source ? (
+            {view === "workflow" && source ? (
+              <Suspense
+                fallback={
+                  <div className="loading-state">
+                    <LoaderCircle className="spin" size={18} />
+                    Loading workflow…
+                  </div>
+                }
+              >
+                <WorkflowGraph
+                  source={source}
+                  running={runningWorkflow}
+                  connected={connected}
+                  active={active}
+                  pending={pending}
+                  onYaml={() => setView("yaml")}
+                  onEdit={(id) => {
+                    setSelected(id);
+                    setView("agent");
+                  }}
+                />
+              </Suspense>
+            ) : source ? (
               <AgentEditor
                 source={source}
                 onChange={(value) => {

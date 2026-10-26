@@ -38,3 +38,14 @@ it("previews a raw terminal YAML node without normalized optional fields", () =>
     )?.nodes.end.kind,
   ).toBe("end");
 });
+
+it("rejects malformed display fields instead of crashing a workflow card", () => {
+  for (const malformed of [
+    "title: {nested: wrong}",
+    "prompt: [wrong]",
+    "tools: wrong",
+    "knowledge: [42]",
+  ]) {
+    expect(readWorkflow(source + "    " + malformed + "\n")).toBeNull();
+  }
+});
