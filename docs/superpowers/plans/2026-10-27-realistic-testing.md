@@ -9,3 +9,17 @@ Verified baseline: public config reports both keys missing; Vercel production ha
 Review the security scope using the security-review skill and current primary documentation. Vercel platform DDoS mitigation is distinct from app access checks. No firewall draft or live rule changes are part of this implementation: the firewall skill requires users to publish staged rules, and no such rule should be represented as active.
 
 Verify data/fixture consistency, RAG source retrieval, scenario UI behavior, credential policy, limits and all existing runtime tests. Commit coherent changes and deploy the tested batch. Paid live API test runs require deliberate user initiation; guided scenarios are manual expectations, not fabricated model-evaluation passes.
+
+## Verified outcome
+
+Implemented in `92590ac`, `25f67ff`, `c6db3cf` and `5e90daa`.
+
+- The final fixture corpus contains 15 guided scenarios, four knowledge documents and three fictional departments. Tests check scenario consistency and source-backed business facts. Browser checks verified expanding scripts, preparing lines, advancing a draft without connecting, and the explicit visitor-key dialog.
+- A fresh independent review found a contextual retrieval defect in two actual script sequences. Reproduced it with real Session turns and controlled providers, then fixed search to weight current-question terms above prior-user context. Both failing sequences now receive the required £32 room price / 24-hour policy in the composed model prompt. No classifier request was added.
+- 74 backend tests and 23 frontend tests pass. Ruff, TypeScript/Vite production build and whitespace checks pass. The clean Vercel build also passes.
+- A value-based scan confirmed local development credentials are absent from tracked files and generated frontend assets; an excluded-company identifier scan found no matches. No credential values were printed or copied.
+- Application head `5e90daa` deployed as `dpl_Bk1roMcUYgSFto47Mc7DAXbNj22e`, aliased to https://libretto.prasadjs.me. Public config reports visitor-only mode, both hosted keys missing and all 15 scenarios. Homepage/assets return 200.
+- Public WSS checks rejected keyless text/voice starts and a voice start missing its selected speech key before any provider request. An 8,193-byte frame was rejected with a 1009 close; an idle pre-start connection expired with 1008. No paid inference was initiated by these checks.
+- No custom firewall rules were staged/published or paid security resources added. Existing Vercel protections remain unchanged. Connection-level bounds do not prevent distributed traffic from consuming hosting quota; that limitation is documented explicitly.
+
+Manual live model/voice execution of the scripts remains deliberate user-initiated testing, with API keys and provider billing. Expected outcomes are not fabricated pass/fail results. Acoustic latency and a model-quality score are not claimed.
