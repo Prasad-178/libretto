@@ -166,7 +166,7 @@ def test_mixed_speech_registry_runs_voice_and_rekeys_without_deepgram(monkeypatc
             pass
 
     class Recognition:
-        capabilities = base.STTCapabilities()
+        capabilities = base.STTCapabilities(patient_profiles=True)
 
         def __init__(self, credentials, config, emit, *, hints):
             self.emit, self.key = emit, credentials.key("openrouter")
@@ -176,6 +176,9 @@ def test_mixed_speech_registry_runs_voice_and_rekeys_without_deepgram(monkeypatc
 
         async def close(self):
             activity.append(("stt_close", self.key))
+
+        async def configure(self, *, patient):
+            activity.append(("stt_configure", self.key, patient))
 
         async def send_input(self, pcm):
             await self.emit(base.STTEvent("final", text="Hello", turn_id="audio-1"))
@@ -214,7 +217,9 @@ def test_mixed_speech_registry_runs_voice_and_rekeys_without_deepgram(monkeypatc
         credentials={"alternate-stt": "openrouter", "alternate-tts": "openrouter"},
     )
     source = (
-        Path("examples/minimal.yaml").read_text()
+        Path("examples/minimal.yaml")
+        .read_text()
+        .replace("kind: conversation", "kind: conversation\n    patient: true")
         + "\nspeech:\n  stt: {provider: alternate-stt, model: recognition}\n  tts: {provider: alternate-tts, model: synthesis}\n"
     )
     app = create_app(load_environment=False, model_factory=lambda *a, **kw: Model(), speech_registry=registry)
@@ -257,6 +262,7 @@ def test_mixed_speech_registry_runs_voice_and_rekeys_without_deepgram(monkeypatc
             ws.send_json({"type": "credentials", "openrouter_key": "second"})
             while ws.receive_json()["type"] != "credentials_updated":
                 pass
+            assert ("stt_configure", "second", True) in activity
             assert ("tts_open", "second", 120) in activity
             assert ("stt_close", "first") in activity
             assert ("tts_close", "first") in activity

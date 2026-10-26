@@ -327,6 +327,9 @@ def create_app(
                                 session_workflow.speech, replacement, session, audio, speech_control
                             )
                             await speech.open(playback_ms=last_playback)
+                            await speech.configure(
+                                patient=session_workflow.nodes[session.state.active_stage].patient
+                            )
                         await control("credentials_updated", credentials=replacement.public_status())
                     elif event.type == "export":
                         await control(
