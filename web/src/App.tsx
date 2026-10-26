@@ -13,6 +13,7 @@ import {
   BookOpen,
   Braces,
   Check,
+  ClipboardList,
   ChevronDown,
   Code2,
   Download,
@@ -37,6 +38,11 @@ import {
   X,
 } from "lucide-react";
 import { AgentEditor } from "./AgentEditor";
+import {
+  TestScenarios,
+  prepareScenario,
+  type TestScenario,
+} from "./TestScenarios";
 import { readWorkflow, type Workflow } from "./workflow";
 import { SessionClient, safeExport, type EventPacket } from "./client";
 import { decodeAudioFrame, VoiceAudio } from "./audio";
@@ -58,10 +64,12 @@ type Config = {
   workflow: Workflow;
   credentials: Record<string, string>;
   call_limit_seconds: number;
+  credential_mode: "visitor" | "hosted";
+  test_scenarios: TestScenario[];
   knowledge_documents: { document: string; heading: string; text: string }[];
 };
 const examples = [
-  "What are your support hours?",
+  "How much is a day pass?",
   "Can I speak to Maya in billing?",
   "I’d like to leave a message.",
 ];
@@ -96,6 +104,10 @@ export default function App() {
   const [yamlIssues, setYamlIssues] = useState<string[]>([]);
   const [showTest, setShowTest] = useState(true);
   const [testTab, setTestTab] = useState("conversation");
+  const [activeScenario, setActiveScenario] = useState<TestScenario | null>(
+    null,
+  );
+  const [scenarioStep, setScenarioStep] = useState(0);
   const [runningWorkflow, setRunningWorkflow] = useState<Workflow | null>(null);
   const [trace, setTrace] = useState<EventPacket[]>([]);
   const [remaining, setRemaining] = useState(180);
@@ -460,6 +472,16 @@ export default function App() {
       setValidating(false);
     }
   }
+  function prepareTest(scenario: TestScenario, step = 0) {
+    if (connecting || (connected && activeScenario?.id !== scenario.id)) return;
+    const draft = prepareScenario(scenario, step);
+    if (!connected) setOutcome(draft.transferOutcome);
+    setActiveScenario(scenario);
+    setScenarioStep(draft.step);
+    setInput(draft.input);
+    setTestTab("conversation");
+    setShowTest(true);
+  }
   function downloadYaml() {
     const url = URL.createObjectURL(
       new Blob([source], { type: "application/yaml" }),
@@ -546,8 +568,8 @@ export default function App() {
                 <span className="badge">Draft</span>
               </div>
               <p>
-                A receptionist that answers questions, connects callers, and
-                takes messages.
+                Memberships, meeting rooms, and member support for a fictional
+                coworking space.
               </p>
             </div>
           </div>
@@ -718,17 +740,70 @@ export default function App() {
                 </button>
               </div>
               <div className="test-tabs">
-                {["conversation", "state", "sources", "trace"].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTestTab(t)}
-                    className={testTab === t ? "selected" : ""}
-                  >
-                    {pretty(t)}
-                  </button>
-                ))}
+                {["conversation", "scenarios", "state", "sources", "trace"].map(
+                  (t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTestTab(t)}
+                      className={testTab === t ? "selected" : ""}
+                    >
+                      {pretty(t)}
+                    </button>
+                  ),
+                )}
               </div>
-              {testTab === "conversation" ? (
+              {activeScenario && testTab === "conversation" && (
+                <div className="scenario-guide">
+                  <div>
+                    <ClipboardList size={12} />
+                    <strong>{activeScenario.title}</strong>
+                    <button
+                      title="Stop using this scenario"
+                      onClick={() => setActiveScenario(null)}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="scenario-guide-controls">
+                    <button
+                      disabled={scenarioStep === 0 || connecting}
+                      onClick={() =>
+                        prepareTest(activeScenario, scenarioStep - 1)
+                      }
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Line {scenarioStep + 1} of {activeScenario.steps.length}
+                    </span>
+                    <button
+                      disabled={
+                        scenarioStep === activeScenario.steps.length - 1 ||
+                        connecting
+                      }
+                      onClick={() =>
+                        prepareTest(activeScenario, scenarioStep + 1)
+                      }
+                    >
+                      Next line <ArrowRight size={10} />
+                    </button>
+                  </div>
+                  <details>
+                    <summary>Suggested line and expected behavior</summary>
+                    <p>“{activeScenario.steps[scenarioStep].say}”</p>
+                    <small>{activeScenario.steps[scenarioStep].expect}</small>
+                  </details>
+                </div>
+              )}
+              {testTab === "scenarios" ? (
+                <TestScenarios
+                  scenarios={config?.test_scenarios || []}
+                  connected={connected}
+                  connecting={connecting}
+                  activeId={activeScenario?.id || null}
+                  onPrepare={prepareTest}
+                />
+              ) : testTab === "conversation" ? (
                 <div className="chat-scroll" aria-live="polite">
                   {!chats.length ? (
                     <div className="test-empty">
@@ -1010,8 +1085,9 @@ export default function App() {
         </div>
         <h2>{connected ? "Session connection" : "Connect your agent"}</h2>
         <p>
-          Use the hosted budget when available, or enter your own provider keys.
-          Keys stay in this session.
+          {config?.credential_mode === "visitor"
+            ? "This public demo requires your own API keys. Text needs OpenRouter; voice also needs Deepgram. Keys stay in this session."
+            : "Use the hosted development budget when available, or enter your own provider keys. Keys stay in this session."}
         </p>
         <div className="mode-switch">
           <button

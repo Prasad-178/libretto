@@ -1,5 +1,39 @@
 [
-  {"id":"support","department":"Support","person":"Sam Rivera","aliases":["technical support","technical help","Sam"]},
-  {"id":"billing","department":"Billing","person":"Maya Chen","aliases":["invoices","accounts","Maya"]},
-  {"id":"partnerships","department":"Partnerships","person":"Alex Morgan","aliases":["collaborations","workshops","Alex"]}
+  {
+    "id": "support",
+    "department": "Support",
+    "person": "Sam Rivera",
+    "aliases": [
+      "member support",
+      "Wi-Fi",
+      "facilities",
+      "accessibility",
+      "access",
+      "Sam"
+    ]
+  },
+  {
+    "id": "billing",
+    "department": "Billing",
+    "person": "Maya Chen",
+    "aliases": [
+      "invoices",
+      "accounts",
+      "membership payments",
+      "refunds",
+      "Maya"
+    ]
+  },
+  {
+    "id": "partnerships",
+    "department": "Partnerships",
+    "person": "Alex Morgan",
+    "aliases": [
+      "tours",
+      "room bookings",
+      "events",
+      "team visits",
+      "Alex"
+    ]
+  }
 ]

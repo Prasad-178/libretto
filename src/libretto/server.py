@@ -78,6 +78,7 @@ def create_app(
     index = build_index(workflow, root / "examples")
     directory = json.loads((root / "examples/directory.json").read_text())
     ToolRegistry(directory).validate(workflow)
+    scenarios = json.loads((root / "examples/test-scenarios.json").read_text())
 
     def compile_source(source: str):
         definition = parse_workflow(source)
@@ -126,6 +127,7 @@ def create_app(
             "credentials": hosted().public_status(),
             "credential_mode": "hosted" if hosted_enabled() else "visitor",
             "directory": directory,
+            "test_scenarios": scenarios,
             "knowledge_documents": [
                 {"document": p.document, "heading": p.heading, "text": p.text} for p in index.passages
             ],
