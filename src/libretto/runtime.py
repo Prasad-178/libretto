@@ -351,6 +351,12 @@ class Session:
                     await self.emit("response_done", text=node.text, turn_id="literal")
                     source, edge, target = target, node.edges[0], node.edges[0].to
                     continue
+                deterministic = next(
+                    (e for e in node.edges if e.predicate and e.predicate.matches(self.state.values())), None
+                )
+                if deterministic:
+                    source, edge, target = target, deterministic, deterministic.to
+                    continue
                 # A new conversation stage waits unless explicitly generating on entry.
                 if node.entry == "respond":
                     self._spawn(self._entry_response(epoch))

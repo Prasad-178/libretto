@@ -1,0 +1,5 @@
+[
+  {"id":"support","department":"Support","person":"Sam Rivera","aliases":["technical support","technical help","Sam"]},
+  {"id":"billing","department":"Billing","person":"Maya Chen","aliases":["invoices","accounts","Maya"]},
+  {"id":"partnerships","department":"Partnerships","person":"Alex Morgan","aliases":["collaborations","workshops","Alex"]}
+]
