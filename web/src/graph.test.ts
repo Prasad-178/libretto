@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as graph from "./graph";
 import { readWorkflow } from "./workflow";
+import receptionistSource from "../../examples/receptionist.yaml?raw";
 
 const flow = readWorkflow(`name: Demo
 start: greet
@@ -87,14 +88,8 @@ describe("YAML graph visualization", () => {
   });
 });
 
-it("lays out the bundled receptionist without overlapping stage cards", async () => {
-  const { readFileSync } = await import("node:fs");
-  const workflow = readWorkflow(
-    readFileSync(
-      new URL("../../examples/receptionist.yaml", import.meta.url),
-      "utf8",
-    ),
-  )!;
+it("lays out the bundled receptionist without overlapping stage cards", () => {
+  const workflow = readWorkflow(receptionistSource)!;
   const result = graph.buildGraph(workflow);
   expect(result.nodes.length).toBe(Object.keys(workflow.nodes).length + 1);
   expect(result.edges.length).toBe(
