@@ -23,6 +23,23 @@ from libretto.speech import default_speech_registry
 from libretto.tools import ToolRegistry
 
 ROOT = Path(__file__).resolve().parents[2]
+START_TIMEOUT_SECONDS = 15
+
+
+class RequestBudget:
+    """Per-connection token bucket, not a distributed/IP-level rate limiter."""
+
+    def __init__(self, *, rate: float = 1, burst: float = 3):
+        self.rate, self.burst, self.tokens, self.last = rate, burst, burst, None
+
+    def accept(self, now: float) -> bool:
+        if self.last is not None:
+            self.tokens = min(self.burst, self.tokens + max(0, now - self.last) * self.rate)
+        self.last = now
+        if self.tokens < 1:
+            return False
+        self.tokens -= 1
+        return True
 
 
 class ClientEvent(StrictModel):
@@ -82,7 +99,13 @@ def create_app(
 
     app = FastAPI(title="Libretto", lifespan=lifespan)
 
+    def hosted_enabled():
+        setting = os.getenv("LIBRETTO_ALLOW_HOSTED_KEYS")
+        return setting.lower() in {"true", "1"} if setting is not None else not bool(os.getenv("VERCEL"))
+
     def hosted():
+        if not hosted_enabled():
+            return SessionCredentials()
         return SessionCredentials(
             openrouter=os.getenv("OPENROUTER_API_KEY", ""), deepgram=os.getenv("DEEPGRAM_API_KEY", "")
         )
@@ -101,6 +124,7 @@ def create_app(
             "workflow": workflow.model_dump(),
             "call_limit_seconds": 180,
             "credentials": hosted().public_status(),
+            "credential_mode": "hosted" if hosted_enabled() else "visitor",
             "directory": directory,
             "knowledge_documents": [
                 {"document": p.document, "heading": p.heading, "text": p.text} for p in index.passages
@@ -140,6 +164,9 @@ def create_app(
         started_at = None
         last_playback = 0.0
         session_workflow = workflow
+        start_deadline = time.monotonic() + START_TIMEOUT_SECONDS
+        costly_events = RequestBudget()
+        frames = RequestBudget(rate=64, burst=128)
 
         async def control(kind, **data):
             async with send_lock:
@@ -200,17 +227,39 @@ def create_app(
 
         try:
             while True:
-                frame = await ws.receive()
+                try:
+                    if session is None:
+                        async with asyncio.timeout(max(0, start_deadline - time.monotonic())):
+                            frame = await ws.receive()
+                    else:
+                        frame = await ws.receive()
+                except TimeoutError:
+                    await control(
+                        "error", code="start_timeout", message="Start timed out. Reconnect to try again."
+                    )
+                    await ws.close(code=1008)
+                    break
                 if frame["type"] == "websocket.disconnect":
                     break
+                if not frames.accept(time.monotonic()):
+                    await control(
+                        "error", code="rate_limited", message="Too many events. Reconnect and try again."
+                    )
+                    await ws.close(code=1008)
+                    break
                 if frame.get("bytes") is not None:
-                    if speech and len(frame["bytes"]) <= 8192:
+                    if len(frame["bytes"]) > 8192:
+                        await control("error", code="message_limit", message="Audio frame is too large.")
+                        await ws.close(code=1009)
+                        break
+                    if speech:
                         await speech.send_input(frame["bytes"])
                     continue
                 raw = frame.get("text", "")
-                if len(raw) > 128_000:
+                if len(raw.encode()) > 128_000:
                     await control("error", code="message_limit", message="Message is too large.")
-                    continue
+                    await ws.close(code=1009)
+                    break
                 try:
                     event = ClientEvent.model_validate_json(raw)
                 except ValidationError:
@@ -218,6 +267,13 @@ def create_app(
                     continue
                 if event.type == "close":
                     break
+                if event.type in {"start", "text", "credentials"} and not costly_events.accept(
+                    time.monotonic()
+                ):
+                    await control(
+                        "error", code="rate_limited", message="Please wait a second before another request."
+                    )
+                    continue
                 if event.type == "start":
                     if session:
                         await control(

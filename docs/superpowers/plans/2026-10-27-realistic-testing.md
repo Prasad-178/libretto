@@ -1,0 +1,11 @@
+# Realistic fictional testing and public-access boundaries
+
+Keep the receptionist graph and provider-neutral engine. Recast the bundled business as Northline Workspace, a fictional coworking reception desk. Seed consistent public facts about memberships, rooms, support, cancellations and accessibility. Add caller scenarios with clearly fictional contact details, scripted turns, expected sources/tool outcomes and manual checks. Scenario selection only prepares input and simulated transfer outcome; it must never start paid requests automatically or inject expected answers into agent context.
+
+Keep the site/editor/knowledge public. Public Vercel deployments must require visitor keys by default even if provider environment variables are accidentally configured; an explicit operator opt-in may enable the previously planned hosted budget. Preserve local .env development behavior. Add missing-key/no-provider-call tests, a fixed pre-start socket deadline, bounded control request frequency and frame-size enforcement. Do not claim these are distributed DDoS protection.
+
+Verified baseline: public config reports both keys missing; Vercel production has no environment variables. Keyless text/voice starts return missing-key errors; a placeholder OpenRouter key still requires a Deepgram key for voice, with no inference call. Local .env contains development keys, excluded from Git and deployment; never print/copy them. Public probes of secret/source paths returned no sensitive content (currently 500, not disclosure).
+
+Review the security scope using the security-review skill and current primary documentation. Vercel platform DDoS mitigation is distinct from app access checks. No firewall draft or live rule changes are part of this implementation: the firewall skill requires users to publish staged rules, and no such rule should be represented as active.
+
+Verify data/fixture consistency, RAG source retrieval, scenario UI behavior, credential policy, limits and all existing runtime tests. Commit coherent changes and deploy the tested batch. Paid live API test runs require deliberate user initiation; guided scenarios are manual expectations, not fabricated model-evaluation passes.
