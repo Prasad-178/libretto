@@ -47,7 +47,7 @@ The UI is an agent workspace with synchronized prompt forms and an editable YAML
 
 Provider replaceability is a design requirement. Libretto owns streaming orchestration between microphone capture, transcription events, LLM text deltas, TTS input and browser playback, alongside its workflow/state/RAG/tool logic. OpenRouter and Deepgram currently supply the model APIs; speech recognition, Flux turn detection and synthesis segmentation run inside the speech provider.
 
-The prototype has a dedicated Deepgram speech adapter and generic speaking/evaluator interfaces. Speech selection is still wired directly in the server, and STT/TTS share one adapter, so changing speech providers currently requires an adapter and wiring changes. Independent STT/TTS contracts with explicit capabilities are the next portability improvement. A provider without eager-turn events or spoken-prefix alignment must expose that limitation rather than emulate an unsupported guarantee.
+STT and TTS now have independent contracts, normalized events and explicit capabilities. A provider-neutral coordinator owns runtime integration and browser framing; YAML selects each provider/model through a server allowlist. Deepgram is the only shipped speech implementation. Mixed test adapters verify that replacing speech transport does not require workflow/state changes. See [speech provider integration](docs/speech-providers.md) for registration, audio formats, capability fallbacks and credential bindings.
 
 Reusable libraries or open frameworks are acceptable when provider-specific behavior remains behind replaceable adapters. Rebuilding every component from scratch is not a project requirement.
 

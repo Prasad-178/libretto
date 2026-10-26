@@ -74,6 +74,7 @@ class _Transport:
 
 
 class DeepgramSTT(_Transport):
+    supported_models = frozenset({"flux-general-en"})
     capabilities = STTCapabilities(eager_turns=True, patient_profiles=True, force_end=True)
 
     def __init__(self, *args, **kwargs):
@@ -155,6 +156,7 @@ class DeepgramSTT(_Transport):
 
 
 class DeepgramTTS(_Transport):
+    supported_models = frozenset({"flux-haley-en"})
     capabilities = TTSCapabilities(streaming_text=True, cancellation=True, spoken_prefix=True)
 
     def __init__(self, *args, **kwargs):
@@ -176,7 +178,6 @@ class DeepgramTTS(_Transport):
         self._tts_url = ""
         self._playback_base = 0.0
         self._last_playback = 0.0
-        self._retired = []
 
     async def open(self, *, playback_ms=0):
         self._last_playback = self._playback_base = playback_ms
@@ -250,8 +251,6 @@ class DeepgramTTS(_Transport):
         self._discard_audio = True
         self._tts_task = asyncio.create_task(self._receive(self.tts, self.handle_packet))
         self.tasks.append(self._tts_task)
-        if task is asyncio.current_task() and old:
-            self._retired.append(old)
 
     def _interrupted(self) -> None:
         if self._interrupting:

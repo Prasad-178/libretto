@@ -119,6 +119,12 @@ class SpeechRegistry:
             endpoint = getattr(config, kind)
             if endpoint.provider not in getattr(self, kind):
                 raise ValueError(f"Unsupported {kind.upper()} provider: {endpoint.provider}")
+            factory = getattr(self, kind)[endpoint.provider]
+            supported_models = getattr(factory, "supported_models", None)
+            if supported_models is not None and endpoint.model not in supported_models:
+                raise ValueError(
+                    f"Unsupported {kind.upper()} model for {endpoint.provider}: {endpoint.model}"
+                )
 
     def required_credentials(self, config) -> set[str]:
         self.validate(config)
