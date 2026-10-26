@@ -604,6 +604,7 @@ export default function App() {
           </span>
           <button
             className="button apply-button"
+            title="Validate and apply YAML changes"
             onClick={() => void validateSource()}
             disabled={validating || !source}
           >

@@ -428,7 +428,7 @@
     display: none;
   }
 }
-@media (max-width: 700px) {
+@media (max-width: 680px) {
   .workflow-view {
     min-height: 570px;
     height: 70dvh;
@@ -453,5 +453,35 @@
 @media (prefers-reduced-motion: reduce) {
   .flow-card {
     transition: none;
+  }
+}
+
+.flow-card:focus-visible {
+  outline: 2px solid #8da9d2;
+  outline-offset: 4px;
+}
+@media (max-width: 500px) {
+  .agent-tabs > div {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .agent-tabs > div button {
+    flex-shrink: 0;
+  }
+  .agent-tabs .apply-button {
+    font-size: 0;
+    gap: 0;
+    padding: 8px;
+    flex-shrink: 0;
+  }
+  .workflow-toolbar {
+    gap: 6px;
+  }
+  .workflow-toolbar strong {
+    font-size: 10px;
+  }
+  .workflow-toolbar .flow-source-label {
+    display: none;
   }
 }

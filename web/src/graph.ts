@@ -11,6 +11,7 @@ export type StageData = {
   inspected?: boolean;
   stageId?: string;
   inspect?: () => void;
+  focus?: () => void;
 };
 export type BranchData = {
   label: string;
@@ -39,19 +40,29 @@ export function predicateLabel(value: unknown, depth = 0): string {
     return `NOT (${predicateLabel(p.conditions?.[0], depth + 1)})`;
   if ((p.op === "all" || p.op === "any") && Array.isArray(p.conditions))
     return p.conditions
-      .map((c) => predicateLabel(c, depth + 1))
+      .map((c) => {
+        const label = predicateLabel(c, depth + 1);
+        const child =
+          c && typeof c === "object" ? (c as { op?: string }) : null;
+        return child &&
+          (child.op === "all" || child.op === "any") &&
+          child.op !== p.op
+          ? `(${label})`
+          : label;
+      })
       .join(p.op === "all" ? " AND " : " OR ");
   return "State condition";
 }
 
 export function branchLabel(edge: FlowNode["edges"][number]): string {
   return (
-    edge.condition ||
-    (edge.result
-      ? `Result: ${edge.result}`
-      : edge.predicate
-        ? predicateLabel(edge.predicate)
-        : "Continue")
+    [
+      edge.predicate ? predicateLabel(edge.predicate) : "",
+      edge.result ? `Result: ${edge.result}` : "",
+      edge.condition || "",
+    ]
+      .filter(Boolean)
+      .join(" · ") || "Continue"
   );
 }
 

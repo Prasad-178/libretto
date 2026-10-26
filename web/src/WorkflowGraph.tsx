@@ -65,6 +65,9 @@ const StageCard = memo(function StageCard({ data }: NodeProps<StageNode>) {
           ? undefined
           : `Open ${n.title || data.stageId} stage details`
       }
+      onFocus={(e) => {
+        if (e.currentTarget.matches(":focus-visible")) data.focus?.();
+      }}
       onClick={data.inspect}
       onKeyDown={(e) => {
         if (!data.synthetic && (e.key === "Enter" || e.key === " ")) {
@@ -251,7 +254,28 @@ export default function WorkflowGraph({
       };
     }
   }, [definition]);
-  const selectedNode = selected ? definition?.nodes[selected] : undefined;
+  const selectedNode =
+    selected && definition && Object.hasOwn(definition.nodes, selected)
+      ? definition.nodes[selected]
+      : undefined;
+  const focus = useCallback(
+    (id: string) => {
+      const node = graph.nodes.find((n) => n.id === id);
+      if (node && instance.current)
+        void instance.current.setCenter(
+          node.position.x + node.width! / 2,
+          node.position.y + node.height! / 2,
+          {
+            zoom: 0.9,
+            duration: window.matchMedia("(prefers-reduced-motion: reduce)")
+              .matches
+              ? 0
+              : 250,
+          },
+        );
+    },
+    [graph.nodes],
+  );
   const nodes = useMemo(
     () =>
       graph.nodes.map((n) => ({
@@ -263,9 +287,10 @@ export default function WorkflowGraph({
           inspected: n.id === selected,
           stageId: n.id,
           inspect: n.data.synthetic ? undefined : () => setSelected(n.id),
+          focus: () => focus(n.id),
         },
       })),
-    [graph.nodes, connected, active, pending, selected],
+    [graph.nodes, connected, active, pending, selected, focus],
   );
   const edges = useMemo(
     () =>
@@ -284,18 +309,6 @@ export default function WorkflowGraph({
         },
       })),
     [graph.edges, connected, active, pending],
-  );
-  const focus = useCallback(
-    (id: string) => {
-      const node = graph.nodes.find((n) => n.id === id);
-      if (node && instance.current)
-        void instance.current.setCenter(
-          node.position.x + node.width! / 2,
-          node.position.y + node.height! / 2,
-          { zoom: 0.9, duration: 250 },
-        );
-    },
-    [graph.nodes],
   );
   const topology =
     graph.nodes.map((n) => n.id).join("|") +

@@ -86,3 +86,63 @@ describe("YAML graph visualization", () => {
     ).toBe("Please repeat");
   });
 });
+
+it("lays out the bundled receptionist without overlapping stage cards", async () => {
+  const { readFileSync } = await import("node:fs");
+  const workflow = readWorkflow(
+    readFileSync(
+      new URL("../../examples/receptionist.yaml", import.meta.url),
+      "utf8",
+    ),
+  )!;
+  const result = graph.buildGraph(workflow);
+  expect(result.nodes.length).toBe(Object.keys(workflow.nodes).length + 1);
+  expect(result.edges.length).toBe(
+    Object.values(workflow.nodes).reduce(
+      (count, node) => count + (node.edges?.length || 0),
+      1,
+    ),
+  );
+  for (const [i, node] of result.nodes.entries()) {
+    for (const other of result.nodes.slice(i + 1)) {
+      const overlapX =
+        Math.min(
+          node.position.x + node.width!,
+          other.position.x + other.width!,
+        ) - Math.max(node.position.x, other.position.x);
+      const overlapY =
+        Math.min(
+          node.position.y + node.height!,
+          other.position.y + other.height!,
+        ) - Math.max(node.position.y, other.position.y);
+      expect(overlapX > 0 && overlapY > 0).toBe(false);
+    }
+  }
+});
+
+it("preserves logical grouping and every condition on a transition", () => {
+  expect(
+    graph.predicateLabel({
+      op: "all",
+      conditions: [
+        {
+          op: "any",
+          conditions: [
+            { op: "exists", field: "name" },
+            { op: "exists", field: "email" },
+          ],
+        },
+        { op: "equals", field: "consent", value: true },
+      ],
+    }),
+  ).toBe("(name is set OR email is set) AND consent = true");
+  expect(
+    graph.branchLabel({
+      id: "guard",
+      to: "end",
+      condition: "Caller approves",
+      predicate: { op: "equals", field: "approved", value: true },
+      result: "captured",
+    }),
+  ).toBe("approved = true · Result: captured · Caller approves");
+});

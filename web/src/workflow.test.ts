@@ -49,3 +49,11 @@ it("rejects malformed display fields instead of crashing a workflow card", () =>
     expect(readWorkflow(source + "    " + malformed + "\n")).toBeNull();
   }
 });
+
+it("accepts an explicitly null optional tool as the server schema does", () => {
+  expect(
+    readWorkflow(
+      "name: Demo\nshared_prompt: Hello\nstart: end\nnodes:\n  end: {kind: end, tool: null}\n",
+    )?.nodes.end.kind,
+  ).toBe("end");
+});

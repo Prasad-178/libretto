@@ -5,7 +5,7 @@ export type FlowNode = {
   prompt: string;
   text?: string;
   tools: string[];
-  tool?: string;
+  tool?: string | null;
   knowledge?: string[];
   requires?: string[];
   patient: boolean;
@@ -64,7 +64,10 @@ export function readWorkflow(source: string): Workflow | null {
           node &&
           typeof node === "object" &&
           typeof node.kind === "string" &&
-          optionalText(node, ["title", "prompt", "text", "tool"]) &&
+          optionalText(node, ["title", "prompt", "text"]) &&
+          (node.tool === undefined ||
+            node.tool === null ||
+            typeof node.tool === "string") &&
           stringLists(node, ["tools", "knowledge", "requires"]) &&
           ((node.kind === "end" && node.edges === undefined) ||
             (Array.isArray(node.edges) &&
