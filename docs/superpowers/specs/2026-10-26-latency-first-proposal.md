@@ -2,7 +2,7 @@
 
 Date: 2026-10-26
 
-Status: discussion proposal, not a finalized implementation contract. The user has challenged the earlier mandatory evaluator-first design. This note records explicit requirements, public-source findings, proposed changes, and unresolved timing choices.
+Status: approved direction on 2026-10-26. The user accepted the latency-first architecture and next-response transition policy. This note takes precedence over conflicting scheduling, retrieval, and speculation recommendations in the earlier design. Credential validation and measured performance remain outstanding.
 
 ## Confirmed requirements
 
@@ -41,7 +41,7 @@ For ordinary conversational progression, propose applying an evaluator's transit
 
 Delaying a transition is appropriate only if the current stage is allowed to produce the current response. A correction that makes that response/action invalid, a change in permissions, or a destination-specific answer cannot be ignored merely to avoid waiting. Such an edge requires cancellation/re-generation or an explicit synchronization point. Completed-action claims still require an actual tool result. Do not promise that every possible path has no dependency waits.
 
-If the evaluator is late, expose that state. Never let a stale result overwrite a newer caller correction. A bounded no-wait ordinary path may continue under the same active stage, but pending actions remain blocked until their prerequisites are authoritative. Acceptance must cover quick caller follow-ups, conflicting model interpretations, and delayed evaluator completion. The precise per-edge timing/fallback policy still needs agreement before implementation.
+If the evaluator is late, expose that state. Never let a stale result overwrite a newer caller correction. The no-wait ordinary path continues under the same active stage, but pending actions remain blocked until their prerequisites are authoritative. Apply a valid pending transition at the next generation boundary; an edge requiring new permissions or authoritative action prerequisites must explicitly synchronize or cancel/re-generate incompatible output. Acceptance must cover quick caller follow-ups, conflicting model interpretations, and delayed evaluator completion.
 
 Shared prompt rules should let an agent answer authorized public company questions and acknowledge corrections while retaining its main task. This avoids forcing a stage switch merely to answer one side question. Stage isolation continues to control objectives, private knowledge scopes if added later, and business-action capabilities.
 
@@ -69,9 +69,8 @@ Provide optional masked OpenRouter and Deepgram key inputs, with a visible indic
 
 Provider credentials are independent: replacing an exhausted OpenRouter key does not replenish a Deepgram speech budget. Allow either or both visitor keys. Distinguish exhausted-credit errors from invalid credentials or rate limiting. Prompt to switch credentials and resume/retry the appropriate read-only operation; do not replay an uncertain business action. Constrain provider hosts in code, not visitor-configurable URLs. Account/provider-level key limits bound the shared budget; process-local counters are not a deployment-wide spending cap.
 
-## Outstanding choices
+## Outstanding validation
 
-- Agree on next-response asynchronous stage progression versus edges that require same-turn synchronization, including the behavior when a pending evaluator is late.
 - Confirm availability of a direct Deepgram credential for the hosted speech path and visitor BYOK option.
 - Verify selected models/voices against the account and benchmark from the deployment region before claiming the latency target is met.
 

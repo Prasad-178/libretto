@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 Updated: 2026-10-26 after public documentation research and further scope discussion.
 
-Status: under revision after latency requirements were clarified; implementation has not started. The [latency-first proposal](2026-10-26-latency-first-proposal.md) supersedes this document's earlier recommendations for a mandatory sequential evaluator, FAQ-gated retrieval, and deferred preemptive LLM generation. Those scheduling/timing choices remain under discussion; do not implement the earlier pipeline as an approved decision.
+Status: foundational design with scheduling revisions approved on 2026-10-26. The [approved latency-first direction](2026-10-26-latency-first-proposal.md) supersedes this document's earlier recommendations for a mandatory sequential evaluator, FAQ-gated retrieval, and deferred preemptive LLM generation. Use that document as authoritative wherever they conflict.
 
 ## Purpose and decisions already made
 
