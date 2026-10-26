@@ -18,9 +18,10 @@ def adapter():
     from pathlib import Path
 
     from libretto.providers.base import SessionCredentials
-    from libretto.providers.deepgram import DeepgramSpeechAdapter
+    from libretto.providers.deepgram import DeepgramSTT, DeepgramTTS
     from libretto.runtime import Session
-    from libretto.schema import load_workflow
+    from libretto.schema import Speech, load_workflow
+    from libretto.speech import SpeechCoordinator
     from libretto.tools import ToolRegistry
 
     controls, audio = [], []
@@ -34,8 +35,18 @@ def adapter():
     session = Session(
         load_workflow(Path("examples/minimal.yaml")), Speaker(), Evaluator(), Search(), ToolRegistry()
     )
-    speech = DeepgramSpeechAdapter(SessionCredentials(deepgram="test"), session, binary, control)
-    speech.tts, speech.stt = Socket(), Socket()
+    credentials, config = SessionCredentials(deepgram="test"), Speech()
+
+    async def stt_sink(event):
+        await speech.handle_stt(event)
+
+    async def tts_sink(event):
+        await speech.handle_tts(event)
+
+    stt = DeepgramSTT(credentials, config.stt, stt_sink)
+    tts = DeepgramTTS(credentials, config.tts, tts_sink)
+    speech = SpeechCoordinator(session, stt, tts, binary, control)
+    stt.socket, tts.tts = Socket(), Socket()
     return speech, session, controls, audio
 
 
@@ -44,12 +55,12 @@ async def test_flux_eager_text_cannot_reach_tts_before_confirmed_turn():
 
     speech, session, controls, _ = adapter()
     try:
-        await speech.handle_stt(
+        await speech.stt.handle_packet(
             {"type": "TurnInfo", "event": "EagerEndOfTurn", "turn_index": 1, "transcript": "Hello"}
         )
         await next_event(session, "draft_ready")
         assert not any(e.type == "text_delta" for e in session.trace)
-        await speech.handle_stt(
+        await speech.stt.handle_packet(
             {
                 "type": "TurnInfo",
                 "event": "EndOfTurn",
@@ -69,7 +80,7 @@ async def test_flux_tts_preserves_raw_deltas_and_flushes_only_on_response_end():
     await speech.speak_text("Hello ", 1)
     await speech.speak_text("Sam.", 1)
     await speech.finish_response()
-    assert [json.loads(p) for p in speech.tts.sent] == [
+    assert [json.loads(p) for p in speech.tts.tts.sent] == [
         {"type": "Speak", "text": "Hello "},
         {"type": "Speak", "text": "Sam."},
         {"type": "Flush"},
@@ -79,14 +90,15 @@ async def test_flux_tts_preserves_raw_deltas_and_flushes_only_on_response_end():
 
 async def test_late_provider_audio_is_discarded_during_interrupt():
     speech, session, controls, audio = adapter()
+    session.epoch = 1
     await speech.speak_text("Hello", 1)
-    await speech.handle_tts({"type": "SpeechStarted", "speech_id": "old"})
-    await speech.handle_tts(b"\x00\x00")
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "old"})
+    await speech.tts.handle_packet(b"\x00\x00")
     assert len(audio) == 1
     await speech.interrupt(120.0)
-    await speech.handle_tts(b"\x01\x00")
+    await speech.tts.handle_packet(b"\x01\x00")
     assert len(audio) == 1
-    await speech.handle_tts(
+    await speech.tts.handle_packet(
         {
             "type": "SpeechInterrupted",
             "audio_played_ms": 120,
@@ -94,9 +106,10 @@ async def test_late_provider_audio_is_discarded_during_interrupt():
             "text_spoken": "Hello",
         }
     )
+    session.epoch = 2
     await speech.speak_text("New reply", 2)
-    await speech.handle_tts({"type": "SpeechStarted", "speech_id": "new"})
-    await speech.handle_tts(b"\x02\x00")
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "new"})
+    await speech.tts.handle_packet(b"\x02\x00")
     assert len(audio) == 2
     await session.close()
 
@@ -104,10 +117,12 @@ async def test_late_provider_audio_is_discarded_during_interrupt():
 async def test_patient_profile_is_sent_and_acknowledged():
     speech, session, controls, _ = adapter()
     await speech.configure(patient=True)
-    config = json.loads(speech.stt.sent[-1])
+    config = json.loads(speech.stt.socket.sent[-1])
     assert config["type"] == "Configure"
     assert config["thresholds"]["eot_timeout_ms"] == 8000
-    await speech.handle_stt({"type": "ConfigureSuccess", **{k: v for k, v in config.items() if k != "type"}})
+    await speech.stt.handle_packet(
+        {"type": "ConfigureSuccess", **{k: v for k, v in config.items() if k != "type"}}
+    )
     assert controls[-1]["type"] == "stt_config_applied"
     await session.close()
 
@@ -117,14 +132,14 @@ async def test_resumed_turn_can_start_a_new_speculative_candidate():
 
     speech, session, _, _ = adapter()
     try:
-        await speech.handle_stt(
+        await speech.stt.handle_packet(
             {"type": "TurnInfo", "event": "EagerEndOfTurn", "turn_index": 1, "transcript": "Hello"}
         )
         await next_event(session, "draft_ready")
-        await speech.handle_stt(
+        await speech.stt.handle_packet(
             {"type": "TurnInfo", "event": "TurnResumed", "turn_index": 1, "transcript": "Hello"}
         )
-        await speech.handle_stt(
+        await speech.stt.handle_packet(
             {"type": "TurnInfo", "event": "EagerEndOfTurn", "turn_index": 1, "transcript": "Hello again"}
         )
         assert session._current[0] == "Hello again"
@@ -163,11 +178,11 @@ async def test_failed_second_speech_connection_closes_the_first(monkeypatch):
 async def test_informational_warning_does_not_acknowledge_interrupt():
     speech, session, _, _ = adapter()
     await speech.speak_text("Old reply", 1)
-    await speech.handle_tts({"type": "SpeechStarted", "speech_id": "old"})
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "old"})
     await speech.interrupt(0)
-    await speech.handle_tts({"type": "Warning", "code": "PRONUNCIATION_WARNINGS"})
-    assert not speech._interrupt_ready.is_set()
-    assert speech._speech_id == "old"
+    await speech.tts.handle_packet({"type": "Warning", "code": "PRONUNCIATION_WARNINGS"})
+    assert not speech.tts._interrupt_ready.is_set()
+    assert speech.tts._speech_id == "old"
     await session.close()
 
 
@@ -180,10 +195,11 @@ async def test_ignored_interrupt_replaces_tts_connection_before_reuse(monkeypatc
 
     monkeypatch.setattr("libretto.providers.deepgram.websockets.connect", connect)
     await speech.speak_text("Old reply", 1)
-    await speech.handle_tts({"type": "SpeechStarted", "speech_id": "old"})
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "old"})
     await speech.interrupt(0)
-    await speech.handle_tts({"type": "Warning", "code": "NO_AUDIO_GENERATED"})
-    assert speech.tts is replacement
+    await speech.tts.handle_packet({"type": "Warning", "code": "NO_AUDIO_GENERATED"})
+    assert speech.tts.tts is replacement
+    session.epoch = 2
     await speech.speak_text("New reply", 2)
     assert json.loads(replacement.sent[-1])["text"] == "New reply"
     await session.close()

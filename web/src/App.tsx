@@ -157,7 +157,7 @@ export default function App() {
       if (d.epoch === client.current?.gate.current)
         audio.current.finish(d.epoch, d.speech_id);
     } else if (event.type === "speech_interrupted") {
-      const spoken = d.metadata?.text_spoken;
+      const spoken = d.text_spoken;
       if (typeof spoken === "string")
         setChats((old) =>
           old.map((m) =>

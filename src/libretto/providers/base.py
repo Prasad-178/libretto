@@ -1,4 +1,6 @@
-from typing import AsyncIterator, Protocol
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any, AsyncIterator, Literal, Protocol
 
 from pydantic import SecretStr
 
@@ -48,3 +50,64 @@ class Responder(Protocol):
 
 class Evaluator(Protocol):
     async def evaluate(self, context: GenerationContext) -> Evaluation: ...
+
+
+# Providers emit inference/transport events; only the coordinator calls the runtime.
+
+
+@dataclass(frozen=True)
+class STTCapabilities:
+    eager_turns: bool = False
+    patient_profiles: bool = False
+    force_end: bool = False
+
+
+@dataclass(frozen=True)
+class TTSCapabilities:
+    streaming_text: bool = False
+    cancellation: bool = False
+    spoken_prefix: bool = False
+
+
+@dataclass(frozen=True)
+class STTEvent:
+    kind: Literal["started", "resumed", "eager", "final", "status"]
+    text: str = ""
+    turn_id: str = ""
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class TTSEvent:
+    kind: Literal["started", "audio", "finished", "interrupted", "status"]
+    speech_id: str = ""
+    epoch: int = 0
+    message_id: str = ""
+    pcm: bytes = b""
+    text_spoken: str = ""
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+STTEventSink = Callable[[STTEvent], Awaitable[None]]
+TTSEventSink = Callable[[TTSEvent], Awaitable[None]]
+
+
+class STTProvider(Protocol):
+    capabilities: STTCapabilities
+
+    async def open(self) -> None: ...
+    async def close(self) -> None: ...
+    async def send_input(self, pcm: bytes) -> None: ...
+    async def configure(self, *, patient: bool) -> None: ...
+    async def force_end(self) -> None: ...
+
+
+class TTSProvider(Protocol):
+    capabilities: TTSCapabilities
+
+    async def open(self, *, playback_ms: float = 0) -> None: ...
+    async def close(self) -> None: ...
+    async def speak_text(self, text: str, epoch: int, message_id: str = "") -> None: ...
+    async def finish_response(self) -> None: ...
+    async def interrupt(self, playback_ms: float | None = None) -> None: ...
+    async def cancel_output(self, playback_ms: float = 0) -> None: ...

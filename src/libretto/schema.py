@@ -99,6 +99,23 @@ class Models(StrictModel):
     reasoning: Literal["minimal", "low", "medium", "high"] = "minimal"
 
 
+class SpeechEndpoint(StrictModel):
+    provider: str = Field(default="deepgram", min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    model: str = Field(min_length=1, max_length=100)
+
+
+class Speech(StrictModel):
+    stt: SpeechEndpoint = Field(default_factory=lambda: SpeechEndpoint(model="flux-general-en"))
+    tts: SpeechEndpoint = Field(default_factory=lambda: SpeechEndpoint(model="flux-haley-en"))
+    hints: list[str] = Field(default_factory=list, max_length=64)
+
+    @model_validator(mode="after")
+    def bounded_hints(self) -> Self:
+        if any(not hint.strip() or len(hint) > 100 for hint in self.hints):
+            raise ValueError("Speech hints must contain 1-100 characters")
+        return self
+
+
 class Workflow(StrictModel):
     version: Literal[1]
     id: str
@@ -111,6 +128,7 @@ class Workflow(StrictModel):
     knowledge: dict[str, str] = Field(default_factory=dict)
     common_knowledge: list[str] = Field(default_factory=list)
     models: Models = Field(default_factory=Models)
+    speech: Speech = Field(default_factory=Speech)
     nodes: dict[str, Node]
 
     @model_validator(mode="after")

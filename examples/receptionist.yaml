@@ -168,3 +168,9 @@ nodes:
       - {id: another_request, to: identify, condition: The caller has another request.}
       - {id: goodbye, to: end, condition: The caller says goodbye or explicitly ends the conversation.}
   end: {kind: end, title: End}
+
+# Adapters are selected independently from the server's allowlist.
+speech:
+  stt: {provider: deepgram, model: flux-general-en}
+  tts: {provider: deepgram, model: flux-haley-en}
+  hints: [Northline, Jamie, Sam Rivera, Maya Chen, Alex Morgan, billing, partnerships]

@@ -15,11 +15,11 @@ from fastapi.responses import PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
 from libretto.providers.base import ProviderError, SessionCredentials
-from libretto.providers.deepgram import DeepgramSpeechAdapter
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.retrieval import build_index
 from libretto.runtime import Session
 from libretto.schema import Models, StrictModel, load_workflow, parse_workflow
+from libretto.speech import default_speech_registry
 from libretto.tools import ToolRegistry
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,8 +47,13 @@ class WorkflowSource(StrictModel):
 
 
 def create_app(
-    *, load_environment: bool = True, model_factory=OpenRouterAdapter, asset_root: Path | None = None
+    *,
+    load_environment: bool = True,
+    model_factory=OpenRouterAdapter,
+    asset_root: Path | None = None,
+    speech_registry=None,
 ) -> FastAPI:
+    registry = speech_registry or default_speech_registry()
     root = asset_root or ROOT
     if load_environment:
         load_dotenv(root / ".env")
@@ -59,6 +64,7 @@ def create_app(
 
     def compile_source(source: str):
         definition = parse_workflow(source)
+        registry.validate(definition.speech)
         # Visitor edits select only bundled documents and registered simulations.
         if any(path not in workflow.knowledge.values() for path in definition.knowledge.values()):
             raise ValueError("Knowledge must use a bundled document directory")
@@ -242,13 +248,19 @@ def create_app(
                             message="Add an OpenRouter key in Connection settings.",
                         )
                         continue
-                    if event.mode == "voice" and not credentials.key("deepgram"):
-                        await control(
-                            "error",
-                            code="missing_deepgram_key",
-                            message="Add a Deepgram key for live voice, or start text mode.",
-                        )
-                        continue
+                    if event.mode == "voice":
+                        missing = [
+                            name
+                            for name in sorted(registry.required_credentials(session_workflow.speech))
+                            if not credentials.key(name)
+                        ]
+                        if missing:
+                            await control(
+                                "error",
+                                code=f"missing_{missing[0]}_key",
+                                message=f"Add a {missing[0]} key for the selected speech providers, or start text mode.",
+                            )
+                            continue
                     models = Models(
                         speaker=event.speaker_model or session_workflow.models.speaker,
                         evaluator=event.evaluator_model or session_workflow.models.evaluator,
@@ -262,7 +274,9 @@ def create_app(
                     session.defer_actions = event.mode == "voice"
                     started_at = time.monotonic()
                     if event.mode == "voice":
-                        speech = DeepgramSpeechAdapter(credentials, session, audio, speech_control)
+                        speech = registry.create(
+                            session_workflow.speech, credentials, session, audio, speech_control
+                        )
                         session.cancel_output = lambda: speech.cancel_output(last_playback)
                         try:
                             await speech.open()
@@ -309,8 +323,10 @@ def create_app(
                         adapter.credentials = replacement
                         if speech:
                             await speech.close()
-                            speech.credentials = replacement
-                            await speech.open()
+                            speech = registry.create(
+                                session_workflow.speech, replacement, session, audio, speech_control
+                            )
+                            await speech.open(playback_ms=last_playback)
                         await control("credentials_updated", credentials=replacement.public_status())
                     elif event.type == "export":
                         await control(
