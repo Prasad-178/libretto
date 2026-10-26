@@ -62,8 +62,13 @@ def test_unknown_top_level_configuration_is_rejected(tmp_path):
 def test_receptionist_example_is_executable():
     from libretto.schema import load_workflow
 
-    flow = load_workflow(Path('examples/receptionist.yaml'))
-    assert flow.nodes['transfer'].tool == 'transfer_call'
-    assert flow.nodes['save_message'].requires == [
-        'recipient', 'caller_name', 'callback_number', 'message', 'message_consent', 'message_confirmed'
+    flow = load_workflow(Path("examples/receptionist.yaml"))
+    assert flow.nodes["transfer"].tool == "transfer_call"
+    assert flow.nodes["save_message"].requires == [
+        "recipient",
+        "caller_name",
+        "callback_number",
+        "message",
+        "message_consent",
+        "message_confirmed",
     ]
