@@ -1,0 +1,15 @@
+version: 1
+id: tiny-survey
+name: A one-question survey
+start: question
+shared_prompt: Speak English. Ask one question at a time.
+fields:
+  answer: {type: string, description: The user's answer}
+nodes:
+  question:
+    kind: conversation
+    title: One question
+    prompt: Ask what makes a useful demo. Thank the caller when answered.
+    edges:
+      - {id: answered, to: end, condition: The user answered or declined the question.}
+  end: {kind: end, title: Finished}
