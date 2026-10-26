@@ -193,3 +193,11 @@ export function buildGraph(workflow: Workflow): {
   }
   return { nodes, edges };
 }
+
+export function resizeViewport(
+  viewport: { x: number; y: number; zoom: number },
+  previousWidth: number,
+  nextWidth: number,
+) {
+  return { ...viewport, x: viewport.x + (nextWidth - previousWidth) / 2 };
+}

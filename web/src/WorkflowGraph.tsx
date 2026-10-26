@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -31,6 +31,7 @@ import {
 import {
   branchLabel,
   buildGraph,
+  resizeViewport,
   type BranchEdge,
   type Point,
   type StageNode,
@@ -254,6 +255,27 @@ export default function WorkflowGraph({
       };
     }
   }, [definition]);
+  useEffect(() => {
+    const canvas = viewport.current;
+    if (!canvas) return;
+    let width = canvas.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = canvas.clientWidth;
+      if (
+        instance.current &&
+        width > 0 &&
+        nextWidth > 0 &&
+        nextWidth !== width
+      ) {
+        void instance.current.setViewport(
+          resizeViewport(instance.current.getViewport(), width, nextWidth),
+        );
+      }
+      width = nextWidth;
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [graph.error]);
   const selectedNode =
     selected && definition && Object.hasOwn(definition.nodes, selected)
       ? definition.nodes[selected]

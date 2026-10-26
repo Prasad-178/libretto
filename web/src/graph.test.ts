@@ -141,3 +141,12 @@ it("preserves logical grouping and every condition on a transition", () => {
     }),
   ).toBe("approved = true · Result: captured · Caller approves");
 });
+
+it("keeps the same graph point centered when the canvas becomes mobile width", () => {
+  const previous = { x: -120, y: 48, zoom: 0.78 };
+  const next = graph.resizeViewport(previous, 1100, 369);
+  const graphCenter = (1100 / 2 - previous.x) / previous.zoom;
+  expect(graphCenter * next.zoom + next.x).toBeCloseTo(369 / 2);
+  expect(next.y).toBe(previous.y);
+  expect(next.zoom).toBe(previous.zoom);
+});
