@@ -46,6 +46,8 @@ import {
 import { readWorkflow, type Workflow } from "./workflow";
 import { SessionClient, safeExport, type EventPacket } from "./client";
 import { decodeAudioFrame, VoiceAudio } from "./audio";
+import { TurnTimings } from "./timing";
+import { VoiceCall, VoiceOrb } from "./VoiceCall";
 
 import { updateDelivery, retainEvent, type Chat } from "./conversation";
 
@@ -109,13 +111,18 @@ export default function App() {
   const [remaining, setRemaining] = useState(300);
   const [gap, setGap] = useState<number | null>(null);
   const [mic, setMic] = useState(false);
+  const orbRef = useRef<HTMLDivElement>(null);
   const client = useRef<SessionClient | null>(null);
   const audio = useRef(new VoiceAudio());
   const deadline = useRef(0);
   const traceRef = useRef<EventPacket[]>([]);
   const activeReply = useRef("");
-  const lastInputAt = useRef(0);
-  const firstAudioEpoch = useRef(-1);
+  const timings = useRef(new TurnTimings());
+  const replyKinds = useRef(new Map<string, string>());
+  const sessionClockBase = useRef(0);
+  const [timingSummary, setTimingSummary] = useState<
+    ReturnType<TurnTimings["export"]>["summary"] | null
+  >(null);
   const ready = useRef(false);
   const handleRef = useRef<(event: EventPacket) => void>(() => {});
   const bottom = useRef<HTMLDivElement>(null);
@@ -130,7 +137,16 @@ export default function App() {
     const d = event.data;
     if (retainEvent(event))
       traceRef.current = [...traceRef.current.slice(-499), event];
-    if (["interrupted", "speech_interrupted", "playback"].includes(event.type))
+    if (
+      [
+        "interrupted",
+        "speech_interrupted",
+        "playback",
+        "expired",
+        "ended",
+        "call_closed",
+      ].includes(event.type)
+    )
       setChats((old) => updateDelivery(old, event));
     if (!["text_delta", "playback", "draft_ready"].includes(event.type))
       setTrace((old) => [...old.slice(-99), event]);
@@ -145,8 +161,8 @@ export default function App() {
       setPhase("Listening");
       setOrKey("");
       setDgKey("");
-      deadline.current =
-        performance.now() + (d.call_limit_seconds - event.at) * 1000;
+      sessionClockBase.current = performance.now() - event.at * 1000;
+      deadline.current = sessionClockBase.current + d.call_limit_seconds * 1000;
       if (d.mode === "voice") void enableMicrophone();
     } else if (event.type === "state") {
       setActive(d.active_stage);
@@ -155,15 +171,40 @@ export default function App() {
       setReceipts(d.receipts);
     } else if (event.type === "turn") {
       setPhase(d.speculative ? "Preparing a reply" : "Thinking");
-      if (!d.speculative) upsertUser(d.turn_id, d.text);
+      if (!d.speculative) {
+        upsertUser(d.turn_id, d.text);
+        timings.current.confirm(
+          event.epoch,
+          d.turn_id,
+          performance.now(),
+          null,
+        );
+      }
     } else if (event.type === "transcript") {
       upsertUser(d.turn_id, d.text);
-      lastInputAt.current = audio.current.lastVoiceAt || performance.now();
-    } else if (event.type === "retrieval") setSources(d.passages);
-    else if (event.type === "first_text")
+      timings.current.confirm(
+        event.epoch,
+        d.turn_id,
+        performance.now(),
+        mode === "voice" ? audio.current.lastVoiceAt || null : null,
+      );
+      setTimingSummary(timings.current.export().summary);
+    } else if (event.type === "retrieval") {
+      setSources(d.passages);
+      timings.current.retrieval(event.epoch, d.turn_id, d.duration_ms);
+      setTimingSummary(timings.current.export().summary);
+    } else if (event.type === "first_text") {
       activeReply.current =
         d.message_id || `${d.turn_id}-${event.epoch}-${event.at}`;
-    else if (event.type === "text_delta") {
+      replyKinds.current.set(activeReply.current, d.response_kind || "reply");
+    } else if (event.type === "speech_started") {
+      timings.current.bind(
+        d.speech_id,
+        d.message_id,
+        event.epoch,
+        replyKinds.current.get(d.message_id) || "reply",
+      );
+    } else if (event.type === "text_delta") {
       setPhase("Responding");
       const id = activeReply.current || `${d.turn_id}-${event.epoch}`;
       setChats((old) => {
@@ -173,7 +214,14 @@ export default function App() {
           : [...old, { id, role: "assistant", text: d.text }];
       });
     } else if (event.type === "response_done") {
-      if (mode === "text") setPhase("Listening");
+      if (mode === "text") {
+        setPhase("Listening");
+        setChats((old) =>
+          old.map((m) =>
+            m.id === d.message_id ? { ...m, delivered: true } : m,
+          ),
+        );
+      }
     } else if (event.type === "speech_finished") {
       if (d.epoch === client.current?.gate.current)
         audio.current.finish(d.epoch, d.speech_id);
@@ -259,20 +307,34 @@ export default function App() {
         try {
           const frame = decodeAudioFrame(buffer);
           if (!client.current?.gate.accept(frame.epoch)) return;
-          if (firstAudioEpoch.current !== frame.epoch)
-            firstAudioEpoch.current = frame.epoch;
+          timings.current.audio(frame.speechId, frame.epoch, performance.now());
           audio.current.push(frame);
         } catch {
           setError("An audio frame could not be played.");
         }
       },
       () => {
+        setChats((old) =>
+          updateDelivery(old, {
+            type: "call_closed",
+            epoch: 0,
+            at: 0,
+            data: {},
+          }),
+        );
+        const wasReady = ready.current;
         ready.current = false;
         setConnected(false);
         setConnecting(false);
         setMic(false);
         void audio.current.close();
-        setPhase("Disconnected · start a fresh session");
+        setPhase((current) =>
+          wasReady
+            ? "Disconnected · start a fresh session"
+            : current === "Connecting"
+              ? "Connection ended · try again"
+              : current,
+        );
       },
     );
     audio.current.onProgress = (ms, drained, epoch, speechId) => {
@@ -285,11 +347,26 @@ export default function App() {
         speech_id: speechId,
       });
       if (drained) setPhase("Listening");
-      if (firstAudioEpoch.current === epoch && lastInputAt.current) {
-        setGap(performance.now() - lastInputAt.current);
-        firstAudioEpoch.current = -2;
-        lastInputAt.current = 0;
-      }
+    };
+    audio.current.onLevel = (level) => {
+      orbRef.current?.style.setProperty(
+        "--voice-scale",
+        String(1 + level * 0.12),
+      );
+    };
+    audio.current.onFirstPlayback = (speechId, epoch, at, method) => {
+      if (!ready.current || epoch !== client.current?.gate.current) return;
+      const result = timings.current.played(speechId, epoch, at, method);
+      if (!result) return;
+      setPhase("Speaking");
+      if (result.kind === "reply") setGap(result.estimated_ttfs_ms);
+      setTimingSummary(timings.current.export().summary);
+      handleRef.current({
+        type: "playback_started",
+        epoch,
+        at: (at - sessionClockBase.current) / 1000,
+        data: { ...result, clock: "browser_performance_ms" },
+      });
     };
     audio.current.onError = (message) => {
       setError(message);
@@ -356,6 +433,9 @@ export default function App() {
       setPhase("Connecting");
       setRemaining(config?.call_limit_seconds ?? 300);
       setGap(null);
+      timings.current = new TurnTimings();
+      replyKinds.current.clear();
+      setTimingSummary(null);
       setChats([]);
       setFacts({});
       setSources([]);
@@ -385,7 +465,7 @@ export default function App() {
     const id = crypto.randomUUID();
     audio.current.interrupt((client.current?.gate.current || 0) + 1);
     upsertUser(id, input.trim());
-    lastInputAt.current = 0;
+
     client.current?.send({ type: "text", text: input.trim(), turn_id: id });
     setInput("");
   }
@@ -397,6 +477,9 @@ export default function App() {
     });
   }
   function end() {
+    setChats((old) =>
+      updateDelivery(old, { type: "call_closed", epoch: 0, at: 0, data: {} }),
+    );
     client.current?.send({ type: "close" });
     client.current?.close();
     void audio.current.close();
@@ -414,6 +497,7 @@ export default function App() {
       messages: chats,
       receipts,
       events: traceRef.current,
+      timings: timings.current.export(),
     });
     const blob = new Blob([JSON.stringify(content, null, 2)], {
       type: "application/json",
@@ -483,6 +567,14 @@ export default function App() {
 
   return (
     <div className={`studio ${showTest ? "with-test" : ""}`}>
+      {connected && !showTest && (
+        <div className="minimized-call">
+          <button onClick={() => setShowTest(true)}>
+            <Radio size={15} /> Return to call <span>{minutes}</span>
+          </button>
+          <button onClick={end}>End call</button>
+        </div>
+      )}
       <aside className="app-sidebar">
         <a href="/" className="studio-brand">
           <span className="brand-bars">
@@ -692,10 +784,12 @@ export default function App() {
                   <Radio size={15} /> Test your agent
                 </span>
                 <button
-                  title="Close test panel"
+                  title="Back to editor"
+                  aria-label="Back to editor"
                   onClick={() => setShowTest(false)}
                 >
                   <PanelRightClose size={16} />
+                  <span>Editor</span>
                 </button>
               </div>
               <div className="test-options">
@@ -737,6 +831,24 @@ export default function App() {
                   ),
                 )}
               </div>
+              {mode === "voice" && (connected || connecting) && (
+                <VoiceCall
+                  name={liveWorkflow?.name || "Your agent"}
+                  phase={phase}
+                  connecting={connecting}
+                  mic={mic}
+                  remaining={remaining}
+                  orbRef={orbRef}
+                  onMute={() => {
+                    if (mic) {
+                      audio.current.stopMicrophone();
+                      setMic(false);
+                    } else void enableMicrophone();
+                  }}
+                  onEnd={end}
+                  onInterrupt={stop}
+                />
+              )}
               {activeScenario && testTab === "conversation" && (
                 <div className="scenario-guide">
                   <div>
@@ -789,15 +901,15 @@ export default function App() {
                   onPrepare={prepareTest}
                 />
               ) : testTab === "conversation" ? (
-                <div className="chat-scroll" aria-live="polite">
-                  {!chats.length ? (
+                <div
+                  className="chat-scroll"
+                  aria-live="polite"
+                  aria-label="Conversation transcript"
+                >
+                  {!chats.length &&
+                  !(mode === "voice" && (connected || connecting)) ? (
                     <div className="test-empty">
-                      <div
-                        className={`voice-orb ${connected ? "orb-live" : ""}`}
-                      >
-                        <div />
-                        <AudioLines size={35} strokeWidth={1.3} />
-                      </div>
+                      <VoiceOrb state={connecting ? "connecting" : "ready"} />
                       <h2>
                         {connected
                           ? "Your agent is listening"
@@ -886,14 +998,37 @@ export default function App() {
                         </span>
                       </div>
                       <div className="gap-card">
-                        <span>Estimated response gap</span>
+                        <span>Estimated TTFS</span>
                         <strong>
                           {gap === null ? "—" : `${(gap / 1000).toFixed(2)}s`}
                         </strong>
                         <small>
-                          Voice-activity estimate, not a latency benchmark.
+                          Microphone activity to first playback; estimated
+                          output timing.
                         </small>
                       </div>
+                      {timingSummary?.estimated_ttfs_ms.count ? (
+                        <small>
+                          {timingSummary.estimated_ttfs_ms.count} replies · avg{" "}
+                          {(
+                            (timingSummary.estimated_ttfs_ms.mean ?? 0) / 1000
+                          ).toFixed(2)}
+                          s · median{" "}
+                          {(
+                            (timingSummary.estimated_ttfs_ms.median ?? 0) / 1000
+                          ).toFixed(2)}
+                          s
+                        </small>
+                      ) : null}
+                      {timingSummary?.retrieval_ms.count ? (
+                        <small>
+                          RAG · avg{" "}
+                          {(timingSummary.retrieval_ms.mean ?? 0).toFixed(3)}ms
+                          · median{" "}
+                          {(timingSummary.retrieval_ms.median ?? 0).toFixed(3)}
+                          ms
+                        </small>
+                      ) : null}
                       <h3>
                         Collected facts <span>{Object.keys(facts).length}</span>
                       </h3>
@@ -985,7 +1120,9 @@ export default function App() {
                   </button>
                 </div>
               )}
-              <div className="test-session-status">
+              <div
+                className={`test-session-status ${mode === "voice" && connected ? "voice-session-status" : ""}`}
+              >
                 <span className={connected ? "status-online" : ""}>
                   <i />
                   {phase}

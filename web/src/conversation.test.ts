@@ -73,3 +73,13 @@ it("restores the full text when a delayed drain follows prefix reconciliation", 
   expect(heard[0].text).toBe("Full answer");
   expect(heard[0].interrupted).toBe(false);
 });
+
+it("marks only unplayed speech incomplete when a call expires", () => {
+  const chats: Chat[] = [
+    { id: "one", role: "assistant", text: "Heard", delivered: true },
+    { id: "two", role: "assistant", text: "Still playing" },
+  ];
+  const ended = updateDelivery(chats, event("expired", {}));
+  expect(ended[0].interrupted).toBeUndefined();
+  expect(ended[1].interrupted).toBe(true);
+});

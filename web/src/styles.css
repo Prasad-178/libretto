@@ -2064,3 +2064,495 @@ small,
   display: block;
   margin-top: 6px;
 }
+
+/* A small CSS orb: no canvas, WebGL, animation runtime or per-frame React renders. */
+.call-orb-wrap {
+  position: relative;
+  width: 132px;
+  height: 147px;
+  margin: 0 auto;
+  isolation: isolate;
+  --voice-scale: 1;
+}
+.call-orb {
+  position: absolute;
+  width: 116px;
+  height: 116px;
+  top: 8px;
+  left: 8px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #bedce6;
+  box-shadow:
+    inset -8px -12px 24px #6085ab55,
+    inset 5px 5px 20px #fff9,
+    0 7px 22px #829eb826;
+  transform: scale(var(--voice-scale));
+  transition: transform 120ms ease;
+}
+.call-orb-current {
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 35deg,
+    #e1f5ed,
+    #88bdce,
+    #578ab3,
+    #d8e4f0,
+    #9edac9,
+    #e1f5ed
+  );
+  animation: orb-turn 16s linear infinite;
+}
+.call-orb-light {
+  position: absolute;
+  inset: -15%;
+  border-radius: 40%;
+  background:
+    radial-gradient(ellipse at 35% 25%, #ffffffed, transparent 52%),
+    radial-gradient(ellipse at 70% 65%, #3e82aa99, transparent 60%);
+  animation: orb-drift 9s ease-in-out infinite alternate;
+}
+.call-orb-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 14px #ffffffe0,
+    inset -15px -16px 24px #24476c33;
+  background: radial-gradient(circle at 31% 23%, #fff9, transparent 24%);
+}
+.call-orb-halo {
+  position: absolute;
+  inset: 0 0 15px;
+  border: 1px solid #c6dfdf66;
+  border-radius: 50%;
+  transform: scale(1.06);
+}
+.call-orb-shadow {
+  position: absolute;
+  width: 60px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c1ccd844;
+  left: 36px;
+  bottom: 4px;
+}
+.call-orb-wrap[data-state="speaking"] .call-orb {
+  animation: orb-speak 1.6s ease-in-out infinite;
+}
+.call-orb-wrap[data-state="thinking"] .call-orb-current,
+.call-orb-wrap[data-state="connecting"] .call-orb-current {
+  animation-duration: 5s;
+}
+.call-orb-wrap[data-state="muted"] .call-orb {
+  opacity: 0.65;
+  transform: scale(0.94);
+}
+.call-orb-wrap[data-state="muted"] .call-orb-current,
+.call-orb-wrap[data-state="muted"] .call-orb-light,
+.call-orb-wrap[data-state="ready"] .call-orb-current,
+.call-orb-wrap[data-state="ready"] .call-orb-light {
+  animation-play-state: paused;
+}
+@keyframes orb-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes orb-drift {
+  to {
+    transform: rotate(35deg) scale(1.12);
+  }
+}
+@keyframes orb-speak {
+  50% {
+    transform: scale(1.045);
+  }
+}
+.live-call {
+  flex-shrink: 0;
+  padding: 14px 24px 10px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(ellipse at 50% 35%, #eef5f4a6, transparent 72%), #fff;
+}
+.call-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #6d767c;
+  margin-bottom: 5px;
+}
+.call-topline > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.call-topline i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4d9b87;
+}
+.call-topline time {
+  font-variant-numeric: tabular-nums;
+  color: #4f5b65;
+  border: 1px solid #e5e9e9;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 7px;
+}
+.call-caption {
+  text-align: center;
+}
+.call-caption > p {
+  font-size: 10px;
+  color: #7a8388;
+  margin: 3px 0 5px;
+}
+.call-caption h2 {
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -0.5px;
+}
+.call-caption > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #868c90;
+  margin-top: 7px;
+  min-height: 14px;
+}
+.call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.call-actions > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 550;
+  min-width: 110px;
+  flex: 1;
+  max-width: 160px;
+}
+.call-mute {
+  border: 1px solid #e0e5e7;
+  background: #fff;
+  box-shadow: 0 1px 2px #18202b06;
+}
+.call-mute:hover,
+.call-mute.is-muted {
+  background: #eef2f3;
+}
+.call-actions .call-end {
+  color: #fff;
+  background: #c94343;
+  border: 1px solid #ba3e3e;
+  box-shadow: 0 1px 2px #aa252512;
+}
+.call-actions .call-end:hover {
+  background: #b53737;
+}
+.call-interrupt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 8px auto 0;
+  min-height: 30px;
+  font-size: 10px;
+  color: #7f878e;
+}
+.voice-session-status > div {
+  display: none;
+}
+.voice-session-status {
+  min-height: 26px;
+}
+.minimized-call {
+  position: fixed;
+  z-index: 60;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  padding: 6px;
+  gap: 6px;
+  border: 1px solid #dce2e4;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 30px #24374622;
+  white-space: nowrap;
+}
+.minimized-call button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  font-size: 12px;
+}
+.minimized-call button:last-child {
+  color: #be3535;
+  background: #fff0ef;
+  border-radius: 7px;
+}
+.minimized-call span {
+  font-variant-numeric: tabular-nums;
+  color: #788187;
+}
+@media (max-height: 760px) and (min-width: 681px) {
+  .live-call {
+    padding-top: 10px;
+  }
+  .live-call .call-orb-wrap {
+    width: 96px;
+    height: 105px;
+  }
+  .live-call .call-orb {
+    width: 82px;
+    height: 82px;
+    left: 7px;
+    top: 7px;
+  }
+  .live-call .call-orb-shadow {
+    display: none;
+  }
+  .live-call .call-actions {
+    margin-top: 12px;
+  }
+}
+@media (max-width: 680px) {
+  .studio {
+    min-width: 0;
+  }
+  .app-sidebar {
+    width: 46px;
+  }
+  .agent-tabs {
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+  .agent-tabs > div {
+    gap: 14px;
+  }
+  .agent-tabs button {
+    white-space: nowrap;
+    min-height: 42px;
+  }
+  .agent-header {
+    gap: 8px;
+  }
+  .studio-main,
+  .definition-panel {
+    min-width: 0;
+  }
+  .with-test .app-sidebar,
+  .with-test .studio-main > .breadcrumb,
+  .with-test .studio-main > .agent-header,
+  .with-test .studio-main > .agent-tabs,
+  .with-test .definition-panel {
+    display: none;
+  }
+  .with-test,
+  .with-test .studio-main,
+  .with-test .editor-layout {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .with-test .test-panel {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+  }
+  .test-heading {
+    padding-top: env(safe-area-inset-top);
+    height: calc(51px + env(safe-area-inset-top));
+  }
+  .test-heading button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .test-tabs {
+    padding-left: 18px;
+    padding-right: 18px;
+    gap: 20px;
+  }
+  .test-tabs button {
+    min-height: 42px;
+    font-size: 12px;
+  }
+  .live-call {
+    padding: 12px 24px 8px;
+  }
+  .call-actions > button {
+    height: 48px;
+  }
+  .composer input {
+    font-size: 16px;
+    min-width: 0;
+  }
+  .composer {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+  .test-footer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .chat-scroll {
+    min-height: 70px;
+  }
+  .message p {
+    overflow-wrap: anywhere;
+  }
+  .connection-dialog {
+    width: min(460px, calc(100vw - 24px));
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .config-grid,
+  .model-fields {
+    min-width: 0;
+  }
+  .test-empty {
+    padding: 36px 22px 20px;
+  }
+}
+@media (max-height: 650px) {
+  .live-call .call-orb-wrap {
+    display: none;
+  }
+  .live-call {
+    padding-top: 8px;
+  }
+  .call-caption > p {
+    display: none;
+  }
+  .call-actions {
+    margin-top: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .call-orb-wrap *,
+  .call-orb {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .connection-dialog {
+    padding: 20px;
+  }
+  .connection-dialog .input-label input,
+  .connection-dialog .input-label select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .dialog-connect {
+    min-height: 46px;
+  }
+  .dialog-top > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+.test-inspector > small {
+  display: block;
+  line-height: 1.6;
+  margin: 7px 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 680px) and (max-height: 900px) {
+  .live-call {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    column-gap: 12px;
+    padding: 10px 18px 6px;
+  }
+  .call-topline {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+  }
+  .live-call .call-orb-wrap {
+    display: block;
+    width: 88px;
+    height: 95px;
+    grid-column: 1;
+  }
+  .live-call .call-orb {
+    width: 78px;
+    height: 78px;
+    top: 5px;
+    left: 5px;
+  }
+  .live-call .call-orb-shadow {
+    width: 40px;
+    left: 24px;
+    bottom: 1px;
+  }
+  .call-caption {
+    grid-column: 2;
+    align-self: center;
+    text-align: left;
+  }
+  .call-caption > span {
+    justify-content: flex-start;
+  }
+  .call-caption h2 {
+    font-size: 16px;
+  }
+  .call-caption > p {
+    display: block;
+  }
+  .call-actions {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+  }
+  .call-interrupt {
+    grid-column: 1 / -1;
+    min-height: 28px;
+    margin-top: 3px;
+  }
+  .voice-session-status {
+    display: none;
+  }
+  .test-options {
+    padding-top: 10px;
+    padding-bottom: 8px;
+  }
+  .chat-scroll {
+    min-height: 40px;
+  }
+}
+.test-heading > button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.test-heading > button span {
+  font-size: 10px;
+}
+@media (max-width: 680px) {
+  .yaml-workspace .cm-editor {
+    font-size: 12px;
+  }
+}

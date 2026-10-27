@@ -4,6 +4,7 @@ export type FlowNode = {
   title: string;
   prompt: string;
   text?: string;
+  readback?: string;
   tools: string[];
   tool?: string | null;
   knowledge?: string[];
@@ -24,6 +25,7 @@ export type Workflow = {
   name: string;
   description: string;
   shared_prompt: string;
+  welcome?: string;
   start: string;
   models: { speaker: string; evaluator: string };
   fields?: Record<string, { type: string; description: string }>;
@@ -64,7 +66,7 @@ export function readWorkflow(source: string): Workflow | null {
           node &&
           typeof node === "object" &&
           typeof node.kind === "string" &&
-          optionalText(node, ["title", "prompt", "text"]) &&
+          optionalText(node, ["title", "prompt", "text", "readback"]) &&
           (node.tool === undefined ||
             node.tool === null ||
             typeof node.tool === "string") &&

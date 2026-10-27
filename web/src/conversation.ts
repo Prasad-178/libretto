@@ -21,6 +21,8 @@ export function updateDelivery(chats: Chat[], event: EventPacket): Chat[] {
         interrupted: false,
       };
     if (m.delivered) return m;
+    if (["expired", "ended", "call_closed"].includes(event.type))
+      return { ...m, interrupted: true };
     if (event.type === "interrupted" && d.message_ids?.includes(m.id))
       return { ...m, interrupted: true };
     if (event.type === "speech_interrupted" && m.id === d.message_id)
