@@ -147,7 +147,7 @@ async def test_changed_transcript_discards_speculative_answer():
         await session.confirm_turn("Different final words", "t1")
         await next_event(session, "response_done")
         assert session.state.history[0].content == "Different final words"
-        assert len([e for e in session.trace if e.type == "text_delta"]) == 1
+        assert len([e for e in session.trace if e.type == "response_done"]) == 1
     finally:
         await session.close()
 
@@ -333,5 +333,64 @@ async def test_voice_history_uses_only_played_or_aligned_text():
         session.reconcile_speech("speech-a", "A useful", interrupted=True)
         assert session.state.history[-1].content == "A useful"
         assert session.state.history[-1].interrupted
+    finally:
+        await session.close()
+
+
+async def test_new_turn_only_reports_replies_that_were_actually_interrupted():
+    session = make_session(Evaluator())
+    session.defer_actions = True
+    try:
+        await session.submit_turn("Hello", "one")
+        done = await next_event(session, "response_done")
+        message_id = done.data["message_id"]
+        session.bind_speech("speech-one", message_id)
+        session.playback_finished("speech-one")
+        await session.submit_turn("Another question", "two")
+        interruption = await next_event(session, "interrupted")
+        assert interruption.data["message_ids"] == []
+        assert not next(m for m in session.state.history if m.id == message_id).interrupted
+        await next_event(session, "response_done")
+        await session.interrupt()
+        interruption = await next_event(session, "interrupted")
+        assert interruption.data["message_ids"] == ["reply-2"]
+    finally:
+        await session.close()
+
+
+async def test_late_drain_ack_restores_heard_history_without_advancing_new_turn():
+    session = make_session(Evaluator())
+    session.defer_actions = True
+    try:
+        await session.submit_turn("Hello", "one")
+        done = await next_event(session, "response_done")
+        session.bind_speech("one", done.data["message_id"])
+        await session.submit_turn("Another question", "two")
+        session.playback_finished("one")
+        heard = next(m for m in session.state.history if m.id == done.data["message_id"])
+        assert heard.delivered and not heard.interrupted
+        assert heard.content == "A useful answer."
+        assert not session._playback_done.is_set()
+        session.reconcile_speech("one", "A useful", interrupted=True)
+        assert heard.content == "A useful answer."
+        assert not heard.interrupted
+    finally:
+        await session.close()
+
+
+async def test_trace_keeps_call_start_and_errors_through_audio_progress_noise():
+    session = make_session(Evaluator())
+    try:
+        await session.emit("ready")
+        await session.emit("evaluation_error", code="invalid_evidence")
+        # Drain the live queue, as the server does; only retained diagnostics matter.
+        for n in range(1200):
+            await session.emit("playback", playback_ms=n, drained=False)
+            session.queue.get_nowait()
+        await session.emit("playback", playback_ms=1200, drained=True, speech_id="one")
+        assert session.trace[0].type == "ready"
+        assert any(e.type == "evaluation_error" for e in session.trace)
+        assert session.trace[-1].data["speech_id"] == "one"
+        assert len(session.trace) == 3
     finally:
         await session.close()

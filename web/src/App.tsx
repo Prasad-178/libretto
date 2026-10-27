@@ -47,14 +47,10 @@ import { readWorkflow, type Workflow } from "./workflow";
 import { SessionClient, safeExport, type EventPacket } from "./client";
 import { decodeAudioFrame, VoiceAudio } from "./audio";
 
+import { updateDelivery, retainEvent, type Chat } from "./conversation";
+
 const WorkflowGraph = lazy(() => import("./WorkflowGraph"));
 
-type Chat = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  interrupted?: boolean;
-};
 type Fact = {
   value: string | boolean | null;
   status: string;
@@ -132,7 +128,10 @@ export default function App() {
   }
   function handleEvent(event: EventPacket) {
     const d = event.data;
-    traceRef.current = [...traceRef.current.slice(-499), event];
+    if (retainEvent(event))
+      traceRef.current = [...traceRef.current.slice(-499), event];
+    if (["interrupted", "speech_interrupted", "playback"].includes(event.type))
+      setChats((old) => updateDelivery(old, event));
     if (!["text_delta", "playback", "draft_ready"].includes(event.type))
       setTrace((old) => [...old.slice(-99), event]);
     if (event.type === "ready") {
@@ -177,24 +176,9 @@ export default function App() {
     } else if (event.type === "speech_finished") {
       if (d.epoch === client.current?.gate.current)
         audio.current.finish(d.epoch, d.speech_id);
-    } else if (event.type === "speech_interrupted") {
-      const spoken = d.text_spoken;
-      if (typeof spoken === "string")
-        setChats((old) =>
-          old.map((m) =>
-            m.id === d.message_id
-              ? { ...m, text: spoken, interrupted: true }
-              : m,
-          ),
-        );
     } else if (event.type === "interrupted") {
       audio.current.interrupt(event.epoch);
       setPhase("Listening");
-      setChats((old) =>
-        old.map((m) =>
-          m.id === activeReply.current ? { ...m, interrupted: true } : m,
-        ),
-      );
     } else if (event.type === "error" || event.type === "speech_error") {
       setError(d.message || "The provider could not complete this request.");
       setConnecting(false);

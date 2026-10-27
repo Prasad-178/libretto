@@ -365,9 +365,15 @@ def create_app(
                         await session.interrupt()
                     elif event.type == "force_end" and speech:
                         await speech.force_end()
-                    elif event.type == "playback" and event.epoch == session.epoch:
+                    elif event.type == "playback" and event.epoch <= session.epoch:
                         last_playback = max(last_playback, event.playback_ms)
-                        await session.emit("playback", playback_ms=last_playback, drained=event.drained)
+                        await session.emit(
+                            "playback",
+                            playback_ms=last_playback,
+                            drained=event.drained,
+                            speech_id=event.speech_id,
+                            message_id=session._speech_messages.get(event.speech_id, ""),
+                        )
                         if event.drained:
                             session.playback_finished(event.speech_id)
                     elif event.type == "credentials":

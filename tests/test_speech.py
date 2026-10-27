@@ -204,3 +204,17 @@ async def test_ignored_interrupt_replaces_tts_connection_before_reuse(monkeypatc
     assert json.loads(replacement.sent[-1])["text"] == "New reply"
     await session.close()
     await speech.close()
+
+
+async def test_interrupt_uses_integer_session_milliseconds_after_reconnection():
+    # Flux rejects fractional numbers with fatal MESSAGE-0000, even though browser
+    # PCM playback naturally reports fractions of milliseconds.
+    speech, session, _, _ = adapter()
+    speech.tts._playback_base = 1000.25
+    await speech.speak_text("A reply", 1)
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "one"})
+    await speech.interrupt(1120.583333)
+    packet = json.loads(speech.tts.tts.sent[-1])
+    assert packet["playback_offset"] == {"type": "time_ms", "value": 120}
+    assert type(packet["playback_offset"]["value"]) is int
+    await session.close()

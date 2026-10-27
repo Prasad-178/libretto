@@ -220,7 +220,7 @@ class DeepgramTTS(_Transport):
             if playback_ms is not None:
                 packet["playback_offset"] = {
                     "type": "time_ms",
-                    "value": max(0, playback_ms - self._playback_base),
+                    "value": max(0, int(playback_ms - self._playback_base)),
                 }
             await self.tts.send(json.dumps(packet))
 

@@ -68,7 +68,8 @@ class Session:
 
     async def emit(self, kind: str, **data) -> None:
         event = ServerEvent(kind, self.epoch, data, self.clock() - self.created_at)
-        self.trace.append(event)
+        if kind not in {"text_delta", "draft_ready"} and (kind != "playback" or data.get("drained")):
+            self.trace.append(event)
         await self.queue.put(event)
 
     async def events(self) -> AsyncIterator[ServerEvent]:
@@ -455,7 +456,7 @@ class Session:
     def reconcile_speech(self, speech_id: str, spoken: str, *, interrupted: bool) -> None:
         message_id = self._speech_messages.get(speech_id)
         message = next((m for m in self.state.history if m.id == message_id), None)
-        if message:
+        if message and not message.delivered:
             message.content = spoken[:4000]
             message.delivered = not interrupted
             message.interrupted = interrupted
@@ -467,9 +468,14 @@ class Session:
         message = next((m for m in self.state.history if m.id == message_id), None)
         if speech_id and not message:
             return
-        if message and message.epoch == self.epoch and not message.interrupted:
+        if message:
+            # A drain ack can cross the new-turn boundary. Restore heard history,
+            # but never release actions or grant readback confirmation for that epoch.
             message.content = message.generated_content
             message.delivered = True
+            message.interrupted = False
+            if message.epoch != self.epoch:
+                return
             self._record_readback()
         if all(
             m.delivered or m.interrupted
@@ -490,6 +496,7 @@ class Session:
         self._pending = None
         self.state.pending_stage = None
         self._speaking = False
+        interrupted_ids = []
         for message in self.state.history:
             if message.role == "assistant" and (
                 not message.delivered
@@ -500,6 +507,8 @@ class Session:
                     and message.turn_id == self._current[1]
                 )
             ):
+                if not message.interrupted:
+                    interrupted_ids.append(message.id)
                 message.interrupted = True
         if (
             self.state.history
@@ -508,7 +517,7 @@ class Session:
         ):
             self.state.readback_fingerprint = None
         if notify:
-            await self.emit("interrupted")
+            await self.emit("interrupted", message_ids=interrupted_ids)
         if self.cancel_output and not self.closed:
             await self.cancel_output()
 
