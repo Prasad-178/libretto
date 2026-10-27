@@ -164,3 +164,131 @@ async def test_a_later_confirmation_of_an_existing_readback_can_capture():
         assert len(session.state.receipts) == 1
     finally:
         await session.close()
+
+
+async def test_validated_readback_is_generated_without_another_model_and_requires_playback():
+    from libretto.runtime import Session
+    from libretto.tools import ToolRegistry
+
+    class CountingSpeaker:
+        calls = 0
+
+        async def stream_reply(self, context):
+            self.calls += 1
+            yield "Thanks for those details."
+
+    speaker = CountingSpeaker()
+    evaluator = Evaluator(
+        matches=["leave_message"],
+        updates={
+            "recipient": {"value": "support", "evidence": "support"},
+            "caller_name": {"value": "Taylor", "evidence": "Taylor"},
+            "callback_number": {"value": "+1 202 555 0142", "evidence": "+1 202 555 0142"},
+            "message": {
+                "value": "Custom setup and a 3 to 4 month discount",
+                "evidence": "Custom setup and a 3 to 4 month discount",
+            },
+            "message_consent": {"value": True, "evidence": "leave a message"},
+        },
+    )
+    session = Session(
+        load_workflow(Path("examples/receptionist.yaml")), speaker, evaluator, Search(), ToolRegistry()
+    )
+    session.defer_actions = True
+    try:
+        await session.submit_turn(
+            "I want to leave a message for support. Taylor, +1 202 555 0142. Custom setup and a 3 to 4 month discount",
+            "details",
+        )
+        readback = await next_event(session, "readback")
+        await next_event(session, "response_done")
+        assert session.state.active_stage == "confirm_message"
+        assert speaker.calls == 1
+        assert not session.state.readback_fingerprint
+        message = next(m for m in session.state.history if m.id == readback.data["message_id"])
+        assert "Custom setup and a 3 to 4 month discount" in message.generated_content
+        assert "support" in message.generated_content
+        session.bind_speech("readback-audio", message.id)
+        session.playback_finished("readback-audio")
+        assert session.state.readback_fingerprint
+        assert not session.state.receipts
+        evaluator.matches = []
+        evaluator.updates = {"message_confirmed": {"value": True, "evidence": "Yes"}}
+        await session.submit_turn("Yes", "confirmation")
+        done = await next_event(session, "response_done")
+        assert not session.state.receipts
+        session.bind_speech("ack", done.data["message_id"])
+        session.playback_finished("ack")
+        receipt = await next_event(session, "tool_result")
+        assert receipt.data["status"] == "captured"
+        assert receipt.data["data"]["message"] == "Custom setup and a 3 to 4 month discount"
+    finally:
+        await session.close()
+
+
+async def test_missing_recipient_cannot_produce_a_validated_readback():
+    from libretto.runtime import Session
+    from libretto.state import Fact
+    from libretto.tools import ToolRegistry
+
+    session = Session(
+        load_workflow(Path("examples/receptionist.yaml")), Speaker(), Evaluator(), Search(), ToolRegistry()
+    )
+    session.state.active_stage = "take_message"
+    session.state.facts = {
+        k: Fact(v, "answered", str(v), "old")
+        for k, v in {
+            "caller_name": "Taylor",
+            "callback_number": "+1 202 555 0142",
+            "message": "Custom setup",
+            "message_consent": True,
+        }.items()
+    }
+    try:
+        await session.submit_turn("Yes", "next")
+        await next_event(session, "response_done")
+        assert session.state.active_stage == "take_message"
+        assert not session.state.readback_fingerprint
+        assert not any(e.type == "readback" for e in session.trace)
+        assert not session.state.receipts
+    finally:
+        await session.close()
+
+
+async def test_corrected_details_force_new_readback_even_when_semantic_route_is_omitted():
+    from libretto.runtime import Session
+    from libretto.state import Fact, details_fingerprint
+    from libretto.tools import ToolRegistry
+
+    session = Session(
+        load_workflow(Path("examples/receptionist.yaml")),
+        Speaker(),
+        Evaluator(
+            updates={
+                "message": {"value": "Ask about a 3 to 4 month discount", "evidence": "3 to 4 month discount"}
+            }
+        ),
+        Search(),
+        ToolRegistry(),
+    )
+    values = {
+        "recipient": "support",
+        "caller_name": "Taylor",
+        "callback_number": "+1 202 555 0142",
+        "message": "Custom equipment",
+        "message_consent": True,
+    }
+    session.state.active_stage = "confirm_message"
+    session.state.facts = {k: Fact(v, "answered", str(v), "old") for k, v in values.items()}
+    session.state.readback_fingerprint = details_fingerprint(values)
+    try:
+        await session.submit_turn("Replace the message with: Ask about a 3 to 4 month discount", "correction")
+        event = await next_event(session, "readback")
+        await next_event(session, "response_done")
+        message = next(m for m in session.state.history if m.id == event.data["message_id"])
+        assert "Ask about a 3 to 4 month discount" in message.generated_content
+        assert "Custom equipment" not in message.generated_content
+        assert not session.state.values().get("message_confirmed")
+        assert not session.state.receipts
+    finally:
+        await session.close()

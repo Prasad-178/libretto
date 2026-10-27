@@ -8,7 +8,7 @@ Dock seats four people and costs £18 (18 pounds) per hour including VAT. It has
 
 ## Loft meeting room
 
-Loft seats eight people and costs £32 (32 pounds) per hour including VAT. It has a screen, a whiteboard and a video-call speakerphone. The upper floor is accessible by lift. Bookings are in whole one-hour blocks during weekday opening hours. There is no published discount for long bookings. Live availability is not available in this demo.
+Loft seats eight people and costs £32 (32 pounds) per hour including VAT. It has a screen, a whiteboard and a video-call speakerphone. The upper floor is accessible by lift. Bookings are in whole one-hour blocks during weekday opening hours. Discount availability for long bookings is unknown: no long-booking discount is published. This is not a policy forbidding discounts. Live availability is not available in this demo.
 
 ## Static sample room schedule
 

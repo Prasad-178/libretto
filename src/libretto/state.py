@@ -46,6 +46,7 @@ class Message:
     generated_content: str = ""
     epoch: int = 0
     delivered: bool = True
+    readback_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)

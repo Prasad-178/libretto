@@ -1,6 +1,7 @@
 """Strict, bounded YAML configuration. Loading configuration never imports code."""
 
 from pathlib import Path
+from string import Formatter
 from typing import Any, Literal, Self
 
 import yaml
@@ -71,6 +72,7 @@ class Node(StrictModel):
     title: str = ""
     prompt: str = ""
     text: str = ""
+    readback: str = Field(default="", max_length=4000)
     tools: list[str] = Field(default_factory=list)
     knowledge: list[str] = Field(default_factory=list)
     tool: str | None = None
@@ -141,6 +143,12 @@ class Workflow(StrictModel):
             if source not in self.knowledge:
                 raise ValueError(f"Unknown knowledge {source}")
         for node_id, node in self.nodes.items():
+            if node.readback:
+                if node.kind != "conversation" or node.entry != "respond":
+                    raise ValueError("Readback requires a conversation node with entry: respond")
+                for _, field, spec, conversion in Formatter().parse(node.readback):
+                    if field is not None and (field not in self.fields or spec or conversion):
+                        raise ValueError("Readback placeholders must be plain configured field names")
             for tool in node.tools + ([node.tool] if node.tool else []):
                 if tool not in self.tools:
                     raise ValueError(f"Unknown tool {tool} at {node_id}")

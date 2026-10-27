@@ -24,8 +24,11 @@ shared_prompt: |
   There is no booking, account lookup, payment, refund or email tool. Never promise
   a callback or delivery. Published sample schedules are not live availability.
   Ask for a callback number, not an email address. Before capturing a message, read
-  back recipient, name, number and message and ask for confirmation. Until a receipt
+  back recipient, name, number and message through the runtime readback, then wait
+  for confirmation. Do not invent your own readback. Until a receipt
   exists, say what is still needed instead of saying you will pass it along.
+  Missing published information is not a negative policy: "no discount is published"
+  means discount availability is unknown, not that discounts are forbidden.
 models:
   speaker: google/gemini-3.5-flash
   evaluator: google/gemini-3.5-flash
@@ -35,10 +38,10 @@ knowledge:
 common_knowledge: [company]
 tools: [transfer_call, capture_message]
 fields:
-  recipient: {type: string, description: "Directory department ID: support, billing, or partnerships"}
+  recipient: {type: string, choices: [support, billing, partnerships], description: "Directory department ID: support, billing, or partnerships"}
   caller_name: {type: string, description: "Name explicitly given by the caller"}
   callback_number: {type: string, description: "Callback number explicitly supplied by the caller"}
-  message: {type: string, description: "The caller's message, preserving all material details"}
+  message: {type: string, description: "The full agreed request, including earlier questions referenced by the current acceptance. Preserve existing details when adding a topic; replace only on explicit correction."}
   destination_confirmed: {type: boolean, description: "Caller explicitly approved transfer to the current recipient"}
   message_consent: {type: boolean, description: "Caller explicitly asked or agreed to leave a message"}
   message_confirmed: {type: boolean, description: "Caller confirmed a readback of the CURRENT message and contact details"}
@@ -126,9 +129,10 @@ nodes:
     prompt: |
       Collect recipient, caller name, callback number and message. The request to
       leave a message must be explicit. Skip every detail already volunteered, even
-      in the current turn. If all are present, read back the CURRENT recipient,
-      name, number and message verbatim, then ask if everything is correct. Do not
-      claim it is captured yet. A yes to a readback means acknowledge briefly;
+      in the current turn. Resolve a missing recipient before other details; if
+      unclear, ask which person or team they mean. If all seem supplied, briefly
+      acknowledge them. Do NOT read back details yourself: the runtime will render
+      the exact validated state. Do not claim it is captured yet. A yes to a readback means acknowledge briefly;
       do not say captured, saved, sent or passed along. The runtime will report the
       result after validation. For a side question, answer and resume collection.
     edges:
@@ -146,10 +150,15 @@ nodes:
     kind: conversation
     title: Confirm details
     patient: true
+    entry: respond
+    readback: |
+      Message for {recipient}. Your name is {caller_name}, callback number {callback_number}.
+      Your message: {message}
+      Is everything correct?
     prompt: |
-      Read back the exact current recipient, caller name, callback number and
-      message, then ask if correct. If a readback already exists, process their
-      answer instead of repeating it. A correction requires a NEW complete readback.
+      The runtime has read back the exact validated details. Process the caller's
+      answer; do not generate another readback yourself. A correction requires a
+      new runtime readback before confirmation. Answer side questions normally.
       If explicitly confirmed, say "Thanks for confirming those details."
       The runtime handles capture separately. Do not say saved, captured, sent or
       passed along; a separate response will explain the actual tool receipt.

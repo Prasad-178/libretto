@@ -60,6 +60,7 @@ class Session:
         self.directory = ""
         self.cancel_output = None
         self._message_count = 0
+        self._refresh_readback = False
         self._speech_messages: dict[str, str] = {}
 
     def _spawn(self, awaitable) -> asyncio.Task:
@@ -131,8 +132,17 @@ class Session:
         reference = " ".join(
             m.content for m in snapshot.history[-3:] if m.role == "user" and m.turn_id != turn_id
         )
+        retrieval_started = time.perf_counter()
         passages = self.retriever.search(text, sources, 3, context=reference)
-        await self.emit("retrieval", query=text, context=reference, passages=[asdict(p) for p in passages])
+        retrieval_ms = (time.perf_counter() - retrieval_started) * 1000
+        await self.emit(
+            "retrieval",
+            turn_id=turn_id,
+            duration_ms=retrieval_ms,
+            query=text,
+            context=reference,
+            passages=[asdict(p) for p in passages],
+        )
         context = compose_prompt(
             self.workflow, snapshot, passages, turn_id=turn_id, text=text, directory=self.directory
         )
@@ -171,7 +181,12 @@ class Session:
                         epoch=epoch,
                         delivered=not self.defer_actions,
                     )
-                    await self.emit("first_text", turn_id=context.turn_id, message_id=message.id)
+                    await self.emit(
+                        "first_text",
+                        turn_id=context.turn_id,
+                        message_id=message.id,
+                        response_kind="tool_result" if context.turn_id == "entry" else "reply",
+                    )
                 collected.append(delta)
                 if sum(map(len, collected)) > 4000:
                     raise ValueError("Response output limit exceeded")
@@ -205,6 +220,7 @@ class Session:
                     message_id=message.id if message else "",
                 )
                 await self._progress()
+                self._schedule_readback_refresh(epoch)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -261,6 +277,8 @@ class Session:
                     self.state.facts["message_confirmed"] = proposals["message_confirmed"]
             self.state.revision += 1
             node = self.workflow.nodes[context.snapshot.stage]
+            if node.readback and changed.intersection(DETAIL_FIELDS):
+                self._refresh_readback = True
             selected = next(
                 (
                     edge
@@ -298,6 +316,7 @@ class Session:
                 await self.interrupt()
             await self.publish_state()
             await self._progress()
+            self._schedule_readback_refresh(epoch)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -321,7 +340,13 @@ class Session:
                 and current_user
                 and last.turn_id == current_user.turn_id
                 and "?" in last.content
-                and all(normalized(str(values[k])) in normalized(last.content) for k in DETAIL_FIELDS)
+                and (
+                    last.readback_fingerprint == fingerprint
+                    or (
+                        not any(node.readback for node in self.workflow.nodes.values())
+                        and all(normalized(str(values[k])) in normalized(last.content) for k in DETAIL_FIELDS)
+                    )
+                )
             ):
                 self.state.readback_fingerprint = fingerprint
 
@@ -440,8 +465,60 @@ class Session:
         finally:
             self.defer_actions = True
 
+    def _schedule_readback_refresh(self, epoch: int) -> None:
+        if self._refresh_readback and not self._speaking and epoch == self.epoch and not self.closed:
+            self._refresh_readback = False
+            if self.workflow.nodes[self.state.active_stage].readback:
+                self._spawn(self._entry_response(epoch))
+
     async def _entry_response(self, epoch: int) -> None:
         if epoch != self.epoch or self.closed:
+            return
+        node = self.workflow.nodes[self.state.active_stage]
+        if node.readback:
+            from string import Formatter
+
+            values = self.state.values()
+            fields = {field for _, field, _, _ in Formatter().parse(node.readback) if field is not None}
+            if not all(values.get(field) for field in fields):
+                await self.emit("readback_blocked", reason="Readback fields are incomplete.")
+                return
+            text = node.readback.format_map(values).strip()
+            if len(text) > 4000:
+                await self.emit("readback_blocked", reason="Readback exceeds the output limit.")
+                return
+            if any(
+                m.epoch == epoch
+                and not m.interrupted
+                and m.readback_fingerprint
+                and m.generated_content == text
+                for m in self.state.history
+            ):
+                return
+            self._message_count += 1
+            turn_id = self._current[1] if self._current else "readback"
+            message = Message(
+                "assistant",
+                "" if self.defer_actions else text,
+                turn_id,
+                id=f"reply-{self._message_count}",
+                generated_content=text,
+                epoch=epoch,
+                delivered=not self.defer_actions,
+                readback_fingerprint=details_fingerprint(values) if set(DETAIL_FIELDS) <= fields else None,
+            )
+            self.state.history.append(message)
+            self._speaking = True
+            try:
+                await self.emit("readback", message_id=message.id, fields=sorted(fields))
+                await self.emit(
+                    "first_text", turn_id=turn_id, message_id=message.id, response_kind="readback"
+                )
+                await self.emit("text_delta", text=text, turn_id=turn_id, message_id=message.id)
+                self._record_readback()
+                await self.emit("response_done", text=text, turn_id=turn_id, message_id=message.id)
+            finally:
+                self._speaking = False
             return
         context = compose_prompt(
             self.workflow,
@@ -505,6 +582,7 @@ class Session:
                 task.cancel()
         self._pending = None
         self.state.pending_stage = None
+        self._refresh_readback = False
         self._speaking = False
         interrupted_ids = []
         for message in self.state.history:
