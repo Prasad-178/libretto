@@ -178,6 +178,9 @@ class DeepgramTTS(_Transport):
         self._tts_url = ""
         self._playback_base = 0.0
         self._last_playback = 0.0
+        self._generated_ms = 0
+        self._completed = deque()
+        self._speech_contexts = {}
 
     async def open(self, *, playback_ms=0):
         self._last_playback = self._playback_base = playback_ms
@@ -213,7 +216,11 @@ class DeepgramTTS(_Transport):
         if playback_ms is not None:
             self._last_playback = playback_ms
         self._discard_audio = True
-        if self.tts and (self._text_open or self._speech_id or self._epochs) and not self._interrupting:
+        offset = max(0, int(self._last_playback - self._playback_base))
+        while self._completed and self._completed[0][0] <= offset:
+            self._completed.popleft()
+        has_output = self._text_open or self._speech_id or self._epochs or self._completed
+        if self.tts and has_output and not self._interrupting:
             self._interrupting = True
             self._interrupt_ready.clear()
             packet = {"type": "Interrupt"}
@@ -247,6 +254,9 @@ class DeepgramTTS(_Transport):
             )
         self.tts = await websockets.connect(self._tts_url, **(self._connection_settings or {}))
         self._playback_base = self._last_playback
+        self._generated_ms = 0
+        self._completed.clear()
+        self._speech_contexts.clear()
         self._interrupted()
         self._discard_audio = True
         self._tts_task = asyncio.create_task(self._receive(self.tts, self.handle_packet))
@@ -274,6 +284,9 @@ class DeepgramTTS(_Transport):
             if self._epochs:
                 self._active_epoch = self._epochs.popleft()
                 self._active_message_id = self._message_ids.popleft()
+            self._speech_contexts[self._speech_id] = (self._active_message_id, self._active_epoch)
+            if len(self._speech_contexts) > 256:
+                self._speech_contexts.pop(next(iter(self._speech_contexts)))
             if not self._interrupting:
                 self._discard_audio = False
             await self.emit(
@@ -285,21 +298,32 @@ class DeepgramTTS(_Transport):
                 )
             )
         elif kind == "SpeechMetadata":
+            self._generated_ms += packet.get("audio_duration_ms", 0)
+            self._completed.append((self._generated_ms, packet.get("speech_id", self._speech_id)))
             await self.emit(
                 TTSEvent(
                     "finished", speech_id=packet.get("speech_id", self._speech_id), epoch=self._active_epoch
                 )
             )
             self._speech_id = ""
-            self._interrupted()
+            # Synthesis completion is not an Interrupt acknowledgement, nor proof
+            # that browser playback drained. Retain context until reconciliation.
         elif kind == "SpeechInterrupted":
             speech_id = packet.get("metadata", {}).get("speech_id", self._speech_id)
+            message_id, epoch = self._speech_contexts.get(
+                speech_id, (self._active_message_id, self._active_epoch)
+            )
+            self._generated_ms = packet.get(
+                "audio_played_ms", max(0, int(self._last_playback - self._playback_base))
+            )
+            self._completed.clear()
             self._interrupted()
             await self.emit(
                 TTSEvent(
                     "interrupted",
                     speech_id=speech_id,
-                    message_id=self._active_message_id,
+                    message_id=message_id,
+                    epoch=epoch,
                     text_spoken=packet.get("text_spoken", ""),
                 )
             )
@@ -329,4 +353,6 @@ class DeepgramTTS(_Transport):
         self._speech_id = ""
         self._text_open = self._interrupting = False
         self._discard_audio = True
+        self._completed.clear()
+        self._speech_contexts.clear()
         self._interrupt_ready.set()

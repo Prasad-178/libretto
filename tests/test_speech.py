@@ -218,3 +218,58 @@ async def test_interrupt_uses_integer_session_milliseconds_after_reconnection():
     assert packet["playback_offset"] == {"type": "time_ms", "value": 120}
     assert type(packet["playback_offset"]["value"]) is int
     await session.close()
+
+
+async def test_interrupt_reconciles_audio_buffered_after_synthesis_finished():
+    speech, session, controls, _ = adapter()
+    await speech.speak_text("A long reply", 1, "reply-one")
+    await speech.finish_response()
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "one"})
+    await speech.tts.handle_packet({"type": "SpeechMetadata", "speech_id": "one", "audio_duration_ms": 4000})
+    await speech.interrupt(100.5)
+    assert json.loads(speech.tts.tts.sent[-1]) == {
+        "type": "Interrupt",
+        "playback_offset": {"type": "time_ms", "value": 100},
+    }
+    await speech.tts.handle_packet(
+        {
+            "type": "SpeechInterrupted",
+            "metadata": {"speech_id": "one"},
+            "audio_played_ms": 100,
+            "text_spoken": "A",
+        }
+    )
+    assert controls[-1]["message_id"] == "reply-one"
+    assert controls[-1]["text_spoken"] == "A"
+    await session.close()
+
+
+async def test_fully_played_completed_speech_does_not_add_an_interrupt_roundtrip():
+    speech, session, _, _ = adapter()
+    await speech.speak_text("A reply", 1, "reply-one")
+    await speech.finish_response()
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "one"})
+    await speech.tts.handle_packet({"type": "SpeechMetadata", "speech_id": "one", "audio_duration_ms": 4000})
+    await speech.interrupt(4000)
+    assert all(json.loads(p)["type"] != "Interrupt" for p in speech.tts.tts.sent)
+    assert speech.tts._interrupt_ready.is_set()
+    await session.close()
+
+
+async def test_synthesis_metadata_cannot_ack_an_interrupt_in_flight():
+    speech, session, _, _ = adapter()
+    await speech.speak_text("A reply", 1, "reply-one")
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "one"})
+    await speech.interrupt(100)
+    await speech.tts.handle_packet({"type": "SpeechMetadata", "speech_id": "one", "audio_duration_ms": 4000})
+    assert not speech.tts._interrupt_ready.is_set()
+    await speech.tts.handle_packet(
+        {
+            "type": "SpeechInterrupted",
+            "metadata": {"speech_id": "one"},
+            "audio_played_ms": 100,
+            "text_spoken": "A",
+        }
+    )
+    assert speech.tts._interrupt_ready.is_set()
+    await session.close()
