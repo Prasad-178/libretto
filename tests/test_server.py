@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from starlette.datastructures import URL
 
 
 def test_public_config_exposes_workflow_but_never_hosted_credentials(monkeypatch):
@@ -167,6 +168,7 @@ async def test_terminal_event_closes_socket_and_provider():
 
     class Socket:
         headers = {}
+        url = URL("ws://testserver/api/ws")
 
         def __init__(self):
             self.incoming = asyncio.Queue()
@@ -279,12 +281,13 @@ def test_voice_start_plays_literal_welcome_without_waiting_for_a_user_or_model()
             ws.send_json({"type": "close"})
 
 
-def test_local_preview_port_is_allowed_but_foreign_origin_is_rejected():
+def test_local_preview_port_is_allowed_but_foreign_origin_is_rejected(monkeypatch):
     import pytest
     from starlette.websockets import WebSocketDisconnect
 
     from libretto.server import create_app
 
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with TestClient(create_app(load_environment=False), base_url="http://127.0.0.1:8001") as client:
         with client.websocket_connect(
             "ws://127.0.0.1:8001/api/ws", headers={"origin": "http://127.0.0.1:8001"}

@@ -1,6 +1,7 @@
 import asyncio
 
 from fastapi.testclient import TestClient
+from starlette.datastructures import URL
 
 
 def test_vercel_defaults_to_visitor_keys_even_with_accidental_hosted_keys(monkeypatch):
@@ -60,6 +61,7 @@ async def test_idle_connection_is_closed_before_any_session_or_provider(monkeypa
 
     class Socket:
         headers = {}
+        url = URL("ws://testserver/api/ws")
 
         async def accept(self):
             pass
@@ -88,6 +90,7 @@ async def test_oversized_binary_frame_closes_connection_without_provider():
 
     class Socket:
         headers = {}
+        url = URL("ws://testserver/api/ws")
 
         def __init__(self):
             self.frames = iter(

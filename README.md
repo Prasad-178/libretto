@@ -27,6 +27,7 @@ For frontend development, run the backend above and `npm --prefix web run dev` i
 ```sh
 uv run libretto validate examples/receptionist.yaml
 uv run libretto graph examples/receptionist.yaml
+uv run libretto evaluate
 uv run libretto validate examples/minimal.yaml
 uv run pytest -q
 uv run ruff check src tests app.py
@@ -37,6 +38,8 @@ npm --prefix web run build
 ## How it works
 
 - `examples/receptionist.yaml` defines the shared prompt, typed fields, models, knowledge, stages, permitted transitions and registered actions. `examples/minimal.yaml` is an unrelated two-stage example.
+- The YAML `welcome` line plays as soon as voice transport is ready, without a model request.
+- Confirmation nodes can define a `readback` template. The runtime renders it from validated state, binds its fingerprint to completed delivery, and requires fresh confirmation after corrections.
 - Speaking and structured evaluation run concurrently. Each generation uses a fixed stage snapshot. Valid pending transitions commit at generation boundaries; action guards wait for authoritative prerequisites and confirmation.
 - Local BM25 retrieval searches Markdown sections on every nonempty input, using recent context for follow-ups and filtering sources by the active configuration. There is no preceding FAQ classifier, query-rewrite LLM or vector database. Lexical search can miss paraphrases.
 - Flux STT eager signals start draft generation; matching confirmed input releases speech. Resumed speech cancels stale work. Flux TTS receives raw text deltas followed by one end-of-response Flush. There is no client sentence-boundary model.
@@ -83,6 +86,12 @@ Backend tests exercise concurrency, stale-result rejection, confirmation invalid
 
 Interrupted voice history retains provider-aligned spoken text when available; otherwise it records an unknown prefix with an interruption marker, never an invented heard suffix.
 
-**Live provider calls and acoustic latency are not yet validated.** The target is 1.0–1.2 seconds from acoustic end to meaningful playback, flagging turns above 1.5 seconds. The UI's RMS-based response gap is an estimate, not that benchmark. Model/voice defaults are candidates, not measured winners. Record warm/cold and tool paths separately before publishing performance claims; see the [evidence checklist](docs/evidence.md).
+Bounded real-model workflow and real speech-protocol checks have passed; acoustic latency percentiles are not established. The target is 1.0–1.2 seconds from acoustic end to meaningful playback, flagging turns above 1.5 seconds. Exports now include per-turn retrieval duration, first server audio, browser audio arrival, and first rendered playback. Estimated TTFS uses the last microphone-activity timestamp and estimated output presentation; it is not a physical acoustic measurement. Endpoint-to-audio/playback are reported separately. Greetings, runtime readbacks and tool-result follow-ups are excluded from ordinary-reply TTFS summaries. Model/voice defaults are candidates, not measured winners. Record warm/cold and tool paths separately before publishing performance claims; see the [evidence checklist](docs/evidence.md).
 
 Deferred: multilingual support, real telephony, durable delivery, vector retrieval, speculative TTS, distributed abuse controls, deployment-wide metering and a visual node editor.
+
+## Repeatable evaluation
+
+`uv run libretto evaluate` checks eight curated Northline retrieval cases locally without API calls and writes a detailed JSON report under ignored `.local/evaluations/`. `uv run libretto evaluate --live` explicitly opts into bounded paid OpenRouter calls for the accepted-message/corrected-contact/capture and unavailable-transfer paths. It uses fictional callers, real speaker/evaluator requests and simulated business tools; it does not benchmark microphone or TTS latency. Use `--output PATH` to retain separate runs. The evaluation cases are specific to the bundled demo.
+
+The State tab displays mean/median estimated TTFS and confirmed-turn retrieval duration. Export session retains the per-response records, sample counts, measurement references and separate timing for non-reply speech. These are session-memory measurements, not server-side analytics or durable recordings. BM25 here scans a small local corpus; its sub-millisecond local timings do not establish large-corpus or hosted performance.
