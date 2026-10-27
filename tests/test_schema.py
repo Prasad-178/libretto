@@ -72,3 +72,18 @@ def test_receptionist_example_is_executable():
         "message_consent",
         "message_confirmed",
     ]
+
+
+def test_readback_template_cannot_access_attributes_or_unconfigured_values():
+    from pathlib import Path
+
+    import pytest
+    import yaml
+
+    from libretto.schema import parse_workflow
+
+    original = yaml.safe_load(Path("examples/receptionist.yaml").read_text())
+    for template in ["{caller_name.__class__}", "{unknown}", "{caller_name!r}", "{caller_name:>10000}"]:
+        original["nodes"]["confirm_message"]["readback"] = template
+        with pytest.raises(ValueError, match="plain configured field names"):
+            parse_workflow(yaml.safe_dump(original))

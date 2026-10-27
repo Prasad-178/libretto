@@ -196,3 +196,103 @@ async def test_terminal_event_closes_socket_and_provider():
         await asyncio.wait_for(handler(socket), 0.3)
     assert any(p["type"] == "ended" for p in socket.sent)
     assert model.closed
+
+
+def test_voice_start_plays_literal_welcome_without_waiting_for_a_user_or_model():
+    from libretto.providers.base import STTCapabilities, TTSCapabilities, TTSEvent
+    from libretto.server import create_app
+    from libretto.speech import SpeechRegistry
+
+    class NoModel:
+        async def evaluate(self, context):
+            raise AssertionError("Welcome must not run the evaluator")
+
+        async def stream_reply(self, context):
+            raise AssertionError("Welcome must not run the speaker")
+            yield ""
+
+        async def close(self):
+            pass
+
+    class Recognition:
+        capabilities = STTCapabilities()
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def open(self):
+            pass
+
+        async def close(self):
+            pass
+
+    class Synthesis:
+        capabilities = TTSCapabilities(streaming_text=True, cancellation=True)
+
+        def __init__(self, credentials, config, emit, **kwargs):
+            self.emit = emit
+
+        async def open(self, **kwargs):
+            pass
+
+        async def close(self):
+            pass
+
+        async def interrupt(self, *args):
+            pass
+
+        async def cancel_output(self, *args):
+            pass
+
+        async def speak_text(self, text, epoch, message_id):
+            await self.emit(TTSEvent("started", speech_id="welcome", epoch=epoch, message_id=message_id))
+            await self.emit(TTSEvent("audio", speech_id="welcome", epoch=epoch, pcm=b"\x00\x00" * 480))
+
+        async def finish_response(self):
+            await self.emit(TTSEvent("finished", speech_id="welcome", epoch=0))
+
+    registry = SpeechRegistry(
+        stt={"deepgram": Recognition}, tts={"deepgram": Synthesis}, credentials={"deepgram": "openrouter"}
+    )
+    with TestClient(
+        create_app(load_environment=False, model_factory=lambda *a, **kw: NoModel(), speech_registry=registry)
+    ) as client:
+        with client.websocket_connect("/api/ws") as ws:
+            ws.send_json({"type": "start", "mode": "voice", "openrouter_key": "synthetic"})
+            packets = []
+            got_audio = False
+            while True:
+                frame = ws.receive()
+                if frame.get("bytes"):
+                    got_audio = True
+                    continue
+                import json
+
+                packet = json.loads(frame["text"])
+                packets.append(packet)
+                assert packet["type"] not in {"error", "speech_error"}, packet
+                if packet["type"] == "speech_finished":
+                    break
+            assert got_audio
+            assert any(p["type"] == "response_done" and p["data"]["turn_id"] == "welcome" for p in packets)
+            assert any(p["type"] == "first_audio" for p in packets)
+            ws.send_json({"type": "close"})
+
+
+def test_local_preview_port_is_allowed_but_foreign_origin_is_rejected():
+    import pytest
+    from starlette.websockets import WebSocketDisconnect
+
+    from libretto.server import create_app
+
+    with TestClient(create_app(load_environment=False), base_url="http://127.0.0.1:8001") as client:
+        with client.websocket_connect(
+            "ws://127.0.0.1:8001/api/ws", headers={"origin": "http://127.0.0.1:8001"}
+        ) as ws:
+            ws.send_json({"type": "start", "mode": "text"})
+            assert ws.receive_json()["data"]["code"] == "missing_openrouter_key"
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(
+                "ws://127.0.0.1:8001/api/ws", headers={"origin": "https://foreign.example"}
+            ):
+                pass

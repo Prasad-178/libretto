@@ -125,6 +125,7 @@ class Workflow(StrictModel):
     description: str = ""
     start: str
     shared_prompt: str
+    welcome: str = Field(default="", max_length=1000)
     fields: dict[str, FieldSpec] = Field(default_factory=dict)
     tools: list[str] = Field(default_factory=list)
     knowledge: dict[str, str] = Field(default_factory=dict)

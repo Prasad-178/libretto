@@ -156,6 +156,8 @@ def create_app(
             "https://libretto.prasadjs.me",
             "https://" + ws.headers.get("host", ""),
         }
+        if ws.url.hostname in {"127.0.0.1", "localhost"}:
+            allowed.add("http://" + ws.headers.get("host", ""))
         if origin and origin not in allowed:
             await ws.close(code=1008)
             return
@@ -357,6 +359,8 @@ def create_app(
                     )
                     await session.publish_state()
                     background.extend([asyncio.create_task(pump()), asyncio.create_task(expire())])
+                    if event.mode == "voice":
+                        session._spawn(session.welcome())
                 elif session and not session.closed:
                     if event.type == "text":
                         await session.submit_turn(event.text, event.turn_id or str(time.monotonic_ns()))

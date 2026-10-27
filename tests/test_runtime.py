@@ -398,3 +398,26 @@ async def test_trace_keeps_call_start_and_errors_through_audio_progress_noise():
         assert len(session.trace) == 3
     finally:
         await session.close()
+
+
+async def test_startup_welcome_is_literal_and_interruptible_without_model_calls():
+    class NoModel:
+        async def stream_reply(self, context):
+            raise AssertionError("Welcome must not invoke a model")
+            yield ""
+
+    session = make_session(
+        Evaluator(), speaker=NoModel(), flow=load_workflow(Path("examples/receptionist.yaml"))
+    )
+    session.defer_actions = True
+    try:
+        await session.welcome()
+        event = await next_event(session, "response_done")
+        assert "Jamie" in event.data["text"]
+        assert session.state.history[-1].turn_id == "welcome"
+        assert not session.state.history[-1].delivered
+        await session.interrupt()
+        assert session.state.history[-1].interrupted
+        assert session._seen_turns == set()
+    finally:
+        await session.close()

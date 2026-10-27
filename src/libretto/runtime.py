@@ -102,6 +102,31 @@ class Session:
             receipts=list(self.state.receipts),
         )
 
+    async def welcome(self) -> None:
+        text = self.workflow.welcome.strip()
+        if not text or self.closed or self._current:
+            return
+        epoch = self.epoch
+        self._message_count += 1
+        message = Message(
+            "assistant",
+            "" if self.defer_actions else text,
+            "welcome",
+            id=f"reply-{self._message_count}",
+            epoch=epoch,
+            generated_content=text,
+            delivered=not self.defer_actions,
+        )
+        self.state.history.append(message)
+        self._speaking = True
+        try:
+            await self.emit("first_text", turn_id="welcome", message_id=message.id, response_kind="welcome")
+            await self.emit("text_delta", text=text, turn_id="welcome", message_id=message.id)
+            await self.emit("response_done", text=text, turn_id="welcome", message_id=message.id)
+        finally:
+            if epoch == self.epoch:
+                self._speaking = False
+
     async def submit_turn(self, text: str, turn_id: str, speculative: bool = False) -> None:
         if self.closed:
             return
@@ -518,7 +543,8 @@ class Session:
                 self._record_readback()
                 await self.emit("response_done", text=text, turn_id=turn_id, message_id=message.id)
             finally:
-                self._speaking = False
+                if epoch == self.epoch:
+                    self._speaking = False
             return
         context = compose_prompt(
             self.workflow,
