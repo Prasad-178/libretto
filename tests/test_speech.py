@@ -291,7 +291,9 @@ async def test_first_audio_is_logged_once_per_speech_before_binary_delivery():
 
 async def test_final_only_transcript_uses_the_committed_epoch():
     speech, session, controls, _ = adapter()
-    await speech.stt.handle_packet({"type": "TurnInfo", "event": "EndOfTurn", "turn_index": 1, "transcript": "Hello"})
+    await speech.stt.handle_packet(
+        {"type": "TurnInfo", "event": "EndOfTurn", "turn_index": 1, "transcript": "Hello"}
+    )
     transcript = next(e for e in controls if e["type"] == "transcript")
     assert transcript["epoch"] == session.epoch == 1
     await session.close()

@@ -39,7 +39,13 @@ class SpeechCoordinator:
         elif event.kind == "final" and event.text:
             await self.session.confirm_turn(event.text, event.turn_id)
             await self.send_control(
-                {"type": "transcript", **event.data, "text": event.text, "turn_id": event.turn_id, "epoch": self.session.epoch}
+                {
+                    "type": "transcript",
+                    **event.data,
+                    "text": event.text,
+                    "turn_id": event.turn_id,
+                    "epoch": self.session.epoch,
+                }
             )
         elif event.kind == "status":
             await self.send_control(dict(event.data))

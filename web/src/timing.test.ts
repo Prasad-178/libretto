@@ -68,6 +68,8 @@ it("preserves the microphone reference regardless of transcript and turn event o
     }
     t.bind("speech", "reply", 2, "reply");
     t.audio("speech", 2, 1200);
-    expect(t.played("speech", 2, 1400, "render_callback")?.estimated_ttfs_ms).toBe(600);
+    expect(
+      t.played("speech", 2, 1400, "render_callback")?.estimated_ttfs_ms,
+    ).toBe(600);
   }
 });

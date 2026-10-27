@@ -54,7 +54,11 @@ export class TurnTimings {
     const previous = this.turns.get(epoch);
     if (previous?.id === id) {
       // Direct transcript controls and queued turn events can arrive in either order.
-      this.turns.set(epoch, { id, endpointAt: Math.min(at, previous.endpointAt), speechEndAt: speechEndAt ?? previous.speechEndAt });
+      this.turns.set(epoch, {
+        id,
+        endpointAt: Math.min(at, previous.endpointAt),
+        speechEndAt: speechEndAt ?? previous.speechEndAt,
+      });
     } else this.turns.set(epoch, { id, endpointAt: at, speechEndAt });
   }
   bind(id: string, messageId: string, epoch: number, kind: string) {
