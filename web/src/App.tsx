@@ -106,7 +106,7 @@ export default function App() {
   const [scenarioStep, setScenarioStep] = useState(0);
   const [runningWorkflow, setRunningWorkflow] = useState<Workflow | null>(null);
   const [trace, setTrace] = useState<EventPacket[]>([]);
-  const [remaining, setRemaining] = useState(180);
+  const [remaining, setRemaining] = useState(300);
   const [gap, setGap] = useState<number | null>(null);
   const [mic, setMic] = useState(false);
   const client = useRef<SessionClient | null>(null);
@@ -145,7 +145,8 @@ export default function App() {
       setPhase("Listening");
       setOrKey("");
       setDgKey("");
-      deadline.current = performance.now() + (180 - event.at) * 1000;
+      deadline.current =
+        performance.now() + (d.call_limit_seconds - event.at) * 1000;
       if (d.mode === "voice") void enableMicrophone();
     } else if (event.type === "state") {
       setActive(d.active_stage);
@@ -200,7 +201,7 @@ export default function App() {
     } else if (event.type === "expired" || event.type === "ended") {
       setPhase(
         event.type === "expired"
-          ? "Session complete · 3 minute limit"
+          ? "Session complete · 5 minute limit"
           : "Conversation complete",
       );
       ready.current = false;
@@ -353,7 +354,7 @@ export default function App() {
       setError("");
       setConnecting(true);
       setPhase("Connecting");
-      setRemaining(180);
+      setRemaining(config?.call_limit_seconds ?? 300);
       setGap(null);
       setChats([]);
       setFacts({});
@@ -1037,7 +1038,10 @@ export default function App() {
                 </button>
               </form>
               <div className="test-footer">
-                <span>3 minute limit · simulated actions</span>
+                <span>
+                  {(config?.call_limit_seconds ?? 300) / 60} minute limit ·
+                  simulated actions
+                </span>
                 <button
                   onClick={download}
                   disabled={!chats.length}

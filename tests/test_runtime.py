@@ -152,13 +152,17 @@ async def test_changed_transcript_discards_speculative_answer():
         await session.close()
 
 
-async def test_session_expires_at_180_seconds():
+async def test_session_accepts_turn_before_five_minutes_and_expires_at_300_seconds():
     now = [0.0]
     session = make_session(Evaluator(), clock=lambda: now[0])
-    now[0] = 180.0
-    await session.submit_turn("Hello", "late")
+    now[0] = 299.0
+    await session.submit_turn("Hello", "on-time")
+    await next_event(session, "response_done")
+    assert not session.closed
+    now[0] = 300.0
+    await session.submit_turn("Another question", "late")
     assert (await next_event(session, "expired")).type == "expired"
-    assert not session.state.history
+    assert all(m.turn_id != "late" for m in session.state.history)
     await session.close()
 
 

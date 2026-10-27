@@ -12,7 +12,7 @@ At the initial deployment audit for this change, Vercel production had no enviro
 
 ## Application boundaries
 
-- One connection owns one session, capped at three minutes. Key replacement does not reset that timer.
+- One connection owns one session, capped at five minutes. Key replacement does not reset that timer.
 - A connection must start within 15 seconds of acceptance; failed starts do not reset the deadline.
 - Text/start/key-change controls have a token bucket with a burst of three and refill of one event per second. All incoming frames have a separate burst of 128 and refill of 64 frames/second to accommodate streaming microphone audio.
 - Oversized audio frames above 8,192 bytes and text frames above 128,000 UTF-8 bytes close the connection. YAML is separately bounded to 100 KB and nesting depth 20, with aliases, custom object construction and duplicate keys rejected.

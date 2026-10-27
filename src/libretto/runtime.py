@@ -21,6 +21,8 @@ from libretto.state import (
     details_fingerprint,
 )
 
+CALL_LIMIT_SECONDS = 300
+
 
 def normalized(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
@@ -102,8 +104,8 @@ class Session:
     async def submit_turn(self, text: str, turn_id: str, speculative: bool = False) -> None:
         if self.closed:
             return
-        if self.clock() - self.created_at >= 180:
-            await self.emit("expired", message="The three-minute demo session has ended.")
+        if self.clock() - self.created_at >= CALL_LIMIT_SECONDS:
+            await self.emit("expired", message="The five-minute demo session has ended.")
             await self.close()
             return
         text = text.strip()

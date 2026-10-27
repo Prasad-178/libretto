@@ -55,7 +55,7 @@ Reusable libraries or open frameworks are acceptable when provider-specific beha
 
 ## Sessions and credentials
 
-One WebSocket owns one in-memory conversation, capped at 180 seconds. Disconnecting or reconnecting starts fresh. There is no database, cross-instance session lookup or durable message storage. An explicit downloaded trace contains conversation details and should be treated accordingly.
+One WebSocket owns one in-memory conversation, capped at 300 seconds (five minutes). Disconnecting or reconnecting starts fresh. There is no database, cross-instance session lookup or durable message storage. An explicit downloaded trace contains conversation details and should be treated accordingly.
 
 Visitor keys stay in tab memory and their backend session, over HTTPS/WSS when hosted. They are not placed in browser storage, URLs, traces or exports. Server keys stay on the backend. Provider credentials are independent; replacing an OpenRouter key does not replenish Deepgram credit. Changing keys does not restart the timer. Provider hosts are fixed in code.
 
@@ -63,7 +63,7 @@ For a funded public demo, use provider-side limits on dedicated low-budget keys.
 
 ## Hosting
 
-`app.py` is the FastAPI entrypoint. `vercel.json` builds the frontend and permits a 300-second function lifetime; the application ends calls at 180 seconds. State stays within the one connection. Vercel Hobby is the intended hosting plan, subject to included limits. No paid hosting add-on or database is provisioned.
+`app.py` is the FastAPI entrypoint. `vercel.json` builds the frontend and permits a 300-second function lifetime; the application caps calls at 300 seconds. The function lifetime also includes connection setup, so the hosting timeout can end a call slightly earlier. State stays within the one connection. Vercel Hobby is the intended hosting plan, subject to included limits. No paid hosting add-on or database is provisioned.
 
 ```sh
 vercel deploy

@@ -10,7 +10,7 @@ def test_public_config_exposes_workflow_but_never_hosted_credentials(monkeypatch
         assert result.status_code == 200
         assert result.json()["workflow"]["id"] == "northline-receptionist"
         assert "PRIVATE-HOSTED-KEY" not in result.text
-        assert result.json()["call_limit_seconds"] == 180
+        assert result.json()["call_limit_seconds"] == 300
 
 
 def test_missing_key_yields_actionable_status_and_no_fake_response(monkeypatch):

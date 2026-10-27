@@ -17,7 +17,7 @@ from pydantic import Field, SecretStr, ValidationError
 from libretto.providers.base import ProviderError, SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.retrieval import build_index
-from libretto.runtime import Session
+from libretto.runtime import CALL_LIMIT_SECONDS, Session
 from libretto.schema import Models, StrictModel, load_workflow, parse_workflow
 from libretto.speech import default_speech_registry
 from libretto.tools import ToolRegistry
@@ -50,7 +50,7 @@ class ClientEvent(StrictModel):
     openrouter_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
     deepgram_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
     transfer_outcome: Literal["connected", "unavailable", "failed", "timeout"] = "unavailable"
-    playback_ms: float = Field(default=0, ge=0, le=200_000)
+    playback_ms: float = Field(default=0, ge=0, le=CALL_LIMIT_SECONDS * 1000)
     drained: bool = False
     epoch: int = 0
     speech_id: str = Field(default="", max_length=100)
@@ -123,7 +123,7 @@ def create_app(
     async def config():
         return {
             "workflow": workflow.model_dump(),
-            "call_limit_seconds": 180,
+            "call_limit_seconds": CALL_LIMIT_SECONDS,
             "credentials": hosted().public_status(),
             "credential_mode": "hosted" if hosted_enabled() else "visitor",
             "directory": directory,
@@ -220,9 +220,9 @@ def create_app(
                     return
 
         async def expire():
-            await asyncio.sleep(max(0, 180 - (time.monotonic() - started_at)))
+            await asyncio.sleep(max(0, CALL_LIMIT_SECONDS - (time.monotonic() - started_at)))
             await control(
-                "expired", message="Three-minute demo complete. Start a fresh conversation to continue."
+                "expired", message="Five-minute demo complete. Start a fresh conversation to continue."
             )
             await session.close()
             await ws.close(code=1000)
@@ -351,7 +351,7 @@ def create_app(
                         "ready",
                         mode=event.mode,
                         credentials=credentials.public_status(),
-                        call_limit_seconds=180,
+                        call_limit_seconds=CALL_LIMIT_SECONDS,
                         models=models.model_dump(),
                         workflow=session_workflow.model_dump(),
                     )
