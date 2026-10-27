@@ -10,6 +10,7 @@ export default function YamlCode({
 }) {
   return (
     <CodeMirror
+      className="yaml-code"
       value={value}
       onChange={onChange}
       extensions={extensions}

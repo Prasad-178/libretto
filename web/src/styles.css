@@ -1206,17 +1206,24 @@ small,
   font-size: 9px;
   color: #849b87;
 }
-.yaml-workspace .cm-theme {
+.yaml-workspace .yaml-code {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 .yaml-workspace .cm-editor {
+  flex: 1;
+  min-height: 0;
   height: 100%;
   font-size: 11px;
   background: #fff;
 }
 .yaml-workspace .cm-scroller {
+  min-height: 0;
+  overscroll-behavior: contain;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   line-height: 1.9;
   overflow: auto;
