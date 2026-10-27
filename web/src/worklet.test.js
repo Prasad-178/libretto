@@ -15,6 +15,7 @@ function player() {
     {
       AudioWorkletProcessor: Base,
       sampleRate: 24000,
+      currentFrame: 0,
       registerProcessor: (name, ctor) => (Processor = ctor),
     },
   );
@@ -76,4 +77,22 @@ it("drops interrupted frames and reports bounded-buffer overflow", () => {
     samples: new Float32Array(24000 * 13),
   });
   expect(p.messages.some((m) => m.type === "overflow")).toBe(true);
+});
+
+it("reports first rendered sample once per speech, including two speeches in one epoch", () => {
+  const p = player();
+  for (const id of ["one", "two"]) {
+    p.send({
+      type: "audio",
+      epoch: 1,
+      speechId: id,
+      samples: new Float32Array([0.5]),
+    });
+    p.send({ type: "finish", epoch: 1, speechId: id });
+  }
+  p.render(4);
+  const starts = p.messages.filter((m) => m.type === "started");
+  expect(starts.map((m) => m.speechId)).toEqual(["one", "two"]);
+  expect(starts[0].contextTime).toBe(0);
+  expect(starts[1].contextTime).toBe(1 / 24000);
 });

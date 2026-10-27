@@ -46,6 +46,12 @@ export class VoiceAudio {
     epoch: number,
     speechId: string,
   ) => void = () => {};
+  onFirstPlayback: (
+    speechId: string,
+    epoch: number,
+    at: number,
+    method: string,
+  ) => void = () => {};
   onError: (message: string) => void = () => {};
   onLevel: (level: number) => void = () => {};
   beginSession(): void {
@@ -73,6 +79,23 @@ export class VoiceAudio {
         if (data.type === "overflow") {
           this.onError(
             "Audio buffering exceeded the limit. The response was interrupted.",
+          );
+          return;
+        }
+        if (data.type === "started") {
+          const stamp = this.context?.getOutputTimestamp?.();
+          const mapped =
+            stamp && stamp.performanceTime && stamp.contextTime != null
+              ? stamp.performanceTime +
+                (data.contextTime - stamp.contextTime) * 1000
+              : performance.now();
+          this.onFirstPlayback(
+            data.speechId,
+            data.epoch,
+            mapped,
+            stamp?.performanceTime
+              ? "output_timestamp_estimate"
+              : "render_callback",
           );
           return;
         }

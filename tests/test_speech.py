@@ -273,3 +273,25 @@ async def test_synthesis_metadata_cannot_ack_an_interrupt_in_flight():
     )
     assert speech.tts._interrupt_ready.is_set()
     await session.close()
+
+
+async def test_first_audio_is_logged_once_per_speech_before_binary_delivery():
+    speech, session, controls, audio = adapter()
+    session.epoch = 1
+    await speech.speak_text("Reply", 1, "reply-one")
+    await speech.tts.handle_packet({"type": "SpeechStarted", "speech_id": "one"})
+    await speech.tts.handle_packet(b"\x00\x00")
+    assert controls[-1]["type"] == "first_audio"
+    assert controls[-1]["message_id"] == "reply-one"
+    await speech.tts.handle_packet(b"\x01\x00")
+    assert len([e for e in controls if e["type"] == "first_audio"]) == 1
+    assert len(audio) == 2
+    await session.close()
+
+
+async def test_final_only_transcript_uses_the_committed_epoch():
+    speech, session, controls, _ = adapter()
+    await speech.stt.handle_packet({"type": "TurnInfo", "event": "EndOfTurn", "turn_index": 1, "transcript": "Hello"})
+    transcript = next(e for e in controls if e["type"] == "transcript")
+    assert transcript["epoch"] == session.epoch == 1
+    await session.close()

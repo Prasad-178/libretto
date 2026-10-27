@@ -10,6 +10,7 @@ class Playback extends AudioWorkletProcessor {
     this.ticks = 0;
     this.buffered = 0;
     this.first = true;
+    this.startedSpeechId = "";
     this.port.onmessage = ({ data }) => {
       if (data.epoch < this.epoch) return;
       this.epoch = data.epoch;
@@ -19,6 +20,7 @@ class Playback extends AudioWorkletProcessor {
         this.phase = 0;
         this.buffered = 0;
         this.first = true;
+        this.startedSpeechId = "";
       } else if (data.type === "audio") {
         if (this.buffered + data.samples.length > 24000 * 12) {
           this.queue = [];
@@ -59,6 +61,15 @@ class Playback extends AudioWorkletProcessor {
       const b =
         chunk.samples[Math.min(this.offset + 1, chunk.samples.length - 1)] || 0;
       out[i] = a + (b - a) * this.phase;
+      if (this.startedSpeechId !== chunk.speechId) {
+        this.startedSpeechId = chunk.speechId;
+        this.port.postMessage({
+          type: "started",
+          epoch: this.epoch,
+          speechId: chunk.speechId,
+          contextTime: (currentFrame + i) / sampleRate,
+        });
+      }
       this.played++;
       if (this.first) {
         this.report("progress");

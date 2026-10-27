@@ -11,6 +11,7 @@ class SpeechCoordinator:
     def __init__(self, session, stt: STTProvider, tts: TTSProvider, send_audio, send_control):
         self.session, self.stt, self.tts = session, stt, tts
         self.send_audio, self.send_control = send_audio, send_control
+        self._first_audio = set()
 
     async def open(self, *, playback_ms: float = 0) -> None:
         if not (self.tts.capabilities.streaming_text and self.tts.capabilities.cancellation):
@@ -36,16 +37,26 @@ class SpeechCoordinator:
         elif event.kind == "eager" and event.text and self.stt.capabilities.eager_turns:
             await self.session.submit_turn(event.text, event.turn_id, speculative=True)
         elif event.kind == "final" and event.text:
-            await self.send_control(
-                {"type": "transcript", **event.data, "text": event.text, "turn_id": event.turn_id}
-            )
             await self.session.confirm_turn(event.text, event.turn_id)
+            await self.send_control(
+                {"type": "transcript", **event.data, "text": event.text, "turn_id": event.turn_id, "epoch": self.session.epoch}
+            )
         elif event.kind == "status":
             await self.send_control(dict(event.data))
 
     async def handle_tts(self, event: TTSEvent) -> None:
         if event.kind == "audio":
             if event.epoch == self.session.epoch:
+                if event.speech_id not in self._first_audio:
+                    self._first_audio.add(event.speech_id)
+                    await self.send_control(
+                        {
+                            "type": "first_audio",
+                            "speech_id": event.speech_id,
+                            "message_id": self.session._speech_messages.get(event.speech_id, ""),
+                            "epoch": event.epoch,
+                        }
+                    )
                 await self.send_audio(pack_audio(event.epoch, event.speech_id, event.pcm))
         elif event.kind == "started":
             self.session.bind_speech(event.speech_id, event.message_id)
