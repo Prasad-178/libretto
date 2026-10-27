@@ -99,3 +99,78 @@ async def test_two_sessions_sharing_http_pool_keep_separate_credentials():
         _ = [part async for part in second.stream_reply(context())]
         assert seen == ["Bearer one", "Bearer two"]
         assert "authorization" not in pool.headers
+
+
+async def test_evaluation_request_separates_routing_from_speaker_instructions():
+    from dataclasses import replace
+
+    from libretto.providers.base import SessionCredentials
+    from libretto.providers.openrouter import OpenRouterAdapter
+
+    current = replace(
+        context(),
+        system="SPEAKER-ONLY: Ask the caller whether to transfer them.",
+        fields={"caller_name": {"type": "string", "description": "Name given by caller"}},
+        conditions={"information": "Caller asks for company information."},
+    )
+
+    def handler(request):
+        body = json.loads(request.content)
+        system = body["messages"][0]["content"]
+        assert "SPEAKER-ONLY" not in system
+        schema = body["response_format"]["json_schema"]["schema"]
+        assert schema["properties"]["matches"]["items"]["enum"] == ["information"]
+        assert schema["properties"]["updates"]["additionalProperties"] is False
+        assert set(schema["properties"]["updates"]["properties"]) == {"caller_name"}
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": '{"matches":["information"]}'}}]}
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await OpenRouterAdapter(SessionCredentials(openrouter="test"), client=client).evaluate(
+            current
+        )
+        assert result.matches == ["information"]
+
+
+async def test_unknown_facts_are_null_on_wire_and_omitted_from_updates():
+    from dataclasses import replace
+
+    from libretto.providers.base import SessionCredentials
+    from libretto.providers.openrouter import OpenRouterAdapter
+
+    current = replace(
+        context(), fields={"caller_name": {"type": "string"}, "callback_number": {"type": "string"}}
+    )
+
+    def handler(request):
+        schema = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        assert set(schema["properties"]["updates"]["required"]) == {"caller_name", "callback_number"}
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "matches": [],
+                                    "updates": {
+                                        "caller_name": {"value": "Taylor", "evidence": "Taylor"},
+                                        "callback_number": None,
+                                    },
+                                    "control": "continue",
+                                    "reason": "Name supplied; number unknown.",
+                                }
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await OpenRouterAdapter(SessionCredentials(openrouter="test"), client=client).evaluate(
+            current
+        )
+        assert set(result.updates) == {"caller_name"}

@@ -78,6 +78,7 @@ class GenerationContext:
     passages: tuple[Passage, ...] = ()
     fields: dict[str, Any] = field(default_factory=dict)
     conditions: dict[str, str] = field(default_factory=dict)
+    directory: str = ""
 
 
 EvaluationContext = GenerationContext

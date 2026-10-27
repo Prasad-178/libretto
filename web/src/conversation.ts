@@ -6,6 +6,7 @@ export type Chat = {
   text: string;
   interrupted?: boolean;
   delivered?: boolean;
+  generatedText?: string;
 };
 
 export function updateDelivery(chats: Chat[], event: EventPacket): Chat[] {
@@ -13,12 +14,22 @@ export function updateDelivery(chats: Chat[], event: EventPacket): Chat[] {
   return chats.map((m) => {
     if (m.role !== "assistant") return m;
     if (event.type === "playback" && d.drained && m.id === d.message_id)
-      return { ...m, delivered: true, interrupted: false };
+      return {
+        ...m,
+        text: m.generatedText ?? m.text,
+        delivered: true,
+        interrupted: false,
+      };
     if (m.delivered) return m;
     if (event.type === "interrupted" && d.message_ids?.includes(m.id))
       return { ...m, interrupted: true };
     if (event.type === "speech_interrupted" && m.id === d.message_id)
-      return { ...m, text: d.text_spoken ?? m.text, interrupted: true };
+      return {
+        ...m,
+        generatedText: m.generatedText ?? m.text,
+        text: d.text_spoken ?? m.text,
+        interrupted: true,
+      };
     return m;
   });
 }

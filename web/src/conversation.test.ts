@@ -58,3 +58,18 @@ describe("heard response history", () => {
     );
   });
 });
+
+it("restores the full text when a delayed drain follows prefix reconciliation", () => {
+  const chats: Chat[] = [{ id: "one", role: "assistant", text: "Full answer" }];
+  const partial = updateDelivery(
+    chats,
+    event("speech_interrupted", { message_id: "one", text_spoken: "Full" }),
+  );
+  expect(partial[0].text).toBe("Full");
+  const heard = updateDelivery(
+    partial,
+    event("playback", { drained: true, message_id: "one" }),
+  );
+  expect(heard[0].text).toBe("Full answer");
+  expect(heard[0].interrupted).toBe(false);
+});

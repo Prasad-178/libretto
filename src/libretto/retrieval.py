@@ -9,22 +9,35 @@ from pathlib import Path
 from libretto.state import Passage
 
 STOP = set(
-    "a an the is are was were what when where how do does can could i you we to of for and or in on it that this about my your please".split()
+    "a an the is are was were what when where how do does can could i you we to of for and or in on it that this about my your please "
+    "have has had would should will me us them they there here with like know tell want wanna basically so yeah yes no "
+    "thanks thank hi hello who am need some any also type types different call helpful much s t m re ve ll d".split()
 )
 
 
 def tokens(text: str) -> list[str]:
-    return [
-        word[:-1] if len(word) > 4 and word.endswith("s") else word
-        for word in re.findall(r"[a-z0-9]+", text.lower())
-        if word not in STOP
-    ]
+    # Small English vocabulary normalization, shared by documents and questions.
+    equivalents = {
+        "pricing": "price",
+        "priced": "price",
+        "cost": "price",
+        "facilitie": "facility",
+        "amenitie": "facility",
+    }
+    result = []
+    for word in re.findall(r"[a-z0-9]+", text.lower()):
+        if word in STOP or (word.isdigit() and len(word) == 1):
+            continue
+        word = word[:-1] if len(word) > 4 and word.endswith("s") else word
+        result.append(equivalents.get(word, word))
+    return result
 
 
 class RetrievalIndex:
     def __init__(self, passages: list[Passage]):
         self.passages = passages
         self.terms = [Counter(tokens(p.text + " " + p.heading)) for p in passages]
+        self.headings = [set(tokens(p.heading)) for p in passages]
         self.lengths = [sum(t.values()) for t in self.terms]
         self.average = sum(self.lengths) / max(len(passages), 1)
         self.frequency = Counter(word for counter in self.terms for word in counter)
@@ -62,8 +75,24 @@ class RetrievalIndex:
         from dataclasses import replace
 
         terms = {word: 1.0 for word in tokens(query[-1600:])}
-        for word in tokens(context[-1600:]):
-            terms.setdefault(word, 0.2)
+        if not terms and re.search(r"\bhow much\b", query.lower()):
+            terms["price"] = 1.0
+        # Carry a prior topic only for a referential follow-up, never for a name,
+        # number or acknowledgement. No network classifier sits on this path.
+        followup = bool(re.search(r"\b(that|those|these|it|they|there|them)\b", query.lower())) and bool(
+            re.search(r"\b(what|how|does|do|is|are|can|would|cost|include|about)\b", query.lower())
+        )
+        generic_followup = bool(terms) and set(terms) <= {
+            "price",
+            "include",
+            "included",
+            "hour",
+            "open",
+            "availability",
+        }
+        if terms and (followup or generic_followup):
+            for word in tokens(context[-1600:]):
+                terms.setdefault(word, 0.7)
         ranked = []
         for index, passage in enumerate(self.passages):
             if passage.source not in sources:
@@ -76,7 +105,9 @@ class RetrievalIndex:
                 df, total = self.frequency[word], len(self.passages)
                 idf = math.log(1 + (total - df + 0.5) / (df + 0.5))
                 denominator = count + 1.2 * (0.25 + 0.75 * self.lengths[index] / max(self.average, 1))
-                score += weight * idf * count * 2.2 / denominator
+                score += (
+                    weight * idf * (count * 2.2 / denominator + (1.0 if word in self.headings[index] else 0))
+                )
             if score > 0:
                 ranked.append(replace(passage, score=round(score, 5)))
         return sorted(ranked, key=lambda p: p.score, reverse=True)[: max(0, min(limit, 5))]

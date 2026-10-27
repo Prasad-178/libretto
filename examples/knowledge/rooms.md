@@ -1,14 +1,14 @@
 # Meeting rooms and booking policies
 
-Room records, prices and schedules are fictional demo data. The agent does not have a booking tool or a live calendar.
+Two dedicated meeting rooms are available in the fictional catalog: Dock seats four people at £18 per hour; Loft seats eight at £32 per hour, including VAT. Both have a screen and whiteboard. Rooms are charged separately from day passes and Flex memberships; Resident includes four room credit hours per month. Bookings use whole one-hour blocks on weekdays, 9 AM to 5 PM. The agent can explain these options but has no booking tool or live calendar.
 
 ## Dock meeting room
 
-Dock seats four people and costs £18 (18 pounds) per hour including VAT. It has a screen, a whiteboard, step-free access and space for a wheelchair user. Bookings are in whole one-hour blocks, during weekday opening hours. Wi-Fi is included. Ask partnerships about a booking request; the agent cannot reserve the room.
+Dock seats four people and costs £18 (18 pounds) per hour including VAT. It has a screen, a whiteboard, step-free access and space for a wheelchair user. Bookings are in whole one-hour blocks, during weekday opening hours. Wi-Fi is included. The agent cannot reserve the room.
 
 ## Loft meeting room
 
-Loft seats eight people and costs £32 (32 pounds) per hour including VAT. It has a screen, a whiteboard and a video-call speakerphone. The upper floor is accessible by lift. Bookings are in whole one-hour blocks during weekday opening hours. There is no published discount for long bookings. Ask partnerships about a booking request; do not promise a slot is available.
+Loft seats eight people and costs £32 (32 pounds) per hour including VAT. It has a screen, a whiteboard and a video-call speakerphone. The upper floor is accessible by lift. Bookings are in whole one-hour blocks during weekday opening hours. There is no published discount for long bookings. Live availability is not available in this demo.
 
 ## Static sample room schedule
 

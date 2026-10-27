@@ -33,3 +33,63 @@ def test_shared_prompt_and_stage_instructions_survive_retrieval():
     assert flow.shared_prompt in context.system
     assert flow.nodes["take_message"].prompt in context.system
     assert flow.nodes["confirm_transfer"].prompt not in context.system
+
+
+def test_natural_catalog_questions_retrieve_complete_grounded_options():
+    from libretto.retrieval import RetrievalIndex
+
+    index = RetrievalIndex.from_directory(Path("examples/knowledge"))
+    for query, required in [
+        (
+            "I wanna book a workspace slot, basically. So how can you help me with that?",
+            ["day pass", "Flex", "Resident"],
+        ),
+        (
+            "What about memberships? What type of memberships do you have?",
+            ["£220", "£360", "eight", "unlimited"],
+        ),
+        ("What facilities do you have?", ["Wi-Fi", "tea", "lift"]),
+        (
+            "Do you have dedicated meeting rooms and are they priced separately?",
+            ["£18", "£32", "four", "eight"],
+        ),
+    ]:
+        passages = index.search(query, ["company"])
+        text = " ".join(p.text for p in passages)
+        assert all(value in text for value in required), (query, [p.heading for p in passages])
+
+
+def test_short_followups_keep_topic_but_contact_details_and_social_turns_do_not_retrieve():
+    from libretto.retrieval import RetrievalIndex
+
+    index = RetrievalIndex.from_directory(Path("examples/knowledge"))
+    for query in [
+        "You can call me Taylor.",
+        "+1 202 555 0142",
+        "Yeah, we can do that.",
+        "Thanks, that's helpful.",
+    ]:
+        assert index.search(query, ["company"], context="How much is Loft?") == [], query
+    followup = index.search("And how much does that cost?", ["company"], context="Tell me about Loft.")
+    assert followup[0].heading == "Loft meeting room"
+
+
+def test_price_followup_uses_room_topic_and_new_question_overrides_it():
+    from libretto.retrieval import RetrievalIndex
+
+    index = RetrievalIndex.from_directory(Path("examples/knowledge"))
+    assert (
+        index.search("And pricing?", ["company"], context="Tell me about Loft.")[0].heading
+        == "Loft meeting room"
+    )
+    results = index.search("How much is a day pass?", ["company"], context="Tell me about Loft.")
+    assert results[0].heading == "Day pass pricing"
+
+
+def test_spoken_how_much_followup_keeps_context_without_retrieving_on_acknowledgements():
+    from libretto.retrieval import RetrievalIndex
+
+    index = RetrievalIndex.from_directory(Path("examples/knowledge"))
+    for query in ["How much?", "And how much?", "How much is that?"]:
+        passages = index.search(query, ["company"], context="Tell me about Loft.")
+        assert passages and passages[0].heading == "Loft meeting room", query

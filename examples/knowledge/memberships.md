@@ -1,6 +1,6 @@
 # Memberships and day-pass prices
 
-All prices below are fictional GBP test prices, including VAT. Plans provide weekday access during opening hours, not guaranteed availability or a live booking.
+Membership options: the Flex membership is £220 per calendar month for eight weekday desk visits; the Resident membership is £360 per calendar month for unlimited weekday visits, an assigned desk and four meeting-room credit hours. A day pass is £25 per person for one weekday, including a shared desk, Wi-Fi, tea and coffee. Flex and day passes charge meeting rooms separately. All prices are fictional GBP including VAT. Access is Monday to Friday, 9 AM to 5 PM; no plan includes weekends or 24-hour access. These are published options, not live availability.
 
 ## Day pass pricing
 

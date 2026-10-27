@@ -216,6 +216,7 @@ class Session:
 
     async def _evaluate(self, context: GenerationContext) -> None:
         epoch = context.snapshot.epoch
+        failure_code = "evaluation_failed"
         try:
             evaluation = await self.evaluator.evaluate(context)
             await self._confirmed.wait()
@@ -226,11 +227,14 @@ class Session:
             proposals = {}
             for key, patch in evaluation.updates.items():
                 if key not in self.workflow.fields:
+                    failure_code = "unconfigured_fact"
                     raise ValueError("Unconfigured fact")
                 if not normalized(patch.evidence) or normalized(patch.evidence) not in normalized(
                     context.text
                 ):
+                    failure_code = "invalid_evidence"
                     raise ValueError("Evidence does not occur in current turn")
+                failure_code = "invalid_fact_value"
                 value = (
                     self.workflow.fields[key].validate_value(patch.value)
                     if patch.status == "answered"
@@ -294,9 +298,13 @@ class Session:
             await self._progress()
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
             if epoch == self.epoch and not self.closed:
-                await self.emit("evaluation_error", message="State update rejected; existing state retained.")
+                await self.emit(
+                    "evaluation_error",
+                    code=getattr(exc, "code", failure_code),
+                    message="State update rejected; existing state retained.",
+                )
 
     def _record_readback(self) -> None:
         values = self.state.values()

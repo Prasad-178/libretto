@@ -108,20 +108,44 @@ class OpenRouterAdapter:
             ) from exc
 
     async def evaluate(self, context: GenerationContext) -> Evaluation:
+        schema = Evaluation.model_json_schema()
+        schema["required"] = ["matches", "updates", "control", "reason"]
+        schema["properties"]["matches"]["items"]["enum"] = list(context.conditions)
+        if not context.conditions:
+            schema["properties"]["matches"] = {"type": "array", "maxItems": 0, "items": {"type": "string"}}
+        schema["properties"]["updates"] = {
+            "type": "object",
+            "properties": {
+                key: {"anyOf": [{"$ref": "#/$defs/FactPatch"}, {"type": "null"}]} for key in context.fields
+            },
+            "required": list(context.fields),
+            "additionalProperties": False,
+        }
         system = (
-            "You interpret a voice workflow turn without speaking to the caller. Return only valid JSON. "
-            "Propose facts explicitly supported by the CURRENT user text; each evidence string must be an exact "
-            "quote from that text. Use history to resolve context, not as a source of newly claimed evidence. "
-            "Capture multiple volunteered facts and corrections. Omit unknown facts; never invent consent. "
-            "Use directory IDs support, billing, partnerships for recipients when the provided directory resolves them. "
-            "A request to leave a message establishes message_consent. destination_confirmed requires explicit "
-            "approval of the current recipient. message_confirmed requires agreement to the last complete readback "
-            "with no changed details. Side questions do not replace an unfinished task. Match only applicable "
-            "condition IDs; select none when staying in the stage. end_call only for explicit goodbye/end-call; "
-            "cancel_request abandons the current task; stop_talking stops only speech. Ambiguous stop is not end_call.\n"
-            f"FIELDS: {json.dumps(context.fields)}\nCONDITIONS: {json.dumps(context.conditions)}\n"
-            f"STAGE AND REFERENCE CONTEXT: {context.system}\n"
-            "OUTPUT SCHEMA: " + json.dumps(Evaluation.model_json_schema())
+            "You route a workflow and extract facts; you never speak to the caller. Return JSON with "
+            "matches, updates, control and reason. First select matching CONDITION IDs for the CURRENT "
+            "stage. An information question matches the information condition when available. "
+            "Use [] only if no condition applies; never invent a condition or field.\n"
+            "Inspect EVERY configured field. Extract ALL facts volunteered in CURRENT USER TEXT at once, "
+            "even before their collection stage. Do not wait for recipient confirmation to extract a name, "
+            "number, message or message_consent. Use null for an unchanged or unknown field. Evidence "
+            "must be an exact quote from that text, never a quote from history. Omit unknown fields; "
+            "unknown does not mean declined. Declined means explicit refusal of that specific detail. "
+            "Use history only to resolve references and what the caller is agreeing to.\n"
+            "A booking enquiry, information question or request for help is NOT consent to leave a "
+            "message. message_consent requires an explicit request/agreement to leave a message. "
+            "destination_confirmed requires approval of the specific transfer destination. "
+            "message_confirmed requires agreement to an existing full readback with no corrections. "
+            "Directory recipients use department IDs. Side questions preserve unfinished tasks. "
+            "end_call only for an explicit goodbye/end-call; cancel_request abandons the task; "
+            "stop_talking stops speech only. Otherwise control=continue.\n"
+            f"CURRENT STAGE: {context.snapshot.stage}\n"
+            f"CONDITIONS: {json.dumps(context.conditions)}\n"
+            f"FIELDS: {json.dumps(context.fields)}\n"
+            f"RECORDED FACTS: {json.dumps(context.snapshot.facts)}\n"
+            f"HAS COMPLETE READBACK: {bool(context.snapshot.readback_fingerprint)}\n"
+            f"DIRECTORY: {context.directory}\n"
+            f"CURRENT USER TEXT: {json.dumps(context.text)}"
         )
         body = {
             "model": self.models.evaluator,
@@ -131,10 +155,10 @@ class OpenRouterAdapter:
                 "json_schema": {
                     "name": "workflow_evaluation",
                     "strict": False,
-                    "schema": Evaluation.model_json_schema(),
+                    "schema": schema,
                 },
             },
-            "max_tokens": 800,
+            "max_tokens": 1100,
             "reasoning": {"effort": "minimal", "exclude": True},
         }
         try:
@@ -145,7 +169,15 @@ class OpenRouterAdapter:
                 self.usage.append(
                     {"model": self.models.evaluator, "kind": "evaluation", "usage": data["usage"]}
                 )
-            return Evaluation.model_validate_json(data["choices"][0]["message"]["content"])
+            if data["choices"][0].get("finish_reason") == "length":
+                raise ProviderError(
+                    "evaluation_truncated", "State evaluation exceeded its output limit; state retained."
+                )
+            payload = json.loads(data["choices"][0]["message"]["content"])
+            payload["updates"] = {
+                key: patch for key, patch in payload.get("updates", {}).items() if patch is not None
+            }
+            return Evaluation.model_validate(payload)
         except httpx.HTTPError as exc:
             raise ProviderError("network_error", "The state evaluator connection failed.") from exc
         except (ValueError, KeyError, IndexError, TypeError) as exc:

@@ -1,6 +1,6 @@
 # Northline Workspace
 
-Northline Workspace is a fictional coworking space used only in the Libretto demo. All staff, addresses, prices, policies and caller profiles are invented test data. Jamie is the front-desk receptionist. The workspace offers day passes, monthly desk memberships, meeting rooms and small team events. This is not a real venue or business service.
+Northline Workspace is a fictional coworking space used only in the Libretto demo. All staff, addresses, prices, policies and caller profiles are invented test data. Jamie is the front-desk receptionist. Workspace options: a £25 day pass for one weekday; Flex membership at £220/month for eight weekday visits; Resident at £360/month for unlimited weekday visits and an assigned desk. There are two meeting rooms: Dock for four people at £18/hour and Loft for eight at £32/hour. The workspace also supports small team events. This is not a real venue or business service.
 
 ## Reception hours and location
 

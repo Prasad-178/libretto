@@ -18,7 +18,9 @@ def compose_prompt(
         f"{workflow.shared_prompt}\n\nCURRENT STAGE: {node.title or snapshot.stage}\n{node.prompt}\n"
         f"ALLOWED CAPABILITIES: {json.dumps(node.tools)}\n"
         f"RECORDED FACTS (may lag latest user input): {json.dumps(snapshot.facts)}\n"
-        "Runtime actions require separate validation. Never invent a result.\n"
+        "This reply runs BEFORE actions for the current turn. A user saying yes is not a tool result. "
+        "For an approved action, briefly acknowledge the request; do not claim it is completed. "
+        "Only the runtime can execute it and report a receipt in a separate reply.\n"
     )
     if directory:
         system += f"\nPUBLIC DIRECTORY (reference data):\n{directory}\n"
@@ -36,4 +38,5 @@ def compose_prompt(
         tuple(passages),
         {key: spec.model_dump() for key, spec in workflow.fields.items()},
         {edge.id: edge.condition for edge in node.edges if edge.condition},
+        directory,
     )
