@@ -8,6 +8,6 @@ User authorized fixing the audited findings, recording TTFS/RAG timings, meaning
 - [x] Implement per-turn retrieval timing, first-audio telemetry and first rendered-sample timing with same-clock latency summaries.
 - [x] Add a repeatable local evaluation suite and bounded opt-in real-model checks using fictional callers.
 - [x] Add active voice-call orb/status, prominent mute/end controls, and a literal YAML-configured startup greeting.
-- [ ] Complete useful regressions, real-provider probes, independent review, browser verification, production deployment and hosted checks.
+- [x] Complete regressions, bounded real-provider probes, independent review, desktop/browser-editor checks, production deployment and hosted keyless checks. Physical-phone voice and the final compact active-call layout remain manual acceptance checks; further live testing was deferred by the user.
 
 No serial classifier is added. Speaker and evaluator remain concurrent. Readbacks and welcome speech are literal runtime output. Acoustic speech-end is a microphone-activity estimate; output timestamp timing is estimated. Report endpoint-to-audio/playback separately, exclude greetings/readbacks/tool follow-ups from ordinary-reply summaries, and never infer historical timing that was not recorded. Keep raw personal call exports ignored and provider keys out of logs/artifacts. Calls remain capped at five minutes and production remains visitor-key-only.
