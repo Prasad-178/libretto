@@ -1,101 +1,170 @@
 # Libretto
 
-Voice workflows, written in YAML.
+**Voice workflows, written in YAML.**
 
-[Try the demo](https://libretto.prasadjs.me) · [Testing guide](docs/testing.md) · [Provider integration](docs/speech-providers.md)
+[![CI](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml/badge.svg)](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml)
 
-An English voice-agent prototype with a Python workflow engine and a React demo. Jamie, receptionist at the fictional Northline Workspace coworking space, answers document-backed membership and room questions, finds departments, confirms simulated transfers, recovers by taking a message, and wraps up.
+[Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
-The runtime enforces graph transitions, typed state, stage-scoped capabilities and action prerequisites. Models interpret the caller and generate speech; their interpretation and wording are probabilistic. A YAML graph does not make an LLM deterministic.
+Libretto is a Python workflow engine and React studio for building stateful voice agents. Define stages, prompts, fields, transitions, knowledge and actions in YAML; inspect the generated workflow; then test it over voice or text while watching state, sources and tool receipts.
 
-The studio opens on a read-only Workflow canvas generated from YAML: stage cards, routed transitions, full condition/prompt details, zoom/fit controls and live stage highlights. Edit the same definition in Agent or YAML, then return to Workflow to inspect it. During a test, the canvas shows the running snapshot; edits apply to the next test.
+The bundled agent is Jamie, the receptionist at **Northline Workspace**, a fictional coworking space. Ask about memberships or rooms, request a transfer, or leave a message after a simulated failed transfer. Transfers and message captures are session-only simulations; they do not contact anyone or create a real ticket.
+
+The runtime constrains transitions and action prerequisites. Language understanding and generated wording remain probabilistic: a YAML graph does not make an LLM deterministic.
+
+## Try it
+
+Open **[libretto.prasadjs.me](https://libretto.prasadjs.me)**. Browse the Workflow, Agent, YAML and Knowledge base tabs without connecting to a provider.
+
+To start a conversation, open **API connection** and enter your own keys:
+
+| Mode | Required keys |
+| --- | --- |
+| Text | OpenRouter |
+| Voice | OpenRouter and a direct Deepgram key with access to the configured Flux models |
+
+API usage is billed by those providers. The public demo has no funded shared provider keys. Keys stay in tab/session memory, are sent to the backend over HTTPS/WSS, and are excluded from browser storage and app-generated exports. See the [credential boundaries](docs/security.md).
+
+A few natural things to try:
+
+- “What membership options do you have?” Then: “What about meeting rooms?”
+- “Can I speak to Maya in billing?” Approve the destination and observe the simulated transfer result.
+- “I'd like to leave a message.” Supply invented details, correct the callback number, and confirm the new readback.
+- Ask about an unpublished discount or try to book a room. The agent should explain its limits without inventing a policy or claiming a booking.
+
+The test panel includes **15 scenarios** with fictional data, expected sources and selectable transfer outcomes. Use **State**, **Sources** and **Trace** to inspect what happened. Calls end after five minutes; a new call starts fresh. Prefer headphones when evaluating interruptions.
+
+## What is implemented
+
+- **Editable YAML and workflow visualization.** Prompt forms and YAML share one definition. Apply validates it; each test runs an immutable definition snapshot. The canvas is a visualization, not a node editor.
+- **Concurrent speaking and evaluation.** A streaming speaker produces the reply while a separate structured evaluator proposes facts and routing. Ordinary speech has no preceding LLM classifier.
+- **Runtime-owned state and actions.** Typed fields, allowed graph edges, confirmation checks and session-local action deduplication constrain execution. Corrections invalidate previous confirmations.
+- **Streaming audio and interruption handling.** Browser AudioWorklets capture/play PCM. Work epochs reject stale output; playback acknowledgements distinguish generated speech from delivered speech.
+- **Document retrieval.** Local BM25 retrieves relevant Markdown passages, including context for short follow-ups. Sources are visible in the test panel.
+- **Voice-call controls.** A lightweight CSS orb reflects call state, with a spoken welcome, mute/end controls and responsive layouts.
+- **Diagnostics and evaluations.** Session exports include stage/fact/tool events, retrieval duration and estimated audio/playback latency. Local checks and opt-in real-model evaluations are separate.
 
 ## Run locally
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/) and Node.js 22.12+ (Node 24 recommended).
+Requires **Python 3.12+**, [uv](https://docs.astral.sh/uv/) and **Node.js 22.12+** (24 recommended).
 
 ```sh
+git clone https://github.com/Prasad-178/libretto.git
+cd libretto
 uv sync --locked
 npm --prefix web ci
 npm --prefix web run build
-cp .env.example .env
 uv run libretto serve
 ```
 
-Open http://127.0.0.1:8000. Add `OPENROUTER_API_KEY` and `DEEPGRAM_API_KEY` to `.env`, or use the masked inputs in Connection settings. Text mode needs OpenRouter; voice mode also needs a direct Deepgram key with access to Flux STT/TTS. No fake-provider fallback exists in the live demo.
+Open **http://127.0.0.1:8000** and enter keys in Connection settings. Alternatively, copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `DEEPGRAM_API_KEY` there. Never put provider credentials in YAML or `VITE_` environment variables.
 
-For frontend development, run the backend above and `npm --prefix web run dev` in another terminal. Vite proxies `/api` and its WebSocket to port 8000.
+For frontend development, keep the backend running and start:
 
 ```sh
-uv run libretto validate examples/receptionist.yaml
-uv run libretto graph examples/receptionist.yaml
-uv run libretto evaluate
+npm --prefix web run dev
+```
+
+Vite proxies `/api` and its WebSocket to port 8000. A frontend build is required when serving the compiled studio directly from the Python server.
+
+## A workflow is a file
+
+This complete example is [examples/minimal.yaml](examples/minimal.yaml):
+
+```yaml
+version: 1
+id: tiny-survey
+name: A one-question survey
+start: question
+shared_prompt: Speak English. Ask one question at a time.
+fields:
+  answer: {type: string, description: The user's answer}
+nodes:
+  question:
+    kind: conversation
+    title: One question
+    prompt: Ask what makes a useful demo. Thank the caller when answered.
+    edges:
+      - {id: answered, to: end, condition: The user answered or declined the question.}
+  end: {kind: end, title: Finished}
+```
+
+Validate or inspect a definition without a provider call:
+
+```sh
 uv run libretto validate examples/minimal.yaml
+uv run libretto graph examples/receptionist.yaml
+```
+
+The [receptionist definition](examples/receptionist.yaml) adds shared and stage-specific prompts, typed facts, knowledge sources, conversation/action nodes, readback templates and speech settings. The [architecture guide](docs/architecture.md) explains scheduling, transition commits and action execution.
+
+## How a voice turn works
+
+```mermaid
+flowchart LR
+    Mic[Browser microphone] --> STT[Speech recognition and turn detection]
+    STT --> Runtime[Session runtime and local retrieval]
+    Runtime --> Speaker[Streaming speaker]
+    Runtime --> Evaluator[Structured evaluator]
+    Speaker --> TTS[Streaming synthesis]
+    TTS --> Playback[Browser playback]
+    Evaluator --> Controller[Validate facts and permitted transitions]
+    Controller --> State[Stage and guarded actions]
+    Playback -->|Delivery acknowledgements| State
+```
+
+The speaker and evaluator receive a fixed stage snapshot. A valid pending transition commits at a generation boundary; it does not change a reply's prompt midway through streaming. Actions require authoritative facts and confirmation, and voice actions wait for playback. A runtime-generated welcome and validated readback need no speaker request.
+
+Libretto owns the orchestration. OpenRouter supplies the current LLM API; Deepgram supplies recognition, turn detection and synthesis. Flux TTS accepts raw text deltas and chooses synthesis boundaries inside the provider. There is no local sentence-completion model or per-word synthesis request.
+
+Recognition and synthesis have separate adapter contracts. **Deepgram is the only shipped speech provider today**; another provider requires an implemented and registered adapter, not just a new YAML name. See [speech provider integration](docs/speech-providers.md).
+
+## Verify and evaluate
+
+```sh
 uv run pytest -q
 uv run ruff check src tests app.py
+uv run libretto evaluate
 npm --prefix web test
 npm --prefix web run build
 ```
 
-## How it works
+[GitHub Actions](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml) runs those checks on pushes and pull requests with no provider keys or paid API calls. The suite covers concurrency, stale work, confirmation/readback guards, tool receipts, access limits, provider contracts, audio ordering and timing calculations.
 
-- `examples/receptionist.yaml` defines the shared prompt, typed fields, models, knowledge, stages, permitted transitions and registered actions. `examples/minimal.yaml` is an unrelated two-stage example.
-- The YAML `welcome` line plays as soon as voice transport is ready, without a model request.
-- Confirmation nodes can define a `readback` template. The runtime renders it from validated state, binds its fingerprint to completed delivery, and requires fresh confirmation after corrections.
-- Speaking and structured evaluation run concurrently. Each generation uses a fixed stage snapshot. Valid pending transitions commit at generation boundaries; action guards wait for authoritative prerequisites and confirmation.
-- Local BM25 retrieval searches Markdown sections on every nonempty input, using recent context for follow-ups and filtering sources by the active configuration. There is no preceding FAQ classifier, query-rewrite LLM or vector database. Lexical search can miss paraphrases.
-- Flux STT eager signals start draft generation; matching confirmed input releases speech. Resumed speech cancels stale work. Flux TTS receives raw text deltas followed by one end-of-response Flush. There is no client sentence-boundary model.
-- Browser AudioWorklets capture 16 kHz PCM and progressively play 24 kHz PCM. Epochs reject stale audio after interruption. Listening profiles allow longer pauses while collecting contact details.
-- Transfers and message captures are **simulations**. Receipts exist only in the current session. They do not contact a real person or create a durable ticket.
-
-The UI is an agent workspace with synchronized prompt forms and an editable YAML source, a bundled knowledge base, and a voice/text test panel. Apply changes validates the definition; every test uses a fixed snapshot of that YAML. Changes stay in the tab; Export YAML downloads a file. Active/pending stage, facts, passages, trace, countdown and simulated outcomes are inspectable during tests.
-
-### Provider boundaries
-
-Provider replaceability is a design requirement. Libretto owns streaming orchestration between microphone capture, transcription events, LLM text deltas, TTS input and browser playback, alongside its workflow/state/RAG/tool logic. OpenRouter and Deepgram currently supply the model APIs; speech recognition, Flux turn detection and synthesis segmentation run inside the speech provider.
-
-STT and TTS now have independent contracts, normalized events and explicit capabilities. A provider-neutral coordinator owns runtime integration and browser framing; YAML selects each provider/model through a server allowlist. Deepgram is the only shipped speech implementation. Mixed test adapters verify that replacing speech transport does not require workflow/state changes. See [speech provider integration](docs/speech-providers.md) for registration, audio formats, capability fallbacks and credential bindings.
-
-Reusable libraries or open frameworks are acceptable when provider-specific behavior remains behind replaceable adapters. Rebuilding every component from scratch is not a project requirement.
-
-## Sessions and credentials
-
-One WebSocket owns one in-memory conversation, capped at 300 seconds (five minutes). Disconnecting or reconnecting starts fresh. There is no database, cross-instance session lookup or durable message storage. An explicit downloaded trace contains conversation details and should be treated accordingly.
-
-Visitor keys stay in tab memory and their backend session, over HTTPS/WSS when hosted. They are not placed in browser storage, URLs, traces or exports. Server keys stay on the backend. Provider credentials are independent; replacing an OpenRouter key does not replenish Deepgram credit. Changing keys does not restart the timer. Provider hosts are fixed in code.
-
-For a funded public demo, use provider-side limits on dedicated low-budget keys. Session duration and in-process counters are not a global spending cap. Public Vercel deployments default to BYOK, even if provider keys are accidentally configured. A shared hosted budget requires `LIBRETTO_ALLOW_HOSTED_KEYS=true`; local .env development remains supported. API usage is billed by the providers. See [access boundaries and remaining risks](docs/security.md).
-
-## Hosting
-
-`app.py` is the FastAPI entrypoint. `vercel.json` builds the frontend and permits a 300-second function lifetime; the application caps calls at 300 seconds. The function lifetime also includes connection setup, so the hosting timeout can end a call slightly earlier. State stays within the one connection. Vercel Hobby is the intended hosting plan, subject to included limits. No paid hosting add-on or database is provisioned.
+`libretto evaluate` runs eight curated Northline retrieval checks offline and writes a report under ignored `.local/evaluations/`. The explicitly opted-in command below makes **paid OpenRouter requests** for two fictional workflows: message/corrected-contact/capture and unavailable transfer.
 
 ```sh
-vercel deploy
+uv run libretto evaluate --live
 ```
 
-Live demo: **https://libretto.prasadjs.me**. Cloudflare has a DNS-only CNAME named `libretto` targeting `4df64d3f7d5dc4a6.vercel-dns-017.com`. Vercel verifies the domain and serves HTTPS. Homepage, frontend assets, API routes and the secure WebSocket were checked on this hostname. Local research, credentials and session data are excluded by `.gitignore` and `.vercelignore`.
+Those cases use real model calls and simulated business tools. They do not measure microphone or TTS latency. Use `--output PATH` to retain separate reports. See the [testing guide](docs/testing.md) and [verification evidence](docs/evidence.md).
 
-Vercel documents [FastAPI frontend builds and WebSockets](https://vercel.com/docs/frameworks/backend/fastapi); connections remain subject to [function duration limits](https://vercel.com/docs/functions/configuring-functions/duration).
+The State tab and session export report mean/median retrieval time and estimated time to first speech. Browser measurements separate confirmed-endpoint-to-audio/playback from microphone-activity-to-playback estimates. Greetings, readbacks and tool-result follow-ups are excluded from ordinary-reply summaries. **These are diagnostics, not a controlled acoustic latency benchmark.**
 
-## Guided fictional tests
+## Deployment and limits
 
-The test panel’s **Scenarios** tab contains 15 scripted cases with fake caller details, expected sources and manual checks. Preparing a scenario sets the transfer outcome and drafts a line; it never starts paid requests automatically. See [testing the coworking front desk](docs/testing.md) for the reference facts and repeatable procedure.
+The current demo runs on Vercel at **https://libretto.prasadjs.me**. `app.py` is the FastAPI entrypoint; `vercel.json` builds the frontend and allows a 300-second function lifetime. One WebSocket owns one in-memory session. There is no database or reconnect recovery; setup time can make the hosting limit end a call slightly before the five-minute timer.
 
-## Validation and limits
+Vercel deployments default to visitor keys, even if provider keys are accidentally present in the environment. A shared budget requires explicit operator opt-in with `LIBRETTO_ALLOW_HOSTED_KEYS=true`. Provider usage is billed separately from hosting, and platform included limits still apply. See [security and public-traffic limits](docs/security.md).
 
-GitHub Actions runs lint, the backend suite, an offline retrieval evaluation, frontend tests and a production build on pushes and pull requests. CI needs no provider keys and makes no paid model calls.
+Current scope:
 
-Backend tests exercise concurrency, stale-result rejection, confirmation invalidation, retrieval, mock actions, provider transport contracts and WebSocket handling. Browser protocol tests check framed PCM, epochs and safe export. Controlled transports do not establish that a live model or speech account works.
+- English only; browser voice and text, with no telephony.
+- A small bundled Markdown corpus with lexical retrieval; no embeddings, vector database or large-corpus scalability claim.
+- Simulated transfers and message capture; no durable business delivery, account access, payments or bookings.
+- No visual node editing, distributed application rate limiter or deployment-wide spending meter.
+- Workflow and session exports are explicit downloads. They can contain conversation details; review them before sharing.
 
-Interrupted voice history retains provider-aligned spoken text when available; otherwise it records an unknown prefix with an interruption marker, never an invented heard suffix.
+## Find your way around
 
-Bounded real-model workflow and real speech-protocol checks have passed; acoustic latency percentiles are not established. The target is 1.0–1.2 seconds from acoustic end to meaningful playback, flagging turns above 1.5 seconds. Exports now include per-turn retrieval duration, first server audio, browser audio arrival, and first rendered playback. Estimated TTFS uses the last microphone-activity timestamp and estimated output presentation; it is not a physical acoustic measurement. Endpoint-to-audio/playback are reported separately. Greetings, runtime readbacks and tool-result follow-ups are excluded from ordinary-reply TTFS summaries. Model/voice defaults are candidates, not measured winners. Record warm/cold and tool paths separately before publishing performance claims; see the [evidence checklist](docs/evidence.md).
-
-Deferred: multilingual support, real telephony, durable delivery, vector retrieval, speculative TTS, distributed abuse controls, deployment-wide metering and a visual node editor.
-
-## Repeatable evaluation
-
-`uv run libretto evaluate` checks eight curated Northline retrieval cases locally without API calls and writes a detailed JSON report under ignored `.local/evaluations/`. `uv run libretto evaluate --live` explicitly opts into bounded paid OpenRouter calls for the accepted-message/corrected-contact/capture and unavailable-transfer paths. It uses fictional callers, real speaker/evaluator requests and simulated business tools; it does not benchmark microphone or TTS latency. Use `--output PATH` to retain separate runs. The evaluation cases are specific to the bundled demo.
-
-The State tab displays mean/median estimated TTFS and confirmed-turn retrieval duration. Export session retains the per-response records, sample counts, measurement references and separate timing for non-reply speech. These are session-memory measurements, not server-side analytics or durable recordings. BM25 here scans a small local corpus; its sub-millisecond local timings do not establish large-corpus or hosted performance.
+| Path | Responsibility |
+| --- | --- |
+| [docs/architecture.md](docs/architecture.md) | Pipeline, state model, scheduling and extension boundaries |
+| [src/libretto/runtime.py](src/libretto/runtime.py) | Session state, concurrent work, transitions, readbacks and action guards |
+| [src/libretto/schema.py](src/libretto/schema.py) | Validated YAML schema and graph references |
+| [src/libretto/speech.py](src/libretto/speech.py) | Provider-neutral speech coordination and registration |
+| [src/libretto/providers](src/libretto/providers) | OpenRouter and Deepgram adapters |
+| [src/libretto/retrieval.py](src/libretto/retrieval.py) | Local Markdown indexing and lexical retrieval |
+| [web/src](web/src) | React studio, workflow canvas, browser audio and timing |
+| [examples](examples) | Fictional receptionist, minimal workflow, knowledge and scenarios |
+| [docs/testing.md](docs/testing.md) | Test paths and expected demo behavior |

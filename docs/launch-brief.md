@@ -67,14 +67,14 @@ For a shorter social clip, show YAML → document-backed answer → corrected-de
 - Secrets/history scan passed before the initial remote push; local research, credentials and raw call exports remain ignored.
 - Repository CI runs lint, Python tests, offline retrieval evaluation, frontend tests and a production build without provider secrets or paid API traffic.
 - A quiet physical-phone voice call, keyboard-open layout and a small set of comparable latency samples remain useful manual acceptance checks. Further live testing was deferred by the user; no broad latency conclusion is required to share the prototype honestly.
-- Repository visibility and license are separate release choices. Keep the initial backup private; recommend discussing MIT versus Apache-2.0 before describing the code as open source.
+- The user authorized public repository visibility after the initial private backup. The repository is public at https://github.com/Prasad-178/libretto. A license is still a separate choice; agree on it before describing the code as open source.
 - No blog or X publication is authorized by this brief. The next editorial step is a focused discussion and approval of the brief, then a concrete long-form outline.
 
 ## Questions only Prasad can answer
 
 1. Should the article primarily teach the runtime/concurrency design, or tell the shorter build-and-demo story? Recommendation: teach the runtime, using the receptionist as the running example.
 2. Which decision/result felt most surprising or worth explaining in your own words?
-3. Do you want the code public for launch, and under which license? Recommendation: public with a permissive license if reuse is the goal; choose the license explicitly.
+3. Which license should the public repository use? A permissive license may fit a reuse-oriented project; choose its terms explicitly.
 
 ## Visual and terminology plan
 

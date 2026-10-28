@@ -37,4 +37,4 @@ Implement only the appropriate STT or TTS protocol, translate that service's eve
 
 `SessionCredentials` and the browser currently expose OpenRouter and Deepgram key slots. An adapter using either can reuse it; a service with a new credential type also needs a credential/input binding in those application settings. Provider keys remain outside YAML, traces and exports. Hosts remain fixed inside adapters.
 
-Only Deepgram is a shipped speech provider today. Test adapters prove mixed selection, WebSocket streaming, capability fallback and credential replacement; they are not offered as a live fallback or a claim of real-provider interoperability. No live latency measurement has been made without speech/model credentials.
+Only Deepgram is a shipped speech provider today. Test adapters prove mixed selection, WebSocket streaming, capability fallback and credential replacement; they are not offered as a live fallback or a claim of real-provider interoperability. For bounded live checks and current timing limitations, see [verification evidence](evidence.md). Browser timing estimates do not establish a controlled acoustic latency benchmark.
