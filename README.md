@@ -2,6 +2,8 @@
 
 Voice workflows, written in YAML.
 
+[Try the demo](https://libretto.prasadjs.me) · [Testing guide](docs/testing.md) · [Provider integration](docs/speech-providers.md)
+
 An English voice-agent prototype with a Python workflow engine and a React demo. Jamie, receptionist at the fictional Northline Workspace coworking space, answers document-backed membership and room questions, finds departments, confirms simulated transfers, recovers by taking a message, and wraps up.
 
 The runtime enforces graph transitions, typed state, stage-scoped capabilities and action prerequisites. Models interpret the caller and generate speech; their interpretation and wording are probabilistic. A YAML graph does not make an LLM deterministic.
@@ -81,6 +83,8 @@ Vercel documents [FastAPI frontend builds and WebSockets](https://vercel.com/doc
 The test panel’s **Scenarios** tab contains 15 scripted cases with fake caller details, expected sources and manual checks. Preparing a scenario sets the transfer outcome and drafts a line; it never starts paid requests automatically. See [testing the coworking front desk](docs/testing.md) for the reference facts and repeatable procedure.
 
 ## Validation and limits
+
+GitHub Actions runs lint, the backend suite, an offline retrieval evaluation, frontend tests and a production build on pushes and pull requests. CI needs no provider keys and makes no paid model calls.
 
 Backend tests exercise concurrency, stale-result rejection, confirmation invalidation, retrieval, mock actions, provider transport contracts and WebSocket handling. Browser protocol tests check framed PCM, epochs and safe export. Controlled transports do not establish that a live model or speech account works.
 
