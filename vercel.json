@@ -1,21 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "fastapi",
-  "buildCommand": "npm --prefix web ci && npm --prefix web run build",
+  "buildCommand": "npm --prefix web ci && npm --prefix web run build && cp public/index.html src/libretto/studio.html",
   "functions": {
     "app.py": {
       "maxDuration": 300,
-      "includeFiles": "examples/**"
+      "includeFiles": "{examples/**,src/libretto/studio.html}"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/studio",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/studio/",
-      "destination": "/index.html"
-    }
-  ]
+  }
 }

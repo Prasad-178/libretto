@@ -31,3 +31,6 @@ test-results/
 /public/
 .vercel/
 *.tsbuildinfo
+
+# Generated studio entry bundled for serverless direct navigation.
+/src/libretto/studio.html

@@ -431,7 +431,8 @@ def create_app(
     @app.get("/studio", include_in_schema=False)
     @app.get("/studio/", include_in_schema=False)
     async def studio_page():
-        return FileResponse(root / "public" / "index.html")
+        bundled = Path(__file__).with_name("studio.html")
+        return FileResponse(bundled if bundled.exists() else root / "public" / "index.html")
 
     app.frontend("/", directory=root / "public", fallback="index.html", check_dir=False)
 
