@@ -11,7 +11,7 @@ from typing import Literal
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
 from libretto.providers.base import ProviderError, SessionCredentials
@@ -427,6 +427,11 @@ def create_app(
                 await adapter.close()
             if credentials:
                 credentials.clear()
+
+    @app.get("/studio", include_in_schema=False)
+    @app.get("/studio/", include_in_schema=False)
+    async def studio_page():
+        return FileResponse(root / "public" / "index.html")
 
     app.frontend("/", directory=root / "public", fallback="index.html", check_dir=False)
 

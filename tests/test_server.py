@@ -299,3 +299,21 @@ def test_local_preview_port_is_allowed_but_foreign_origin_is_rejected(monkeypatc
                 "ws://127.0.0.1:8001/api/ws", headers={"origin": "https://foreign.example"}
             ):
                 pass
+
+
+def test_home_and_direct_studio_navigation_serve_frontend(tmp_path):
+    import shutil
+    from pathlib import Path
+
+    from libretto.server import ROOT, create_app
+
+    shutil.copytree(ROOT / 'examples', tmp_path / 'examples')
+    (tmp_path / 'public').mkdir()
+    (tmp_path / 'public' / 'index.html').write_text('<html>Libretto frontend</html>')
+    with TestClient(create_app(load_environment=False, asset_root=Path(tmp_path))) as client:
+        for path in ['/', '/studio', '/studio/']:
+            response = client.get(path)
+            assert response.status_code == 200
+            assert 'Libretto frontend' in response.text
+            assert response.headers['content-type'].startswith('text/html')
+        assert client.get('/api/health').json()['status'] == 'ok'

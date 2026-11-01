@@ -14,7 +14,7 @@ The runtime constrains transitions and action prerequisites. Language understand
 
 ## Try it
 
-Open **[libretto.prasadjs.me](https://libretto.prasadjs.me)**. Browse the Workflow, Agent, YAML and Knowledge base tabs without connecting to a provider.
+Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse the Workflow, Agent, YAML and Knowledge base tabs without connecting to a provider.
 
 To start a conversation, open **API connection** and enter your own keys:
 

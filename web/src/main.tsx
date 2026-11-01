@@ -1,10 +1,19 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/inter";
-import "./styles.css";
-import App from "./App";
+const studio = /^\/studio\/?$/.test(window.location.pathname);
+const Page = studio
+  ? lazy(() => import("./Studio"))
+  : lazy(() => import("./Home"));
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <Suspense
+      fallback={
+        <div role="status" style={{ padding: 32, fontFamily: "sans-serif" }}>
+          Loading Libretto…
+        </div>
+      }
+    >
+      <Page />
+    </Suspense>
   </StrictMode>,
 );
