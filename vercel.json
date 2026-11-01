@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "fastapi",
-  "buildCommand": "npm --prefix web ci && npm --prefix web run build && node -e \"const fs=require('fs');fs.writeFileSync('src/libretto/studio_entry.py', 'HTML = ' + JSON.stringify(fs.readFileSync('public/index.html','utf8')))\"",
+  "buildCommand": "npm --prefix web ci && npm --prefix web run build",
   "functions": {
     "app.py": {
       "maxDuration": 300,

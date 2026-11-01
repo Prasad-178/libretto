@@ -301,12 +301,13 @@ def test_local_preview_port_is_allowed_but_foreign_origin_is_rejected(monkeypatc
                 pass
 
 
-def test_home_and_direct_studio_navigation_serve_frontend(tmp_path):
+def test_home_and_direct_studio_navigation_serve_frontend(tmp_path, monkeypatch):
     import shutil
     from pathlib import Path
 
     from libretto.server import ROOT, create_app
 
+    monkeypatch.setattr("libretto.server.STUDIO_HTML", "")
     shutil.copytree(ROOT / 'examples', tmp_path / 'examples')
     (tmp_path / 'public').mkdir()
     (tmp_path / 'public' / 'index.html').write_text('<html>Libretto frontend</html>')

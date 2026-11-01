@@ -1,3 +1,6 @@
-"""Production HTML is populated by the Vercel frontend build."""
+"""Studio document; Vite emits a stable, revalidated entrypoint for deep links."""
 
-HTML = ""
+HTML = '''<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Libretto — voice workflows, written in YAML</title>
+</head><body><div id="root"></div><script type="module" src="/entry.js"></script></body></html>'''
