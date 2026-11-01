@@ -11,7 +11,7 @@ from typing import Literal
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
 from libretto.providers.base import ProviderError, SessionCredentials
@@ -20,6 +20,7 @@ from libretto.retrieval import build_index
 from libretto.runtime import CALL_LIMIT_SECONDS, Session
 from libretto.schema import Models, StrictModel, load_workflow, parse_workflow
 from libretto.speech import default_speech_registry
+from libretto.studio_entry import HTML as STUDIO_HTML
 from libretto.tools import ToolRegistry
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -431,8 +432,9 @@ def create_app(
     @app.get("/studio", include_in_schema=False)
     @app.get("/studio/", include_in_schema=False)
     async def studio_page():
-        bundled = Path(__file__).with_name("studio.html")
-        return FileResponse(bundled if bundled.exists() else root / "public" / "index.html")
+        if STUDIO_HTML:
+            return HTMLResponse(STUDIO_HTML)
+        return FileResponse(root / "public" / "index.html")
 
     app.frontend("/", directory=root / "public", fallback="index.html", check_dir=False)
 
