@@ -317,3 +317,14 @@ def test_home_and_direct_studio_navigation_serve_frontend(tmp_path):
             assert 'Libretto frontend' in response.text
             assert response.headers['content-type'].startswith('text/html')
         assert client.get('/api/health').json()['status'] == 'ok'
+
+
+def test_studio_can_use_bundled_html_without_static_files(monkeypatch):
+    import libretto.server as server
+
+    monkeypatch.setattr(server, 'STUDIO_HTML', '<html>Bundled studio</html>')
+    with TestClient(server.create_app(load_environment=False)) as client:
+        for path in ['/studio', '/studio/']:
+            response = client.get(path)
+            assert response.status_code == 200
+            assert response.text == '<html>Bundled studio</html>'
