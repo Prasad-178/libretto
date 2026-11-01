@@ -7,5 +7,15 @@
       "maxDuration": 300,
       "includeFiles": "examples/**"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/studio",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/studio/",
+      "destination": "/index.html"
+    }
+  ]
 }
