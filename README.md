@@ -14,9 +14,9 @@ The runtime constrains transitions and action prerequisites. Language understand
 
 ## Watch the walkthrough
 
-[![Watch the Libretto walkthrough](docs/media/libretto-walkthrough.jpg)](https://github.com/Prasad-178/libretto/blob/main/docs/media/libretto-walkthrough.mp4)
+[![Watch the Libretto walkthrough](docs/media/libretto-walkthrough.jpg)](https://cdn.jsdelivr.net/gh/Prasad-178/libretto@81d2295/docs/media/libretto-walkthrough.mp4)
 
-[Watch the 3 minute 40 second video](https://github.com/Prasad-178/libretto/blob/main/docs/media/libretto-walkthrough.mp4) for a tour of the workflow, YAML and agent settings. This is an interface walkthrough, not a live-call or latency benchmark.
+[Watch the 3 minute 40 second video](https://cdn.jsdelivr.net/gh/Prasad-178/libretto@81d2295/docs/media/libretto-walkthrough.mp4) for a tour of the workflow, YAML and agent settings. The link opens a browser video player; the MP4 is served from this repository through jsDelivr. This is an interface walkthrough, not a live-call or latency benchmark.
 
 ## Try it
 
