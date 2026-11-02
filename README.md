@@ -12,6 +12,12 @@ The bundled agent is Jamie, the receptionist at **Northline Workspace**, a ficti
 
 The runtime constrains transitions and action prerequisites. Language understanding and generated wording remain probabilistic: a YAML graph does not make an LLM deterministic.
 
+## Watch the walkthrough
+
+[![Watch the Libretto walkthrough](docs/media/libretto-walkthrough.jpg)](https://github.com/Prasad-178/libretto/blob/main/docs/media/libretto-walkthrough.mp4)
+
+[Watch the 3 minute 40 second video](https://github.com/Prasad-178/libretto/blob/main/docs/media/libretto-walkthrough.mp4) for a tour of the workflow, YAML and agent settings. This is an interface walkthrough, not a live-call or latency benchmark.
+
 ## Try it
 
 Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse the Workflow, Agent settings, YAML and Knowledge base tabs without connecting to a provider.
