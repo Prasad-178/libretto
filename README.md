@@ -14,7 +14,7 @@ The runtime constrains transitions and action prerequisites. Language understand
 
 ## Try it
 
-Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse the Workflow, Agent, YAML and Knowledge base tabs without connecting to a provider.
+Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse the Workflow, Agent settings, YAML and Knowledge base tabs without connecting to a provider.
 
 To start a conversation, open **API connection** and enter your own keys:
 
@@ -36,7 +36,7 @@ The test panel includes **15 scenarios** with fictional data, expected sources a
 
 ## What is implemented
 
-- **Editable YAML and workflow visualization.** Prompt forms and YAML share one definition. Apply validates it; each test runs an immutable definition snapshot. The canvas is a visualization, not a node editor.
+- **Visual workflow editing and YAML.** Select a step to edit its prompt, name, readback or action settings in the right panel. Select a transition to edit its destination, language condition and state checks; use + to insert a conversation, fixed message or registered action. Graph edits and YAML share one definition, with Undo and YAML export. Validate checks the draft; each test runs an immutable snapshot. Drafts remain in the current tab.
 - **Concurrent speaking and evaluation.** A streaming speaker produces the reply while a separate structured evaluator proposes facts and routing. Ordinary speech has no preceding LLM classifier.
 - **Runtime-owned state and actions.** Typed fields, allowed graph edges, confirmation checks and session-local action deduplication constrain execution. Corrections invalidate previous confirmations.
 - **Streaming audio and interruption handling.** Browser AudioWorklets capture/play PCM. Work epochs reject stale output; playback acknowledgements distinguish generated speech from delivered speech.
@@ -152,7 +152,7 @@ Current scope:
 - English only; browser voice and text, with no telephony.
 - A small bundled Markdown corpus with lexical retrieval; no embeddings, vector database or large-corpus scalability claim.
 - Simulated transfers and message capture; no durable business delivery, account access, payments or bookings.
-- No visual node editing, distributed application rate limiter or deployment-wide spending meter.
+- No freeform node dragging, distributed application rate limiter or deployment-wide spending meter. Protected before-action connections do not offer step insertion; reconnect to an existing end step to finish a branch.
 - Workflow and session exports are explicit downloads. They can contain conversation details; review them before sharing.
 
 ## Find your way around

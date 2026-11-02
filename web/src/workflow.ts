@@ -9,6 +9,7 @@ export type FlowNode = {
   tool?: string | null;
   knowledge?: string[];
   requires?: string[];
+  arguments?: Record<string, string>;
   patient: boolean;
   entry?: string;
   edges: {
@@ -29,6 +30,7 @@ export type Workflow = {
   start: string;
   models: { speaker: string; evaluator: string };
   fields?: Record<string, { type: string; description: string }>;
+  tools?: string[];
   knowledge?: Record<string, string>;
   common_knowledge?: string[];
   nodes: Record<string, FlowNode>;

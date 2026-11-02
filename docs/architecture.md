@@ -11,7 +11,7 @@ This document describes the shipped prototype. A constrained graph does not guar
 ```mermaid
 flowchart TB
     subgraph Browser[React studio]
-        Definition[YAML editor and workflow visualization]
+        Definition[YAML editor and visual workflow editing]
         Capture[Capture AudioWorklet: 16 kHz PCM]
         Output[Playback AudioWorklet: 24 kHz PCM]
         Inspect[Conversation, state, sources, trace and timing]
@@ -46,7 +46,7 @@ flowchart TB
 
 | Component | Owns | Does not own |
 | --- | --- | --- |
-| React studio | Editor state, YAML/forms synchronization, graph visualization, call controls and session diagnostics | Authoritative fact validation or permission to execute actions |
+| React studio | Editor state, YAML/forms synchronization, graph editing, call controls and session diagnostics | Authoritative fact validation or permission to execute actions |
 | FastAPI connection handler | Credential checks, definition compilation, transport framing, session lifetime and cleanup | A durable or reconnectable conversation store |
 | `Session` runtime | Concurrent tasks, fixed generation snapshots, validated facts, transition commits, readbacks and action guards | Speech recognition, synthesis or reliable semantic interpretation |
 | Retrieval index | Bundled-document chunks, lexical ranking and source filtering | A remote search service, embeddings or a semantic reranker |
@@ -74,7 +74,7 @@ A workflow contains:
 
 Node kinds are `conversation`, `action`, `say` and `end`. Conversation nodes supply prompts, knowledge and edges; an `entry: respond` node can produce an entry response. Action nodes identify a registered tool, field-to-argument bindings, required facts and result branches. Say nodes emit literal text. End nodes terminate the session.
 
-The UI validates edits before starting a test. The connection receives its own compiled workflow snapshot. Edits during a test apply to a later test; they do not mutate the running caller's configuration. The workflow canvas displays the active test snapshot while connected and visualizes YAML rather than implementing a separate graph editor.
+The UI validates edits before starting a test. The connection receives its own compiled workflow snapshot. Edits during a test apply to a later test; they do not mutate the running caller's configuration. The workflow canvas displays the active test snapshot while connected, with visual editing disabled. When disconnected, its step and transition inspector writes directly to the same YAML document using comment-preserving document operations. There is no separate graph definition to synchronize. Insertion preserves the original transition rules and connects the new step to the original destination. Before-action guard connections cannot be split; terminal insertion is excluded to avoid silently orphaning downstream steps. New registered actions inherit existing argument mappings and prerequisites when a matching action is already configured.
 
 See the complete [one-question example](../examples/minimal.yaml) and the richer [Northline receptionist](../examples/receptionist.yaml).
 
@@ -215,4 +215,4 @@ Typical changes:
 | Change retrieval | [retrieval.py](../src/libretto/retrieval.py), curated retrieval cases and relevance checks |
 | Change call UX or diagnostics | [App.tsx](../web/src/App.tsx), [VoiceCall.tsx](../web/src/VoiceCall.tsx), browser audio and timing modules |
 
-The current product is an English browser prototype with editable YAML and a read-only workflow canvas. Telephony, durable delivery, multilingual support, visual graph editing, semantic retrieval and distributed application metering are outside this implementation.
+The current product is an English browser prototype with editable YAML and a visual workflow editor. Telephony, durable delivery, multilingual support, freeform canvas rearrangement, semantic retrieval and distributed application metering are outside this implementation.

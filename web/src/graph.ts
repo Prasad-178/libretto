@@ -21,6 +21,8 @@ export type BranchData = {
   sourceStage: string;
   inspect?: () => void;
   highlighted?: boolean;
+  selected?: boolean;
+  insert?: () => void;
 };
 export type StageNode = Node<StageData, "stage">;
 export type BranchEdge = Edge<BranchData, "branch">;

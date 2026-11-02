@@ -15,7 +15,6 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import {
-  ArrowRight,
   AudioLines,
   BookOpen,
   CircleMinus,
@@ -26,7 +25,6 @@ import {
   Scan,
   ShieldCheck,
   Wrench,
-  X,
 } from "lucide-react";
 import {
   branchLabel,
@@ -39,6 +37,7 @@ import {
 import { readWorkflow, type Workflow } from "./workflow";
 import "@xyflow/react/dist/style.css";
 import "./workflow-graph.css";
+import StepInspector, { type Selection } from "./StepInspector";
 
 const sides = {
   top: Position.Top,
@@ -185,24 +184,41 @@ const Branch = memo(function Branch({
         path={routedPath(points)}
         markerEnd={markerEnd}
         style={{
-          stroke: data.highlighted ? "#3b7257" : "#a0a0a6",
-          strokeWidth: data.highlighted ? 1.8 : 1.1,
+          stroke: data.selected
+            ? "#245EC7"
+            : data.highlighted
+              ? "#28745B"
+              : "#A7B7C7",
+          strokeWidth: data.selected || data.highlighted ? 2 : 1.4,
         }}
       />
       {data.label && (
         <EdgeLabelRenderer>
-          <button
-            className={`flow-condition nodrag nopan ${data.highlighted ? "highlighted" : ""}`}
+          <div
+            className="flow-edge-actions"
             style={{
               transform: `translate(-50%, -50%) translate(${data.x}px,${data.y}px)`,
             }}
-            title={data.label}
-            onClick={data.inspect}
-            aria-label={`Transition: ${data.label}. Open source stage details.`}
           >
-            <GitBranch size={11} />
-            <span>{data.label}</span>
-          </button>
+            <button
+              className={`flow-condition nodrag nopan ${data.highlighted ? "highlighted" : ""} ${data.selected ? "selected" : ""}`}
+              title={data.label}
+              onClick={data.inspect}
+              aria-label={`Edit transition: ${data.label}`}
+            >
+              <span>{data.label}</span>
+            </button>
+            {data.insert && (
+              <button
+                className="flow-insert nodrag nopan"
+                aria-label={`Insert step on transition: ${data.label}`}
+                title="Insert a step"
+                onClick={data.insert}
+              >
+                +
+              </button>
+            )}
+          </div>
         </EdgeLabelRenderer>
       )}
     </>
@@ -218,8 +234,10 @@ type Props = {
   connected: boolean;
   active: string;
   pending: string | null;
-  onEdit: (id: string) => void;
   onYaml: () => void;
+  onChange: (source: string) => void;
+  onUndo: () => void;
+  canUndo: boolean;
 };
 export default function WorkflowGraph({
   source,
@@ -227,10 +245,13 @@ export default function WorkflowGraph({
   connected,
   active,
   pending,
-  onEdit,
   onYaml,
+  onChange,
+  onUndo,
+  canUndo,
 }: Props) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const selected = selection?.kind === "step" ? selection.id : null;
   const instance = useRef<ReactFlowInstance<StageNode, BranchEdge> | null>(
     null,
   );
@@ -276,10 +297,6 @@ export default function WorkflowGraph({
     observer.observe(canvas);
     return () => observer.disconnect();
   }, [graph.error]);
-  const selectedNode =
-    selected && definition && Object.hasOwn(definition.nodes, selected)
-      ? definition.nodes[selected]
-      : undefined;
   const focus = useCallback(
     (id: string) => {
       const node = graph.nodes.find((n) => n.id === id);
@@ -289,10 +306,7 @@ export default function WorkflowGraph({
           node.position.y + node.height! / 2,
           {
             zoom: 0.9,
-            duration: window.matchMedia("(prefers-reduced-motion: reduce)")
-              .matches
-              ? 0
-              : 250,
+            duration: 0,
           },
         );
     },
@@ -308,7 +322,12 @@ export default function WorkflowGraph({
           pending: connected && n.id === pending,
           inspected: n.id === selected,
           stageId: n.id,
-          inspect: n.data.synthetic ? undefined : () => setSelected(n.id),
+          inspect: n.data.synthetic
+            ? undefined
+            : () => {
+                setSelection({ kind: "step", id: n.id });
+                focus(n.id);
+              },
           focus: () => focus(n.id),
         },
       })),
@@ -327,14 +346,41 @@ export default function WorkflowGraph({
         data: {
           ...e.data!,
           highlighted: connected && e.source === active && e.target === pending,
-          inspect: () => setSelected(e.source),
+          selected:
+            selection?.kind === "edge" &&
+            JSON.stringify([selection.source, selection.edgeId]) === e.id,
+          inspect: () => {
+            const [, edgeId] = JSON.parse(e.id);
+            setSelection({ kind: "edge", source: e.source, edgeId });
+            focus(e.source);
+          },
+          insert:
+            !connected &&
+            definition?.nodes[e.source]?.edges?.find(
+              (edge) => JSON.stringify([e.source, edge.id]) === e.id,
+            )?.timing !== "before_action"
+              ? () => {
+                  const [, edgeId] = JSON.parse(e.id);
+                  setSelection({ kind: "insert", source: e.source, edgeId });
+                  focus(e.source);
+                }
+              : undefined,
         },
       })),
-    [graph.edges, connected, active, pending],
+    [graph.edges, connected, active, pending, selection, definition, focus],
   );
   const topology =
     graph.nodes.map((n) => n.id).join("|") +
     graph.edges.map((e) => e.id + e.target).join("|");
+  const selectedStage =
+    selection?.kind === "step" ? selection.id : selection?.source;
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  useEffect(() => {
+    if (!selectedStage) return;
+    const frame = requestAnimationFrame(() => focusRef.current(selectedStage));
+    return () => cancelAnimationFrame(frame);
+  }, [selectedStage, topology]);
   return (
     <section className="workflow-view" aria-label="Workflow visualization">
       <div className="workflow-toolbar">
@@ -342,13 +388,13 @@ export default function WorkflowGraph({
           <GitBranch size={15} />
           <strong>Conversation workflow</strong>
           <span>
-            {graph.nodes.length ? graph.nodes.length - 1 : 0} stages ·{" "}
+            {graph.nodes.length ? graph.nodes.length - 1 : 0} steps ·{" "}
             {graph.edges.length ? graph.edges.length - 1 : 0} transitions
           </span>
         </div>
         <div>
           <span className={`flow-source-label ${connected ? "live" : ""}`}>
-            {connected ? "Live session" : "YAML preview"}
+            {connected ? "Live session" : "Click a step to edit"}
           </span>
           <button title="Open YAML definition" onClick={onYaml}>
             <Code2 size={14} />
@@ -373,169 +419,117 @@ export default function WorkflowGraph({
           </button>
         </div>
       ) : (
-        <div className="workflow-canvas" ref={viewport}>
-          <ReactFlow<StageNode, BranchEdge>
-            key={topology}
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            edgesReconnectable={false}
-            deleteKeyCode={null}
-            nodesFocusable={false}
-            edgesFocusable={false}
-            elementsSelectable={false}
-            minZoom={0.08}
-            maxZoom={1.5}
-            onNodeClick={(_, node) => {
-              if (!node.data.synthetic) setSelected(node.id);
-            }}
-            onPaneClick={() => setSelected(null)}
-            onInit={(flow) => {
-              instance.current = flow;
-              const start = graph.nodes.find((n) => n.data.synthetic)!;
-              const width = viewport.current?.clientWidth || 700;
-              void flow.setViewport({
-                x: width / 2 - (start.position.x + start.width! / 2) * 0.78,
-                y: 48 - start.position.y * 0.78,
-                zoom: 0.78,
-              });
-            }}
-            aria-label="Read-only YAML workflow. Pan to explore, use controls to zoom. Select a stage for its details."
-          >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={22}
-              size={1}
-              color="#d0d0d5"
-            />
-            <Controls showInteractive={false} fitViewOptions={fitOptions} />
-            <MiniMap
-              pannable
-              zoomable
-              nodeColor={(n) =>
-                connected && n.id === active ? "#b2cebd" : "#e1e1e5"
-              }
-              maskColor="rgba(250,250,250,.8)"
-              ariaLabel="Workflow overview"
-            />
-            <div className="flow-top-controls">
-              <button
-                className="button"
-                onClick={() => void instance.current?.fitView(fitOptions)}
-              >
-                <Maximize2 size={13} />
-                Fit workflow
-              </button>
-              {connected && (
-                <button className="button" onClick={() => focus(active)}>
-                  <Scan size={13} />
-                  Active stage
-                </button>
-              )}
-            </div>
-            <div className="flow-canvas-hint">
-              Drag to explore <span>·</span> Scroll to zoom
-            </div>
-          </ReactFlow>
-          {selectedNode && (
-            <aside className="flow-inspector" aria-label="Stage details">
-              <div className="flow-inspector-header">
-                <div>
-                  <span>{selectedNode.kind} stage</span>
-                  <h3>{selectedNode.title || selected}</h3>
-                </div>
+        <div className="workflow-surface">
+          <div className="workflow-canvas" ref={viewport}>
+            <ReactFlow<StageNode, BranchEdge>
+              key={topology}
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              edgesReconnectable={false}
+              deleteKeyCode={null}
+              nodesFocusable={false}
+              edgesFocusable={false}
+              elementsSelectable={false}
+              minZoom={0.08}
+              maxZoom={1.5}
+              onNodeClick={(_, node) => {
+                if (!node.data.synthetic) {
+                  setSelection({ kind: "step", id: node.id });
+                  focus(node.id);
+                }
+              }}
+              onPaneClick={() => setSelection(null)}
+              onInit={(flow) => {
+                instance.current = flow;
+                const start =
+                  graph.nodes.find((n) => n.id === selected) ||
+                  graph.nodes.find((n) => n.data.synthetic)!;
+                const width = viewport.current?.clientWidth || 700;
+                void flow.setViewport({
+                  x: width / 2 - (start.position.x + start.width! / 2) * 0.78,
+                  y: 48 - start.position.y * 0.78,
+                  zoom: 0.78,
+                });
+              }}
+              aria-label="Workflow editor. Select a step to edit its prompt. Select a transition to edit its rules or insert a step."
+            >
+              <Background
+                variant={BackgroundVariant.Dots}
+                gap={22}
+                size={1}
+                color="#d0d0d5"
+              />
+              <Controls showInteractive={false} fitViewOptions={fitOptions} />
+              <MiniMap
+                pannable
+                zoomable
+                nodeColor={(n) =>
+                  connected && n.id === active ? "#b2cebd" : "#e1e1e5"
+                }
+                maskColor="rgba(250,250,250,.8)"
+                ariaLabel="Workflow overview"
+              />
+              <div className="flow-top-controls">
                 <button
-                  onClick={() => setSelected(null)}
-                  aria-label="Close stage details"
+                  className="button"
+                  onClick={() => void instance.current?.fitView(fitOptions)}
                 >
-                  <X size={16} />
+                  <Maximize2 size={13} />
+                  Fit workflow
                 </button>
-              </div>
-              <div className="flow-inspector-body">
-                <section>
-                  <h4>
-                    {selectedNode.kind === "action" ? "Action" : "Instructions"}
-                  </h4>
-                  <p>
-                    {selectedNode.prompt ||
-                      selectedNode.text ||
-                      (selectedNode.tool
-                        ? `Run ${selectedNode.tool}.`
-                        : "This stage ends the conversation.")}
-                  </p>
-                </section>
-                {selectedNode.tool && (
-                  <section>
-                    <h4>Registered tool</h4>
-                    <code>{selectedNode.tool}</code>
-                    {!!selectedNode.requires?.length && (
-                      <p className="flow-requires">
-                        Requires: {selectedNode.requires.join(", ")}
-                      </p>
-                    )}
-                  </section>
-                )}
-                {!!selectedNode.tools?.length && (
-                  <section>
-                    <h4>Tools</h4>
-                    <p>{selectedNode.tools.join(", ")}</p>
-                  </section>
-                )}
-                {!!selectedNode.knowledge?.length && (
-                  <section>
-                    <h4>Stage knowledge</h4>
-                    <p>{selectedNode.knowledge.join(", ")}</p>
-                  </section>
-                )}
-                {definition?.common_knowledge?.length ? (
-                  <section>
-                    <h4>Shared knowledge</h4>
-                    <p>{definition.common_knowledge.join(", ")}</p>
-                  </section>
-                ) : null}
-                {selectedNode.kind !== "end" && (
-                  <section>
-                    <h4>Listening</h4>
-                    <p>
-                      {selectedNode.patient
-                        ? "Patient endpointing"
-                        : "Standard endpointing"}
-                    </p>
-                  </section>
-                )}
-                {!!selectedNode.edges?.length && (
-                  <section>
-                    <h4>Transitions</h4>
-                    {selectedNode.edges.map((e) => (
-                      <div className="flow-inspector-edge" key={e.id}>
-                        <p>{branchLabel(e)}</p>
-                        <button
-                          onClick={() => {
-                            setSelected(e.to);
-                            focus(e.to);
-                          }}
-                        >
-                          <ArrowRight size={12} />
-                          {definition?.nodes[e.to]?.title || e.to}
-                        </button>
-                        {e.timing === "before_action" && (
-                          <small>Guard checked before action</small>
-                        )}
-                      </div>
-                    ))}
-                  </section>
+                <select
+                  className="flow-step-jump"
+                  aria-label="Jump to step"
+                  value={selected || ""}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelection({ kind: "step", id: e.target.value });
+                      focus(e.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Find a step…</option>
+                  {Object.entries(definition?.nodes || {}).map(([id, n]) => (
+                    <option key={id} value={id}>
+                      {n.title || id}
+                    </option>
+                  ))}
+                </select>
+                {connected && (
+                  <button className="button" onClick={() => focus(active)}>
+                    <Scan size={13} />
+                    Active stage
+                  </button>
                 )}
               </div>
-              <div className="flow-inspector-footer">
-                <button className="button" onClick={() => onEdit(selected!)}>
-                  <Code2 size={13} />
-                  Edit stage instructions
-                </button>
+              <div className="flow-canvas-hint">
+                Drag to explore <span>·</span> Scroll to zoom
               </div>
-            </aside>
+            </ReactFlow>
+          </div>
+          {selection && definition && (
+            <StepInspector
+              key={
+                selection.kind +
+                (selection.kind === "step"
+                  ? selection.id
+                  : selection.source + selection.edgeId)
+              }
+              source={source}
+              workflow={definition}
+              selection={selection}
+              onSelect={setSelection}
+              onChange={onChange}
+              onClose={() => setSelection(null)}
+              onYaml={onYaml}
+              onUndo={onUndo}
+              canUndo={canUndo}
+              readOnly={connected}
+            />
           )}
         </div>
       )}

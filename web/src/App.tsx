@@ -100,7 +100,21 @@ export default function App() {
   const [validatedSource, setValidatedSource] = useState("");
   const [validating, setValidating] = useState(false);
   const [yamlIssues, setYamlIssues] = useState<string[]>([]);
-  const [showTest, setShowTest] = useState(true);
+  const [showTest, setShowTest] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+  function changeSource(value: string) {
+    if (value === source) return;
+    setHistory((old) => [...old.slice(-49), source]);
+    setSource(value);
+    setYamlIssues([]);
+  }
+  function undoSource() {
+    const previous = history.at(-1);
+    if (previous === undefined) return;
+    setSource(previous);
+    setHistory((old) => old.slice(0, -1));
+    setYamlIssues([]);
+  }
   const [testTab, setTestTab] = useState("conversation");
   const [activeScenario, setActiveScenario] = useState<TestScenario | null>(
     null,
@@ -575,7 +589,7 @@ export default function App() {
           <button onClick={end}>End call</button>
         </div>
       )}
-      <aside className="app-sidebar">
+      <header className="studio-topbar">
         <a href="/" className="studio-brand">
           <span className="brand-bars">
             <i />
@@ -583,18 +597,34 @@ export default function App() {
           </span>
           libretto
         </a>
-        <div className="workspace-switch">
-          <span className="workspace-avatar">P</span>
-          <span>
-            Personal workspace<small>Voice agents</small>
+        <span className="topbar-breadcrumb">
+          Personal / {workflow?.name || "Voice workflow"}
+        </span>
+        <div className="topbar-actions">
+          <span className="topbar-validation">
+            {source === validatedSource
+              ? "● Validated"
+              : "Draft · validation needed"}
           </span>
-          <ChevronDown size={13} />
+          <button className="button" onClick={downloadYaml}>
+            <Download size={14} />
+            Export YAML
+          </button>
+          <button
+            className="button black"
+            onClick={() => setShowTest(!showTest)}
+          >
+            <Play size={13} />
+            {showTest ? "Back to editor" : "Test agent"}
+          </button>
         </div>
+      </header>
+      <aside className="app-sidebar">
         <div className="nav-caption">WORKSPACE</div>
         <nav>
           <button
             className={view !== "knowledge" ? "active" : ""}
-            onClick={() => setView("agent")}
+            onClick={() => setView("workflow")}
           >
             <AudioLines size={17} /> Agents <span>1</span>
           </button>
@@ -625,7 +655,7 @@ export default function App() {
       </aside>
       <div className="studio-main">
         <div className="breadcrumb">
-          <button onClick={() => setView("agent")}>
+          <button onClick={() => setView("workflow")}>
             <ArrowLeft size={13} /> Agents
           </button>
           <span>/</span>
@@ -671,8 +701,8 @@ export default function App() {
         <div className="agent-tabs">
           <div role="tablist" aria-label="Agent settings">
             {[
-              { id: "agent", label: "Agent" },
               { id: "workflow", label: "Workflow" },
+              { id: "agent", label: "Agent settings" },
               { id: "yaml", label: "YAML" },
               { id: "knowledge", label: "Knowledge base" },
             ].map((t) => (
@@ -698,7 +728,7 @@ export default function App() {
                 <Check size={12} /> Validated
               </>
             ) : (
-              "Unsaved changes"
+              "Validation needed"
             )}
           </span>
           <button
@@ -712,7 +742,7 @@ export default function App() {
             ) : (
               <Check size={13} />
             )}
-            Apply changes
+            Validate
           </button>
         </div>
         <div className="editor-layout">
@@ -728,24 +758,20 @@ export default function App() {
               >
                 <WorkflowGraph
                   source={source}
+                  onChange={changeSource}
+                  onUndo={undoSource}
+                  canUndo={history.length > 0}
                   running={runningWorkflow}
                   connected={connected}
                   active={active}
                   pending={pending}
                   onYaml={() => setView("yaml")}
-                  onEdit={(id) => {
-                    setSelected(id);
-                    setView("agent");
-                  }}
                 />
               </Suspense>
             ) : source ? (
               <AgentEditor
                 source={source}
-                onChange={(value) => {
-                  setSource(value);
-                  setYamlIssues([]);
-                }}
+                onChange={changeSource}
                 tab={view}
                 validated={source === validatedSource}
                 validating={validating}
@@ -768,8 +794,7 @@ export default function App() {
               </span>
               <button
                 onClick={() => {
-                  setSource(originalSource);
-                  setYamlIssues([]);
+                  changeSource(originalSource);
                 }}
                 disabled={source === originalSource}
               >
