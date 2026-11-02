@@ -1,11 +1,8 @@
 import { expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import source from "../../examples/receptionist.yaml?raw";
 import { readWorkflow } from "./workflow";
 import { editEdge, editValue, insertStep } from "./studio-editing";
-const source = readFileSync(
-  new URL("../../examples/receptionist.yaml", import.meta.url),
-  "utf8",
-);
+
 it("edits a prompt without losing readback, guards, comments, or other steps", () => {
   const original = readWorkflow(source)!;
   const id = Object.keys(original.nodes)[0];
