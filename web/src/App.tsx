@@ -44,6 +44,12 @@ import {
   type TestScenario,
 } from "./TestScenarios";
 import { readWorkflow, type Workflow } from "./workflow";
+import { createDocument, documentReducer } from "./studio/document-store";
+import type {
+  DocumentAction,
+  StudioDocument,
+  WorkflowIssue,
+} from "./studio/types";
 import { SessionClient, safeExport, type EventPacket } from "./client";
 import { decodeAudioFrame, VoiceAudio } from "./audio";
 import { TurnTimings } from "./timing";
@@ -95,25 +101,37 @@ export default function App() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [input, setInput] = useState("");
   const [view, setView] = useState("workflow");
-  const [source, setSource] = useState("");
-  const [originalSource, setOriginalSource] = useState("");
-  const [validatedSource, setValidatedSource] = useState("");
-  const [validating, setValidating] = useState(false);
-  const [yamlIssues, setYamlIssues] = useState<string[]>([]);
+  const [studioDocument, setDocument] = useState(() =>
+    createDocument("agent.yaml", new Uint8Array()),
+  );
+  const documentRef = useRef(studioDocument);
+  const validationRequest = useRef(1);
+  function replaceDocument(next: StudioDocument) {
+    documentRef.current = next;
+    setDocument(next);
+  }
+  function dispatchDocument(action: DocumentAction) {
+    replaceDocument(documentReducer(documentRef.current, action));
+  }
+  const {
+    source,
+    importedSource: originalSource,
+    past: history,
+  } = studioDocument;
+  const validatedSource = studioDocument.lastValid?.source ?? "";
+  const validating = studioDocument.validation.state === "pending";
+  const yamlIssues =
+    studioDocument.validation.state === "unavailable"
+      ? ["The backend is unavailable. Your edits are still in this tab."]
+      : studioDocument.validation.issues.map(
+          (issue) => `${issue.path.join(".")}: ${issue.message}`,
+        );
   const [showTest, setShowTest] = useState(false);
-  const [history, setHistory] = useState<string[]>([]);
   function changeSource(value: string) {
-    if (value === source) return;
-    setHistory((old) => [...old.slice(-49), source]);
-    setSource(value);
-    setYamlIssues([]);
+    dispatchDocument({ type: "raw-source", source: value });
   }
   function undoSource() {
-    const previous = history.at(-1);
-    if (previous === undefined) return;
-    setSource(previous);
-    setHistory((old) => old.slice(0, -1));
-    setYamlIssues([]);
+    dispatchDocument({ type: "undo" });
   }
   const [testTab, setTestTab] = useState("conversation");
   const [activeScenario, setActiveScenario] = useState<TestScenario | null>(
@@ -306,9 +324,21 @@ export default function App() {
         return r.text();
       })
       .then((text) => {
-        setSource(text);
-        setOriginalSource(text);
-        setValidatedSource(text);
+        let next = createDocument("agent.yaml", new TextEncoder().encode(text));
+        next = documentReducer(next, {
+          type: "validation-start",
+          requestId: 1,
+          revision: 0,
+        });
+        next = documentReducer(next, {
+          type: "validation-result",
+          requestId: 1,
+          revision: 0,
+          source: text,
+          workflow: readWorkflow(text),
+          issues: [],
+        });
+        replaceDocument(next);
       })
       .catch((e) => {
         if (e.name !== "AbortError")
@@ -524,35 +554,65 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
   async function validateSource(): Promise<boolean> {
-    setValidating(true);
+    const draft = documentRef.current;
+    const requestId = ++validationRequest.current;
+    dispatchDocument({
+      type: "validation-start",
+      requestId,
+      revision: draft.revision,
+    });
     try {
       const response = await fetch("/api/workflow/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source }),
+        body: JSON.stringify({ source: draft.source }),
       });
       const result = await response.json();
-      if (!response.ok) {
-        const issues = Array.isArray(result.detail)
-          ? result.detail.map(
-              (issue: any) =>
-                `${issue.path || (issue.loc || []).join(".")}: ${issue.message || issue.msg}`,
-            )
-          : ["The workflow is invalid."];
-        setYamlIssues(issues);
-        setView("yaml");
+      const issues: WorkflowIssue[] = response.ok
+        ? []
+        : Array.isArray(result.detail)
+          ? result.detail.map((issue: any) => ({
+              path: Array.isArray(issue.loc)
+                ? issue.loc
+                : typeof issue.path === "string"
+                  ? issue.path.split(".")
+                  : [],
+              message: issue.message || issue.msg || "The workflow is invalid.",
+              severity: "error",
+            }))
+          : [
+              {
+                path: [],
+                message:
+                  typeof result.detail === "string"
+                    ? result.detail
+                    : "The workflow is invalid.",
+                severity: "error",
+              },
+            ];
+      dispatchDocument({
+        type: "validation-result",
+        requestId,
+        revision: draft.revision,
+        source: draft.source,
+        workflow: response.ok ? readWorkflow(draft.source) : null,
+        issues,
+      });
+      const current = documentRef.current;
+      if (
+        current.revision !== draft.revision ||
+        current.validation.requestId !== requestId
+      )
         return false;
-      }
-      setValidatedSource(source);
-      setYamlIssues([]);
-      return true;
+      if (!response.ok) setView("yaml");
+      return current.validation.state === "valid";
     } catch {
-      setYamlIssues([
-        "The backend is unavailable. Your edits are still in this tab.",
-      ]);
+      dispatchDocument({
+        type: "validation-failure",
+        requestId,
+        revision: draft.revision,
+      });
       return false;
-    } finally {
-      setValidating(false);
     }
   }
   function prepareTest(scenario: TestScenario, step = 0) {

@@ -1,7 +1,13 @@
 import { parseDocument } from "yaml";
+import { applyTransaction } from "./studio/yaml-edits";
 export type FlowEdge = {
-  id: string; to: string; label?: string; condition?: string; result?: string;
-  predicate?: unknown; timing?: string;
+  id: string;
+  to: string;
+  label?: string;
+  condition?: string;
+  result?: string;
+  predicate?: unknown;
+  timing?: string;
 };
 export type FlowNode = {
   kind: string;
@@ -25,9 +31,20 @@ export type Workflow = {
   shared_prompt: string;
   welcome?: string;
   start: string;
-  models: { speaker: string; evaluator: string; reasoning?: "minimal" | "low" | "medium" | "high" };
-  speech?: { stt: { provider: string; model: string }; tts: { provider: string; model: string }; hints?: string[] };
-  fields?: Record<string, { type: string; description?: string; choices?: string[] }>;
+  models: {
+    speaker: string;
+    evaluator: string;
+    reasoning?: "minimal" | "low" | "medium" | "high";
+  };
+  speech?: {
+    stt: { provider: string; model: string };
+    tts: { provider: string; model: string };
+    hints?: string[];
+  };
+  fields?: Record<
+    string,
+    { type: string; description?: string; choices?: string[] }
+  >;
   tools?: string[];
   knowledge?: Record<string, string>;
   common_knowledge?: string[];
@@ -78,7 +95,12 @@ export function readWorkflow(source: string): Workflow | null {
                   edge &&
                   typeof edge.to === "string" &&
                   typeof edge.id === "string" &&
-                  optionalText(edge, ["label", "condition", "result", "timing"]),
+                  optionalText(edge, [
+                    "label",
+                    "condition",
+                    "result",
+                    "timing",
+                  ]),
               ))),
       )
     )
@@ -93,9 +115,8 @@ export function setYamlValue(
   path: string[],
   value: string,
 ): string {
-  const document = parseDocument(source);
-  if (document.errors.length)
-    throw new Error("Fix YAML syntax before using the form.");
-  document.setIn(path, value);
-  return document.toString({ lineWidth: 0 });
+  return applyTransaction(source, {
+    label: "Edit property",
+    operations: [{ op: "set", path, value }],
+  }).source;
 }

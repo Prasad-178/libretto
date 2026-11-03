@@ -152,8 +152,19 @@ it("keeps the same graph point centered when the canvas becomes mobile width", (
 });
 
 it("uses a canonical display label rather than replacing it with a condition summary", () => {
-  expect(graph.branchLabel({ id: "details_complete", to: "end", condition: "All details supplied" }))
-    .toBe("Details complete");
-  expect(graph.branchLabel({ id: "ready", to: "end", label: "Ready to continue", predicate: { op: "exists", field: "answer" } } as any))
-    .toBe("Ready to continue");
+  expect(
+    graph.branchLabel({
+      id: "details_complete",
+      to: "end",
+      condition: "All details supplied",
+    }),
+  ).toBe("Details complete");
+  expect(
+    graph.branchLabel({
+      id: "ready",
+      to: "end",
+      label: "Ready to continue",
+      predicate: { op: "exists", field: "answer" },
+    } as any),
+  ).toBe("Ready to continue");
 });

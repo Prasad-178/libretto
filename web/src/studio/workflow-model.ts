@@ -11,7 +11,10 @@ export function humanizeId(id: string): string {
 export function routeLabel(edge: FlowEdge): string {
   return edge.label?.trim() || humanizeId(edge.id);
 }
-export function routeKind(node: Pick<FlowNode, "kind">, edge: FlowEdge): RouteKind {
+export function routeKind(
+  node: Pick<FlowNode, "kind">,
+  edge: FlowEdge,
+): RouteKind {
   if (node.kind === "action") return edge.result ? "result" : "unconfigured";
   if (node.kind === "say") return "automatic";
   if (edge.predicate && edge.condition) return "legacy-mixed";

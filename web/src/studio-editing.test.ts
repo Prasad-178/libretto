@@ -85,3 +85,21 @@ it("keeps registered action arguments and requirements when inserting an action"
     ),
   ).toThrow("registered action");
 });
+
+it("preserves the original source around a localized prompt edit", () => {
+  const original = "\uFEFF# retained\r\n" + source.replaceAll("\n", "\r\n");
+  const workflow = readWorkflow(original)!;
+  const id = Object.keys(workflow.nodes)[0];
+  const next = editValue(
+    original,
+    ["nodes", id, "prompt"],
+    "Ask clearly.\nWait for the caller.",
+  );
+  expect(next.startsWith("\uFEFF# retained\r\n")).toBe(true);
+  expect(readWorkflow(next)!.nodes[id].prompt).toBe(
+    "Ask clearly.\nWait for the caller.",
+  );
+  expect(next.slice(next.indexOf("  transfer:"))).toBe(
+    original.slice(original.indexOf("  transfer:")),
+  );
+});

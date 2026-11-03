@@ -1,4 +1,4 @@
-import { parseDocument } from "yaml";
+import { applyTransaction } from "./studio/yaml-edits";
 import { readWorkflow, type FlowNode } from "./workflow";
 
 export type EdgeSelection = { source: string; edgeId: string };
@@ -8,11 +8,10 @@ export function editValue(
   path: (string | number)[],
   value: unknown,
 ): string {
-  const document = parseDocument(source);
-  if (document.errors.length)
-    throw new Error("Fix YAML syntax before editing the graph.");
-  document.setIn(path, value);
-  return document.toString({ lineWidth: 0 });
+  return applyTransaction(source, {
+    label: "Edit property",
+    operations: [{ op: "set", path, value }],
+  }).source;
 }
 export function edgeIndex(source: string, selection: EdgeSelection): number {
   const index =
@@ -90,8 +89,18 @@ export function insertStep(
         : { tool }),
     edges: [{ id: "continue", to: edge.to }],
   };
-  const document = parseDocument(source);
-  document.setIn(["nodes", id], node);
-  document.setIn(["nodes", selection.source, "edges", index, "to"], id);
-  return { source: document.toString({ lineWidth: 0 }), id };
+  return {
+    source: applyTransaction(source, {
+      label: "Insert step",
+      operations: [
+        { op: "set", path: ["nodes", id], value: node },
+        {
+          op: "set",
+          path: ["nodes", selection.source, "edges", index, "to"],
+          value: id,
+        },
+      ],
+    }).source,
+    id,
+  };
 }
