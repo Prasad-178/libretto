@@ -9,7 +9,8 @@ import {
   Undo2,
 } from "lucide-react";
 import type { StudioDocument } from "./types";
-import { documentStatus } from "./project-files";
+import { DocumentStatus } from "./DocumentStatus";
+import { parseIssues } from "./changes";
 export function StudioShell({
   document,
   tab,
@@ -62,13 +63,7 @@ export function StudioShell({
           {document.filename}
         </span>
         <div className="topbar-actions">
-          <span
-            className="document-status"
-            title="Downloads do not overwrite your original project files."
-          >
-            {valid ? "Valid · " : "Draft · "}
-            {documentStatus(document)}
-          </span>
+          <DocumentStatus document={document} />
           <button
             className="button open-project"
             disabled={!!document.running}
@@ -85,7 +80,15 @@ export function StudioShell({
             <Download size={14} />
             Export YAML
           </button>
-          <button className="button black" onClick={onTest}>
+          <button
+            className="button black"
+            onClick={onTest}
+            disabled={
+              !testOpen &&
+              (document.validation.state === "invalid" ||
+                parseIssues(document.source).length > 0)
+            }
+          >
             <Play size={13} />
             {testOpen ? "Back to editor" : "Test agent"}
           </button>

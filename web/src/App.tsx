@@ -37,6 +37,10 @@ import {
   Terminal,
   X,
 } from "lucide-react";
+import { YamlWorkspace } from "./studio/YamlWorkspace";
+import { ExportDialog } from "./studio/ExportDialog";
+import { describeRoutes } from "./studio/graph-model";
+import { parseIssues } from "./studio/changes";
 import { StudioShell } from "./studio/StudioShell";
 import type { ToolManifest } from "./studio/tool-manifest";
 import { AgentEditor } from "./AgentEditor";
@@ -126,7 +130,7 @@ export default function App() {
   const openInput = useRef<HTMLInputElement>(null);
   const [fileNotices, setFileNotices] = useState<string[]>([]);
   const [toolManifests, setToolManifests] = useState<ToolManifest[]>([]);
-  const [includeLayout, setIncludeLayout] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const documentRef = useRef(studioDocument);
   const validationRequest = useRef(1);
   function replaceDocument(next: StudioDocument) {
@@ -483,6 +487,30 @@ export default function App() {
     }
   }, [mode]);
   useEffect(() => {
+    if (
+      !source ||
+      studioDocument.running ||
+      studioDocument.validation.state === "valid"
+    )
+      return;
+    const timer = window.setTimeout(() => void validateSource(), 650);
+    return () => window.clearTimeout(timer);
+  }, [source]);
+  useEffect(() => {
+    const handle = (event: KeyboardEvent) => {
+      if (
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey ||
+        event.key.toLowerCase() !== "z"
+      )
+        return;
+      event.preventDefault();
+      dispatchDocument({ type: event.shiftKey ? "redo" : "undo" });
+    };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, []);
+  useEffect(() => {
     if (settings) dialog.current?.showModal();
     else dialog.current?.close();
   }, [settings]);
@@ -622,6 +650,18 @@ export default function App() {
       revision: draft.revision,
     });
     try {
+      const syntax = parseIssues(draft.source);
+      if (syntax.length) {
+        dispatchDocument({
+          type: "validation-result",
+          requestId,
+          revision: draft.revision,
+          source: draft.source,
+          workflow: null,
+          issues: syntax,
+        });
+        return false;
+      }
       const response = await fetch("/api/workflow/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -685,31 +725,6 @@ export default function App() {
     setTestTab("conversation");
     setShowTest(true);
   }
-  async function downloadYaml() {
-    const draft = documentRef.current;
-    try {
-      const files = await buildExportFiles(draft, includeLayout);
-      for (const file of files) {
-        const url = URL.createObjectURL(
-          new Blob([file.bytes.slice().buffer], { type: file.mime }),
-        );
-        const a = window.document.createElement("a");
-        a.href = url;
-        a.download = file.filename;
-        a.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
-      dispatchDocument({
-        type: "export-recorded",
-        source: draft.source,
-        at: Date.now(),
-      });
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Could not build export.",
-      );
-    }
-  }
   async function openFiles(files: FileList | null) {
     if (!files?.length || connected || connecting) return;
     try {
@@ -727,7 +742,18 @@ export default function App() {
       if (openInput.current) openInput.current.value = "";
     }
   }
-  const workflow = readWorkflow(source) || config?.workflow;
+  const draftWorkflow = readWorkflow(source);
+  let graphDraftValid =
+    !!draftWorkflow && studioDocument.validation.state !== "invalid";
+  if (graphDraftValid)
+    try {
+      describeRoutes(draftWorkflow!);
+    } catch {
+      graphDraftValid = false;
+    }
+  const showingLastValid = !graphDraftValid && !!studioDocument.lastValid;
+  const workflow =
+    draftWorkflow || studioDocument.lastValid?.workflow || config?.workflow;
   const liveWorkflow = runningWorkflow || workflow;
   const minutes = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
 
@@ -737,7 +763,7 @@ export default function App() {
       tab={view}
       onTab={setView}
       onOpen={() => openInput.current?.click()}
-      onExport={() => void downloadYaml()}
+      onExport={() => setExportOpen(true)}
       onTest={() => setShowTest(!showTest)}
       onValidate={() => void validateSource()}
       onUndo={undoSource}
@@ -773,6 +799,14 @@ export default function App() {
       )}
       <div className="editor-layout">
         <main className="definition-panel">
+          {(view === "workflow" || view === "routes") && showingLastValid && (
+            <div className="last-valid-banner" role="status">
+              Showing last valid graph · revision{" "}
+              {studioDocument.lastValid!.revision}. Fix the current draft before
+              testing.
+              <button onClick={() => setView("yaml")}>Open YAML →</button>
+            </div>
+          )}
           {(view === "workflow" || view === "routes") && source ? (
             <Suspense
               fallback={
@@ -784,6 +818,12 @@ export default function App() {
             >
               <WorkflowGraph
                 mode={view === "routes" ? "routes" : "flow"}
+                previewWorkflow={
+                  showingLastValid
+                    ? studioDocument.lastValid?.workflow
+                    : undefined
+                }
+                readOnly={showingLastValid}
                 tools={toolManifests}
                 hideInspector={showTest}
                 onInspect={() => setShowTest(false)}
@@ -816,6 +856,15 @@ export default function App() {
                 onYaml={() => setView("yaml")}
               />
             </Suspense>
+          ) : view === "yaml" && source ? (
+            <YamlWorkspace
+              document={studioDocument}
+              onChange={(value) => changeSource(value, "yaml")}
+              onHistoryEnd={() =>
+                dispatchDocument({ type: "end-history-group" })
+              }
+              onValidate={() => void validateSource()}
+            />
           ) : source ? (
             <AgentEditor
               source={source}
@@ -1257,6 +1306,19 @@ export default function App() {
           </aside>
         )}
       </div>
+      {exportOpen && (
+        <ExportDialog
+          document={studioDocument}
+          onClose={() => setExportOpen(false)}
+          onExported={(source) =>
+            dispatchDocument({
+              type: "export-recorded",
+              source,
+              at: Date.now(),
+            })
+          }
+        />
+      )}
       <dialog
         ref={dialog}
         onCancel={() => setSettings(false)}

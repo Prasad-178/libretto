@@ -279,6 +279,8 @@ type Props = {
   onSources?: (id: string) => void;
   tools?: ToolManifest[];
   hideInspector?: boolean;
+  previewWorkflow?: Workflow | null;
+  readOnly?: boolean;
   onUndo: () => void;
   canUndo: boolean;
   metadata?: StudioMetadata;
@@ -304,6 +306,8 @@ export default function WorkflowGraph({
   onSources,
   tools,
   hideInspector,
+  previewWorkflow,
+  readOnly = false,
 }: Props) {
   const [selection, updateSelection] = useState<Selection | null>(null);
   function setSelection(next: Selection | null) {
@@ -326,8 +330,9 @@ export default function WorkflowGraph({
   );
   const viewport = useRef<HTMLDivElement>(null);
   const definition = useMemo(
-    () => (connected && running ? running : readWorkflow(source)),
-    [source, connected, running],
+    () =>
+      connected && running ? running : previewWorkflow || readWorkflow(source),
+    [source, connected, running, previewWorkflow],
   );
   const graph = useMemo(() => {
     try {
@@ -489,6 +494,7 @@ export default function WorkflowGraph({
             },
             insert:
               !connected &&
+              !readOnly &&
               definition?.nodes[e.source]?.edges?.find(
                 (edge) => JSON.stringify([e.source, edge.id]) === e.id,
               )?.timing !== "before_action"
@@ -511,6 +517,7 @@ export default function WorkflowGraph({
       view,
       routes,
       revealed,
+      readOnly,
     ],
   );
   useEffect(() => {
@@ -797,7 +804,7 @@ export default function WorkflowGraph({
               onYaml={onYaml}
               onUndo={onUndo}
               canUndo={canUndo}
-              readOnly={connected}
+              readOnly={connected || readOnly}
             />
           )}
         </div>
