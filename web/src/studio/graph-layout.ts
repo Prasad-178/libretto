@@ -12,6 +12,11 @@ export function layoutWorkflow(
 ): GraphLayout {
   const routes = describeRoutes(workflow),
     structure = analyzeStructure(workflow);
+  const topology = JSON.stringify([
+    Object.entries(workflow.nodes).map(([id, n]) => [id, n.kind]),
+    routes.map((r) => [r.ref.source, r.ref.edgeId, r.target]),
+  ]);
+  if (previous?.topology !== topology) previous = undefined;
   const g = new dagre.graphlib.Graph({ multigraph: true });
   g.setGraph({
     rankdir: "TB",
@@ -179,6 +184,7 @@ export function layoutWorkflow(
   const entryNode = g.node(entryId),
     entryEdge = g.edge({ v: entryId, w: workflow.start, name: "entry" });
   return {
+    topology,
     entry: {
       x: entryNode.x - 66,
       y: entryNode.y - 24,

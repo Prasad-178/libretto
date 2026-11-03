@@ -114,3 +114,24 @@ it("does not reserve long connector ranks for routes shown as destination chips"
   const layout = layoutWorkflow(readWorkflow(source)!, emptyMetadata());
   expect(layout.bounds.height).toBeLessThan(1500);
 });
+
+it("reflows a changed topology instead of attaching new paths to obsolete node positions", async () => {
+  const { insertConfiguredStep } = await import("./editor-commands");
+  const source = fixtures["./fixtures/intake.yaml"],
+    workflow = readWorkflow(source)!;
+  const before = layoutWorkflow(workflow, emptyMetadata());
+  const inserted = insertConfiguredStep(
+    source,
+    { source: "collect", edgeId: "details_complete" },
+    {
+      kind: "conversation",
+      title: "Clarify",
+      prompt: "Ask for clarification.",
+      continuation: { condition: "The caller clarifies." },
+    },
+  );
+  const next = readWorkflow(inserted.source)!;
+  expect(layoutWorkflow(next, emptyMetadata(), before)).toEqual(
+    layoutWorkflow(next, emptyMetadata()),
+  );
+});

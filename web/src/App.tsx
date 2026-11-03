@@ -37,6 +37,8 @@ import {
   Terminal,
   X,
 } from "lucide-react";
+import { StudioShell } from "./studio/StudioShell";
+import type { ToolManifest } from "./studio/tool-manifest";
 import { AgentEditor } from "./AgentEditor";
 import {
   TestScenarios,
@@ -123,6 +125,7 @@ export default function App() {
   });
   const openInput = useRef<HTMLInputElement>(null);
   const [fileNotices, setFileNotices] = useState<string[]>([]);
+  const [toolManifests, setToolManifests] = useState<ToolManifest[]>([]);
   const [includeLayout, setIncludeLayout] = useState(false);
   const documentRef = useRef(studioDocument);
   const validationRequest = useRef(1);
@@ -147,8 +150,8 @@ export default function App() {
           (issue) => `${issue.path.join(".")}: ${issue.message}`,
         );
   const [showTest, setShowTest] = useState(false);
-  function changeSource(value: string) {
-    dispatchDocument({ type: "raw-source", source: value });
+  function changeSource(value: string, historyGroup?: string) {
+    dispatchDocument({ type: "raw-source", source: value, historyGroup });
   }
   function undoSource() {
     dispatchDocument({ type: "undo" });
@@ -323,6 +326,12 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    fetch("/api/studio/capabilities", { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.tools)) setToolManifests(data.tools);
+      })
+      .catch(() => {});
     fetch("/api/config", { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error();
@@ -723,76 +732,28 @@ export default function App() {
   const minutes = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
 
   return (
-    <div className={`studio ${showTest ? "with-test" : ""}`}>
-      {connected && !showTest && (
-        <div className="minimized-call">
-          <button onClick={() => setShowTest(true)}>
-            <Radio size={15} /> Return to call <span>{minutes}</span>
-          </button>
-          <button onClick={end}>End call</button>
-        </div>
-      )}
-      <header className="studio-topbar">
-        <a href="/" className="studio-brand">
-          <span className="brand-bars">
-            <i />
-            <i />
-          </span>
-          libretto
-        </a>
-        <span className="topbar-breadcrumb">
-          Personal / {workflow?.name || "Voice workflow"}
-        </span>
-        <div className="topbar-actions">
-          <input
-            ref={openInput}
-            type="file"
-            accept=".yaml,.yml,.studio.json"
-            multiple
-            hidden
-            aria-label="Open workflow files"
-            onChange={(event) => void openFiles(event.target.files)}
-          />
-          <button
-            className="button"
-            disabled={connected || connecting}
-            onClick={() => openInput.current?.click()}
-          >
-            <FileCode2 size={14} />
-            Open
-          </button>
-          <span
-            className="topbar-validation"
-            title="Downloads do not overwrite your original project files."
-          >
-            {studioDocument.filename} · {documentStatus(studioDocument)}
-          </span>
-          <label className="topbar-validation">
-            <input
-              type="checkbox"
-              checked={includeLayout}
-              onChange={(event) => setIncludeLayout(event.target.checked)}
-            />{" "}
-            Layout
-          </label>
-          <span className="topbar-validation">
-            {source === validatedSource
-              ? "● Validated"
-              : "Draft · validation needed"}
-          </span>
-          <button className="button" onClick={downloadYaml}>
-            <Download size={14} />
-            Export YAML
-          </button>
-          <button
-            className="button black"
-            onClick={() => setShowTest(!showTest)}
-          >
-            <Play size={13} />
-            {showTest ? "Back to editor" : "Test agent"}
-          </button>
-        </div>
-      </header>
+    <StudioShell
+      document={studioDocument}
+      tab={view}
+      onTab={setView}
+      onOpen={() => openInput.current?.click()}
+      onExport={() => void downloadYaml()}
+      onTest={() => setShowTest(!showTest)}
+      onValidate={() => void validateSource()}
+      onUndo={undoSource}
+      onRedo={() => dispatchDocument({ type: "redo" })}
+      onConnection={() => setSettings(true)}
+      testOpen={showTest}
+    >
+      <input
+        ref={openInput}
+        type="file"
+        accept=".yaml,.yml,.studio.json"
+        multiple
+        hidden
+        aria-label="Open workflow files"
+        onChange={(event) => void openFiles(event.target.files)}
+      />
       {fileNotices.length > 0 && (
         <div className="file-notices" role="status">
           {fileNotices.map((notice, index) => (
@@ -801,610 +762,500 @@ export default function App() {
           <button onClick={() => setFileNotices([])}>Dismiss</button>
         </div>
       )}
-      <aside className="app-sidebar">
-        <div className="nav-caption">WORKSPACE</div>
-        <nav>
-          <button
-            className={view !== "knowledge" ? "active" : ""}
-            onClick={() => setView("workflow")}
-          >
-            <AudioLines size={17} /> Agents <span>1</span>
+      {connected && !showTest && (
+        <div className="minimized-call">
+          <button onClick={() => setShowTest(true)}>
+            <Radio size={15} />
+            Return to test <span>{minutes}</span>
           </button>
-          <button
-            className={view === "knowledge" ? "active" : ""}
-            onClick={() => setView("knowledge")}
-          >
-            <BookOpen size={17} /> Knowledge base
-          </button>
-          <button onClick={() => setView("yaml")}>
-            <Braces size={17} /> YAML definition
-          </button>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="demo-label">
-            <ShieldCheck size={15} />
-            <span>
-              Demo workspace<small>Simulated actions · no database</small>
-            </span>
-          </div>
-          <button onClick={() => setSettings(true)}>
-            <KeyRound size={15} /> API connection <Settings2 size={13} />
-          </button>
-          <div className="sidebar-footer">
-            Libretto <span>v0.1</span>
-          </div>
+          <button onClick={end}>Stop</button>
         </div>
-      </aside>
-      <div className="studio-main">
-        <div className="breadcrumb">
-          <button onClick={() => setView("workflow")}>
-            <ArrowLeft size={13} /> Agents
-          </button>
-          <span>/</span>
-          <span>{workflow?.name || "Receptionist"}</span>
-          <span className="breadcrumb-right">
-            English · Session memory only
-          </span>
-        </div>
-        <header className="agent-header">
-          <div className="agent-identity">
-            <div className="agent-avatar">
-              <AudioLines size={23} />
-            </div>
-            <div>
-              <div className="agent-title">
-                <h1>{workflow?.name || "Northline front desk"}</h1>
-                <span className="badge">Draft</span>
-              </div>
-              <p>
-                Memberships, meeting rooms, and member support for a fictional
-                coworking space.
-              </p>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button
-              className="button"
-              onClick={downloadYaml}
-              title="Download YAML"
+      )}
+      <div className="editor-layout">
+        <main className="definition-panel">
+          {(view === "workflow" || view === "routes") && source ? (
+            <Suspense
+              fallback={
+                <div className="loading-state">
+                  <LoaderCircle className="spin" size={18} />
+                  Loading workflow…
+                </div>
+              }
             >
-              <Download size={14} />
-              <span>Export YAML</span>
-            </button>
-            <button
-              className="button black"
-              onClick={() => setShowTest(!showTest)}
-            >
-              <Play size={13} fill="currentColor" />
-              {showTest ? "Hide test" : "Test agent"}
-            </button>
-          </div>
-        </header>
-        <div className="agent-tabs">
-          <div role="tablist" aria-label="Agent settings">
-            {[
-              { id: "workflow", label: "Workflow" },
-              { id: "agent", label: "Agent settings" },
-              { id: "yaml", label: "YAML" },
-              { id: "knowledge", label: "Knowledge base" },
-            ].map((t) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={view === t.id}
-                className={view === t.id ? "selected" : ""}
-                onClick={() => setView(t.id)}
-              >
-                {t.label}
-                {t.id === "yaml" && source !== validatedSource && <i />}
-              </button>
-            ))}
-          </div>
-          <span
-            className={
-              source === validatedSource ? "save-status" : "save-status unsaved"
-            }
-          >
-            {source === validatedSource ? (
-              <>
-                <Check size={12} /> Validated
-              </>
-            ) : (
-              "Validation needed"
-            )}
-          </span>
-          <button
-            className="button apply-button"
-            title="Validate and apply YAML changes"
-            onClick={() => void validateSource()}
-            disabled={validating || !source}
-          >
-            {validating ? (
-              <LoaderCircle size={13} className="spin" />
-            ) : (
-              <Check size={13} />
-            )}
-            Validate
-          </button>
-        </div>
-        <div className="editor-layout">
-          <main className="definition-panel">
-            {view === "workflow" && source ? (
-              <Suspense
-                fallback={
-                  <div className="loading-state">
-                    <LoaderCircle className="spin" size={18} />
-                    Loading workflow…
-                  </div>
+              <WorkflowGraph
+                mode={view === "routes" ? "routes" : "flow"}
+                tools={toolManifests}
+                hideInspector={showTest}
+                onInspect={() => setShowTest(false)}
+                onSources={(id) => {
+                  setSelected(id);
+                  setView("knowledge");
+                }}
+                onTransaction={(transaction) =>
+                  dispatchDocument({ type: "transaction", transaction })
                 }
-              >
-                <WorkflowGraph
-                  metadata={studioDocument.metadata}
-                  onMetadata={(metadata) =>
-                    dispatchDocument({
-                      type: "metadata",
-                      metadata,
-                      label: "Edit layout",
-                    })
-                  }
-                  source={source}
-                  onChange={changeSource}
-                  onUndo={undoSource}
-                  canUndo={history.length > 0}
-                  running={runningWorkflow}
-                  connected={connected}
-                  active={active}
-                  pending={pending}
-                  onYaml={() => setView("yaml")}
-                />
-              </Suspense>
-            ) : source ? (
-              <AgentEditor
+                onHistoryEnd={() =>
+                  dispatchDocument({ type: "end-history-group" })
+                }
+                metadata={studioDocument.metadata}
+                onMetadata={(metadata) =>
+                  dispatchDocument({
+                    type: "metadata",
+                    metadata,
+                    label: "Edit layout",
+                  })
+                }
                 source={source}
                 onChange={changeSource}
-                tab={view}
-                validated={source === validatedSource}
-                validating={validating}
-                issues={yamlIssues}
-                onValidate={() => void validateSource()}
-                documents={config?.knowledge_documents || []}
-                selected={selected}
-                onSelect={setSelected}
+                onUndo={undoSource}
+                canUndo={history.length > 0}
+                running={runningWorkflow}
+                connected={connected}
+                active={active}
+                pending={pending}
+                onYaml={() => setView("yaml")}
               />
-            ) : (
-              <div className="loading-state">
-                <LoaderCircle className="spin" size={18} />
-                Loading agent…
-              </div>
-            )}
-            <div className="definition-footer">
+            </Suspense>
+          ) : source ? (
+            <AgentEditor
+              source={source}
+              onChange={changeSource}
+              tab={view}
+              validated={source === validatedSource}
+              validating={validating}
+              issues={yamlIssues}
+              onValidate={() => void validateSource()}
+              documents={config?.knowledge_documents || []}
+              selected={selected}
+              onSelect={setSelected}
+            />
+          ) : (
+            <div className="loading-state">
+              <LoaderCircle className="spin" size={18} />
+              Loading agent…
+            </div>
+          )}
+          <div className="definition-footer">
+            <span>
+              <ShieldCheck size={12} /> Local draft · export downloads a copy.
+              Your original files stay under your control.
+            </span>
+            <button
+              onClick={() => {
+                changeSource(originalSource);
+              }}
+              disabled={source === originalSource}
+            >
+              <RotateCcw size={12} /> Revert to opened YAML
+            </button>
+          </div>
+        </main>
+        {showTest && (
+          <aside className="test-panel">
+            <div className="test-heading">
               <span>
-                <ShieldCheck size={12} /> Changes stay in this tab and apply to
-                the next test.
+                <Radio size={15} /> Test your agent
               </span>
               <button
-                onClick={() => {
-                  changeSource(originalSource);
-                }}
-                disabled={source === originalSource}
+                title="Back to editor"
+                aria-label="Back to editor"
+                onClick={() => setShowTest(false)}
               >
-                <RotateCcw size={12} /> Reset example
+                <PanelRightClose size={16} />
+                <span>Editor</span>
               </button>
             </div>
-          </main>
-          {showTest && (
-            <aside className="test-panel">
-              <div className="test-heading">
-                <span>
-                  <Radio size={15} /> Test your agent
-                </span>
+            <div className="test-options">
+              <div className="mode-switch">
                 <button
-                  title="Back to editor"
-                  aria-label="Back to editor"
-                  onClick={() => setShowTest(false)}
+                  disabled={connected}
+                  className={mode === "voice" ? "chosen" : ""}
+                  onClick={() => setMode("voice")}
                 >
-                  <PanelRightClose size={16} />
-                  <span>Editor</span>
+                  <Mic size={13} />
+                  Voice
+                </button>
+                <button
+                  disabled={connected}
+                  className={mode === "text" ? "chosen" : ""}
+                  onClick={() => setMode("text")}
+                >
+                  <MessageSquare size={13} />
+                  Text
                 </button>
               </div>
-              <div className="test-options">
-                <div className="mode-switch">
-                  <button
-                    disabled={connected}
-                    className={mode === "voice" ? "chosen" : ""}
-                    onClick={() => setMode("voice")}
-                  >
-                    <Mic size={13} />
-                    Voice
-                  </button>
-                  <button
-                    disabled={connected}
-                    className={mode === "text" ? "chosen" : ""}
-                    onClick={() => setMode("text")}
-                  >
-                    <MessageSquare size={13} />
-                    Text
-                  </button>
-                </div>
-                <button
-                  title="Connection settings"
-                  onClick={() => setSettings(true)}
-                >
-                  <Settings2 size={15} />
-                </button>
-              </div>
-              <div className="test-tabs">
-                {["conversation", "scenarios", "state", "sources", "trace"].map(
-                  (t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTestTab(t)}
-                      className={testTab === t ? "selected" : ""}
-                    >
-                      {pretty(t)}
-                    </button>
-                  ),
-                )}
-              </div>
-              {mode === "voice" && (connected || connecting) && (
-                <VoiceCall
-                  name={liveWorkflow?.name || "Your agent"}
-                  phase={phase}
-                  connecting={connecting}
-                  mic={mic}
-                  remaining={remaining}
-                  orbRef={orbRef}
-                  onMute={() => {
-                    if (mic) {
-                      audio.current.stopMicrophone();
-                      setMic(false);
-                    } else void enableMicrophone();
-                  }}
-                  onEnd={end}
-                  onInterrupt={stop}
-                />
-              )}
-              {activeScenario && testTab === "conversation" && (
-                <div className="scenario-guide">
-                  <div>
-                    <ClipboardList size={12} />
-                    <strong>{activeScenario.title}</strong>
-                    <button
-                      title="Stop using this scenario"
-                      onClick={() => setActiveScenario(null)}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                  <div className="scenario-guide-controls">
-                    <button
-                      disabled={scenarioStep === 0 || connecting}
-                      onClick={() =>
-                        prepareTest(activeScenario, scenarioStep - 1)
-                      }
-                    >
-                      Previous
-                    </button>
-                    <span>
-                      Line {scenarioStep + 1} of {activeScenario.steps.length}
-                    </span>
-                    <button
-                      disabled={
-                        scenarioStep === activeScenario.steps.length - 1 ||
-                        connecting
-                      }
-                      onClick={() =>
-                        prepareTest(activeScenario, scenarioStep + 1)
-                      }
-                    >
-                      Next line <ArrowRight size={10} />
-                    </button>
-                  </div>
-                  <details>
-                    <summary>Suggested line and expected behavior</summary>
-                    <p>“{activeScenario.steps[scenarioStep].say}”</p>
-                    <small>{activeScenario.steps[scenarioStep].expect}</small>
-                  </details>
-                </div>
-              )}
-              {testTab === "scenarios" ? (
-                <TestScenarios
-                  scenarios={config?.test_scenarios || []}
-                  connected={connected}
-                  connecting={connecting}
-                  activeId={activeScenario?.id || null}
-                  onPrepare={prepareTest}
-                />
-              ) : testTab === "conversation" ? (
-                <div
-                  className="chat-scroll"
-                  aria-live="polite"
-                  aria-label="Conversation transcript"
-                >
-                  {!chats.length &&
-                  !(mode === "voice" && (connected || connecting)) ? (
-                    <div className="test-empty">
-                      <VoiceOrb state={connecting ? "connecting" : "ready"} />
-                      <h2>
-                        {connected
-                          ? "Your agent is listening"
-                          : "Try a conversation"}
-                      </h2>
-                      <p>
-                        {connected
-                          ? "Speak or type a message to begin."
-                          : "Test your agent’s voice, instructions, and workflow before sharing it."}
-                      </p>
-                      <button
-                        className="button black"
-                        disabled={connecting || connected}
-                        onClick={() => setSettings(true)}
-                      >
-                        {connecting ? (
-                          <LoaderCircle size={14} className="spin" />
-                        ) : (
-                          <Play size={13} fill="currentColor" />
-                        )}
-                        {connecting
-                          ? "Connecting…"
-                          : connected
-                            ? "Connected"
-                            : "Start test"}
-                      </button>
-                      <div className="test-suggestions">
-                        <span>TRY ASKING</span>
-                        {examples.map((example) => (
-                          <button
-                            key={example}
-                            onClick={() => {
-                              setInput(example);
-                              if (!connected) setSettings(true);
-                            }}
-                          >
-                            {example}
-                            <ArrowRight size={12} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="messages">
-                      {chats.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`message ${message.role}`}
-                        >
-                          <div className="message-label">
-                            {message.role === "assistant" ? "Agent" : "You"}
-                            {message.interrupted && (
-                              <span>
-                                Interrupted · generated text may be unplayed
-                              </span>
-                            )}
-                          </div>
-                          <p>{message.text}</p>
-                        </div>
-                      ))}
-                      <div ref={bottom} />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="test-inspector">
-                  {testTab === "state" ? (
-                    <>
-                      <div className="live-stage">
-                        <span className="tiny-dot" />
-                        <div>
-                          <small>Active stage</small>
-                          <strong>
-                            {liveWorkflow?.nodes[active]?.title ||
-                              pretty(active)}
-                          </strong>
-                          {pending && (
-                            <small>
-                              Pending:{" "}
-                              {liveWorkflow?.nodes[pending]?.title || pending}
-                            </small>
-                          )}
-                        </div>
-                        <span className="badge">
-                          {connected ? "Live" : "Preview"}
-                        </span>
-                      </div>
-                      <div className="gap-card">
-                        <span>Estimated TTFS</span>
-                        <strong>
-                          {gap === null ? "—" : `${(gap / 1000).toFixed(2)}s`}
-                        </strong>
-                        <small>
-                          Microphone activity to first playback; estimated
-                          output timing.
-                        </small>
-                      </div>
-                      {timingSummary?.estimated_ttfs_ms.count ? (
-                        <small>
-                          {timingSummary.estimated_ttfs_ms.count} replies · avg{" "}
-                          {(
-                            (timingSummary.estimated_ttfs_ms.mean ?? 0) / 1000
-                          ).toFixed(2)}
-                          s · median{" "}
-                          {(
-                            (timingSummary.estimated_ttfs_ms.median ?? 0) / 1000
-                          ).toFixed(2)}
-                          s
-                        </small>
-                      ) : null}
-                      {timingSummary?.retrieval_ms.count ? (
-                        <small>
-                          RAG · avg{" "}
-                          {(timingSummary.retrieval_ms.mean ?? 0).toFixed(3)}ms
-                          · median{" "}
-                          {(timingSummary.retrieval_ms.median ?? 0).toFixed(3)}
-                          ms
-                        </small>
-                      ) : null}
-                      <h3>
-                        Collected facts <span>{Object.keys(facts).length}</span>
-                      </h3>
-                      {Object.entries(facts).length ? (
-                        Object.entries(facts).map(([key, fact]) => (
-                          <details className="fact-row" key={key}>
-                            <summary>
-                              <span>{pretty(key)}</span>
-                              <strong>
-                                {String(fact.value ?? fact.status)}
-                              </strong>
-                            </summary>
-                            <p>{fact.evidence}</p>
-                          </details>
-                        ))
-                      ) : (
-                        <p className="empty-copy">
-                          Extracted details appear during a conversation.
-                        </p>
-                      )}
-                      {receipts.length > 0 && (
-                        <>
-                          <h3>Action receipts</h3>
-                          {receipts.map((r, i) => (
-                            <div className="receipt" key={i}>
-                              <Check size={13} />
-                              {pretty(r.tool)}
-                              <span className="badge">{r.status}</span>
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </>
-                  ) : testTab === "sources" ? (
-                    <>
-                      <h3>Retrieved passages</h3>
-                      <p className="empty-copy">
-                        Document search runs on every nonempty turn.
-                      </p>
-                      {sources.length ? (
-                        sources.map((source) => (
-                          <article
-                            className="source-card"
-                            key={source.chunk_id}
-                          >
-                            <span>
-                              <FileText size={12} />
-                              {source.document}
-                            </span>
-                            <h4>{source.heading}</h4>
-                            <p>{source.text}</p>
-                          </article>
-                        ))
-                      ) : (
-                        <p className="empty-copy">
-                          Ask a company question to see its sources.
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <h3>Session events</h3>
-                      {trace.length ? (
-                        trace.map((event, i) => (
-                          <details className="trace-row" key={i}>
-                            <summary>
-                              <span>{event.at.toFixed(2)}s</span>
-                              {pretty(event.type)}
-                            </summary>
-                            <pre>
-                              {JSON.stringify(safeExport(event.data), null, 2)}
-                            </pre>
-                          </details>
-                        ))
-                      ) : (
-                        <p className="empty-copy">
-                          Events appear when you connect.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-              {error && (
-                <div className="error-banner" role="alert">
-                  <span>{error}</span>
-                  <button title="Dismiss error" onClick={() => setError("")}>
-                    <X size={13} />
-                  </button>
-                </div>
-              )}
-              <div
-                className={`test-session-status ${mode === "voice" && connected ? "voice-session-status" : ""}`}
+              <button
+                title="Connection settings"
+                onClick={() => setSettings(true)}
               >
-                <span className={connected ? "status-online" : ""}>
-                  <i />
-                  {phase}
-                </span>
-                {connected ? (
-                  <div>
-                    <span>{minutes}</span>
-                    {mode === "voice" && (
-                      <button
-                        title={mic ? "Mute microphone" : "Enable microphone"}
-                        onClick={() => {
-                          if (mic) {
-                            audio.current.stopMicrophone();
-                            setMic(false);
-                          } else void enableMicrophone();
-                        }}
-                      >
-                        {mic ? <Mic size={14} /> : <MicOff size={14} />}
-                      </button>
-                    )}
-                    <button title="Interrupt response" onClick={stop}>
-                      <Square size={12} />
+                <Settings2 size={15} />
+              </button>
+            </div>
+            <div className="test-tabs">
+              {["conversation", "scenarios", "state", "sources", "trace"].map(
+                (t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTestTab(t)}
+                    className={testTab === t ? "selected" : ""}
+                  >
+                    {pretty(t)}
+                  </button>
+                ),
+              )}
+            </div>
+            {mode === "voice" && (connected || connecting) && (
+              <VoiceCall
+                name={liveWorkflow?.name || "Your agent"}
+                phase={phase}
+                connecting={connecting}
+                mic={mic}
+                remaining={remaining}
+                orbRef={orbRef}
+                onMute={() => {
+                  if (mic) {
+                    audio.current.stopMicrophone();
+                    setMic(false);
+                  } else void enableMicrophone();
+                }}
+                onEnd={end}
+                onInterrupt={stop}
+              />
+            )}
+            {activeScenario && testTab === "conversation" && (
+              <div className="scenario-guide">
+                <div>
+                  <ClipboardList size={12} />
+                  <strong>{activeScenario.title}</strong>
+                  <button
+                    title="Stop using this scenario"
+                    onClick={() => setActiveScenario(null)}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="scenario-guide-controls">
+                  <button
+                    disabled={scenarioStep === 0 || connecting}
+                    onClick={() =>
+                      prepareTest(activeScenario, scenarioStep - 1)
+                    }
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    Line {scenarioStep + 1} of {activeScenario.steps.length}
+                  </span>
+                  <button
+                    disabled={
+                      scenarioStep === activeScenario.steps.length - 1 ||
+                      connecting
+                    }
+                    onClick={() =>
+                      prepareTest(activeScenario, scenarioStep + 1)
+                    }
+                  >
+                    Next line <ArrowRight size={10} />
+                  </button>
+                </div>
+                <details>
+                  <summary>Suggested line and expected behavior</summary>
+                  <p>“{activeScenario.steps[scenarioStep].say}”</p>
+                  <small>{activeScenario.steps[scenarioStep].expect}</small>
+                </details>
+              </div>
+            )}
+            {testTab === "scenarios" ? (
+              <TestScenarios
+                scenarios={config?.test_scenarios || []}
+                connected={connected}
+                connecting={connecting}
+                activeId={activeScenario?.id || null}
+                onPrepare={prepareTest}
+              />
+            ) : testTab === "conversation" ? (
+              <div
+                className="chat-scroll"
+                aria-live="polite"
+                aria-label="Conversation transcript"
+              >
+                {!chats.length &&
+                !(mode === "voice" && (connected || connecting)) ? (
+                  <div className="test-empty">
+                    <VoiceOrb state={connecting ? "connecting" : "ready"} />
+                    <h2>
+                      {connected
+                        ? "Your agent is listening"
+                        : "Try a conversation"}
+                    </h2>
+                    <p>
+                      {connected
+                        ? "Speak or type a message to begin."
+                        : "Test your agent’s voice, instructions, and workflow before sharing it."}
+                    </p>
+                    <button
+                      className="button black"
+                      disabled={connecting || connected}
+                      onClick={() => setSettings(true)}
+                    >
+                      {connecting ? (
+                        <LoaderCircle size={14} className="spin" />
+                      ) : (
+                        <Play size={13} fill="currentColor" />
+                      )}
+                      {connecting
+                        ? "Connecting…"
+                        : connected
+                          ? "Connected"
+                          : "Start test"}
                     </button>
-                    <button className="end-button" onClick={end}>
-                      End
-                    </button>
+                    <div className="test-suggestions">
+                      <span>TRY ASKING</span>
+                      {examples.map((example) => (
+                        <button
+                          key={example}
+                          onClick={() => {
+                            setInput(example);
+                            if (!connected) setSettings(true);
+                          }}
+                        >
+                          {example}
+                          <ArrowRight size={12} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <button onClick={() => setSettings(true)}>
-                    <KeyRound size={12} /> Connect
-                  </button>
+                  <div className="messages">
+                    {chats.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`message ${message.role}`}
+                      >
+                        <div className="message-label">
+                          {message.role === "assistant" ? "Agent" : "You"}
+                          {message.interrupted && (
+                            <span>
+                              Interrupted · generated text may be unplayed
+                            </span>
+                          )}
+                        </div>
+                        <p>{message.text}</p>
+                      </div>
+                    ))}
+                    <div ref={bottom} />
+                  </div>
                 )}
               </div>
-              <form className="composer" onSubmit={send}>
-                <input
-                  aria-label="Message to agent"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={
-                    connected ? "Type a message…" : "Enter a test message…"
-                  }
-                  maxLength={8000}
-                />
-                <button
-                  type="submit"
-                  aria-label="Send message"
-                  disabled={!input.trim()}
-                >
-                  <ArrowRight size={17} />
-                </button>
-              </form>
-              <div className="test-footer">
-                <span>
-                  {(config?.call_limit_seconds ?? 300) / 60} minute limit ·
-                  simulated actions
-                </span>
-                <button
-                  onClick={download}
-                  disabled={!chats.length}
-                  title="Export session"
-                >
-                  <Download size={12} />
+            ) : (
+              <div className="test-inspector">
+                {testTab === "state" ? (
+                  <>
+                    <div className="live-stage">
+                      <span className="tiny-dot" />
+                      <div>
+                        <small>Active stage</small>
+                        <strong>
+                          {liveWorkflow?.nodes[active]?.title || pretty(active)}
+                        </strong>
+                        {pending && (
+                          <small>
+                            Pending:{" "}
+                            {liveWorkflow?.nodes[pending]?.title || pending}
+                          </small>
+                        )}
+                      </div>
+                      <span className="badge">
+                        {connected ? "Live" : "Preview"}
+                      </span>
+                    </div>
+                    <div className="gap-card">
+                      <span>Estimated TTFS</span>
+                      <strong>
+                        {gap === null ? "—" : `${(gap / 1000).toFixed(2)}s`}
+                      </strong>
+                      <small>
+                        Microphone activity to first playback; estimated output
+                        timing.
+                      </small>
+                    </div>
+                    {timingSummary?.estimated_ttfs_ms.count ? (
+                      <small>
+                        {timingSummary.estimated_ttfs_ms.count} replies · avg{" "}
+                        {(
+                          (timingSummary.estimated_ttfs_ms.mean ?? 0) / 1000
+                        ).toFixed(2)}
+                        s · median{" "}
+                        {(
+                          (timingSummary.estimated_ttfs_ms.median ?? 0) / 1000
+                        ).toFixed(2)}
+                        s
+                      </small>
+                    ) : null}
+                    {timingSummary?.retrieval_ms.count ? (
+                      <small>
+                        RAG · avg{" "}
+                        {(timingSummary.retrieval_ms.mean ?? 0).toFixed(3)}ms ·
+                        median{" "}
+                        {(timingSummary.retrieval_ms.median ?? 0).toFixed(3)}
+                        ms
+                      </small>
+                    ) : null}
+                    <h3>
+                      Collected facts <span>{Object.keys(facts).length}</span>
+                    </h3>
+                    {Object.entries(facts).length ? (
+                      Object.entries(facts).map(([key, fact]) => (
+                        <details className="fact-row" key={key}>
+                          <summary>
+                            <span>{pretty(key)}</span>
+                            <strong>{String(fact.value ?? fact.status)}</strong>
+                          </summary>
+                          <p>{fact.evidence}</p>
+                        </details>
+                      ))
+                    ) : (
+                      <p className="empty-copy">
+                        Extracted details appear during a conversation.
+                      </p>
+                    )}
+                    {receipts.length > 0 && (
+                      <>
+                        <h3>Action receipts</h3>
+                        {receipts.map((r, i) => (
+                          <div className="receipt" key={i}>
+                            <Check size={13} />
+                            {pretty(r.tool)}
+                            <span className="badge">{r.status}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </>
+                ) : testTab === "sources" ? (
+                  <>
+                    <h3>Retrieved passages</h3>
+                    <p className="empty-copy">
+                      Document search runs on every nonempty turn.
+                    </p>
+                    {sources.length ? (
+                      sources.map((source) => (
+                        <article className="source-card" key={source.chunk_id}>
+                          <span>
+                            <FileText size={12} />
+                            {source.document}
+                          </span>
+                          <h4>{source.heading}</h4>
+                          <p>{source.text}</p>
+                        </article>
+                      ))
+                    ) : (
+                      <p className="empty-copy">
+                        Ask a company question to see its sources.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3>Session events</h3>
+                    {trace.length ? (
+                      trace.map((event, i) => (
+                        <details className="trace-row" key={i}>
+                          <summary>
+                            <span>{event.at.toFixed(2)}s</span>
+                            {pretty(event.type)}
+                          </summary>
+                          <pre>
+                            {JSON.stringify(safeExport(event.data), null, 2)}
+                          </pre>
+                        </details>
+                      ))
+                    ) : (
+                      <p className="empty-copy">
+                        Events appear when you connect.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            {error && (
+              <div className="error-banner" role="alert">
+                <span>{error}</span>
+                <button title="Dismiss error" onClick={() => setError("")}>
+                  <X size={13} />
                 </button>
               </div>
-            </aside>
-          )}
-        </div>
+            )}
+            <div
+              className={`test-session-status ${mode === "voice" && connected ? "voice-session-status" : ""}`}
+            >
+              <span className={connected ? "status-online" : ""}>
+                <i />
+                {phase}
+              </span>
+              {connected ? (
+                <div>
+                  <span>{minutes}</span>
+                  {mode === "voice" && (
+                    <button
+                      title={mic ? "Mute microphone" : "Enable microphone"}
+                      onClick={() => {
+                        if (mic) {
+                          audio.current.stopMicrophone();
+                          setMic(false);
+                        } else void enableMicrophone();
+                      }}
+                    >
+                      {mic ? <Mic size={14} /> : <MicOff size={14} />}
+                    </button>
+                  )}
+                  <button title="Interrupt response" onClick={stop}>
+                    <Square size={12} />
+                  </button>
+                  <button className="end-button" onClick={end}>
+                    End
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setSettings(true)}>
+                  <KeyRound size={12} /> Connect
+                </button>
+              )}
+            </div>
+            <form className="composer" onSubmit={send}>
+              <input
+                aria-label="Message to agent"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={
+                  connected ? "Type a message…" : "Enter a test message…"
+                }
+                maxLength={8000}
+              />
+              <button
+                type="submit"
+                aria-label="Send message"
+                disabled={!input.trim()}
+              >
+                <ArrowRight size={17} />
+              </button>
+            </form>
+            <div className="test-footer">
+              <span>
+                {(config?.call_limit_seconds ?? 300) / 60} minute limit ·
+                simulated actions
+              </span>
+              <button
+                onClick={download}
+                disabled={!chats.length}
+                title="Export session"
+              >
+                <Download size={12} />
+              </button>
+            </div>
+          </aside>
+        )}
       </div>
       <dialog
         ref={dialog}
@@ -1531,6 +1382,6 @@ export default function App() {
           storage
         </div>
       </dialog>
-    </div>
+    </StudioShell>
   );
 }

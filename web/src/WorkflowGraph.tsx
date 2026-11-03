@@ -39,10 +39,16 @@ import "@xyflow/react/dist/style.css";
 import "./workflow-graph.css";
 import StepInspector, { type Selection } from "./StepInspector";
 import { describeRoutes, presentRoutes } from "./studio/graph-model";
+import type { ToolManifest } from "./studio/tool-manifest";
 import { RoutesTable } from "./studio/RoutesTable";
 import { emptyMetadata } from "./studio/document-store";
 import { routeKey } from "./studio/workflow-model";
-import type { GraphLayout, StudioMetadata, RouteRef } from "./studio/types";
+import type {
+  GraphLayout,
+  StudioMetadata,
+  RouteRef,
+  DocumentTransaction,
+} from "./studio/types";
 
 const sides = {
   top: Position.Top,
@@ -266,7 +272,13 @@ type Props = {
   active: string;
   pending: string | null;
   onYaml: () => void;
-  onChange: (source: string) => void;
+  onChange: (source: string, group?: string) => void;
+  onTransaction?: (tx: DocumentTransaction) => void;
+  onHistoryEnd?: () => void;
+  onInspect?: () => void;
+  onSources?: (id: string) => void;
+  tools?: ToolManifest[];
+  hideInspector?: boolean;
   onUndo: () => void;
   canUndo: boolean;
   metadata?: StudioMetadata;
@@ -286,8 +298,18 @@ export default function WorkflowGraph({
   metadata = emptyMetadata(),
   onMetadata,
   mode = "flow",
+  onTransaction,
+  onHistoryEnd,
+  onInspect,
+  onSources,
+  tools,
+  hideInspector,
 }: Props) {
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [selection, updateSelection] = useState<Selection | null>(null);
+  function setSelection(next: Selection | null) {
+    if (next) onInspect?.();
+    updateSelection(next);
+  }
   const [viewId, setViewId] = useState("");
   const [viewName, setViewName] = useState("");
   const [viewRoutes, setViewRoutes] = useState<Set<string> | null>(null);
@@ -372,7 +394,18 @@ export default function WorkflowGraph({
       const node = graph.nodes.find((n) => n.id === id);
       if (node && instance.current)
         void instance.current.setCenter(
-          node.position.x + node.width! / 2,
+          node.position.x +
+            node.width! / 2 +
+            (() => {
+              const inspector =
+                viewport.current?.parentElement?.querySelector<HTMLElement>(
+                  ".studio-inspector",
+                );
+              return inspector &&
+                window.getComputedStyle(inspector).position === "absolute"
+                ? inspector.clientWidth / (2 * instance.current!.getZoom())
+                : 0;
+            })(),
           node.position.y + node.height! / 2,
           {
             zoom: instance.current.getZoom(),
@@ -743,7 +776,7 @@ export default function WorkflowGraph({
               </ReactFlow>
             </div>
           )}
-          {selection && definition && (
+          {selection && definition && !hideInspector && (
             <StepInspector
               key={
                 selection.kind +
@@ -751,6 +784,10 @@ export default function WorkflowGraph({
                   ? selection.id
                   : selection.source + selection.edgeId)
               }
+              tools={tools}
+              onTransaction={onTransaction}
+              onHistoryEnd={onHistoryEnd}
+              onSources={onSources}
               source={source}
               workflow={definition}
               selection={selection}
