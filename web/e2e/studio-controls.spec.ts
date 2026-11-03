@@ -60,7 +60,9 @@ test("custom selects support keyboard changes and dialog menus", async ({
   });
   await reasoning.focus();
   await page.keyboard.press("Space");
+  await expect(page.getByRole("listbox")).toBeVisible();
   await page.keyboard.press("End");
+  await expect(page.getByRole("option", {name:"high",exact:true})).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(reasoning).toContainText("high");
   await page.getByRole("tab", { name: "YAML", exact: true }).click();
