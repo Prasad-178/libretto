@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import type { Workflow } from "../workflow";
@@ -65,7 +66,7 @@ export function RoutesTable({
             placeholder="Search routes, steps or conditions"
           />
         </label>
-        <select
+        <Select
           aria-label="Route type"
           value={kind}
           onChange={(e) => setKind(e.target.value)}
@@ -76,8 +77,8 @@ export function RoutesTable({
               {label}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Canvas visibility"
           value={canvas}
           onChange={(e) => setCanvas(e.target.value)}
@@ -85,7 +86,7 @@ export function RoutesTable({
           <option value="all">Canvas: All</option>
           <option value="visible">Visible</option>
           <option value="hidden">Hidden</option>
-        </select>
+        </Select>
         <span>YAML order</span>
       </div>
       <div className="routes-scroll">

@@ -1,3 +1,4 @@
+import { Select } from "./ui/Select";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
@@ -29,7 +30,6 @@ import {
 import {
   branchLabel,
   buildGraph,
-  resizeViewport,
   type BranchEdge,
   type Point,
   type StageNode,
@@ -375,27 +375,6 @@ export default function WorkflowGraph({
   function selectRoute(ref: RouteRef) {
     setSelection({ kind: "edge", ...ref });
   }
-  useEffect(() => {
-    const canvas = viewport.current;
-    if (!canvas) return;
-    let width = canvas.clientWidth;
-    const observer = new ResizeObserver(() => {
-      const nextWidth = canvas.clientWidth;
-      if (
-        instance.current &&
-        width > 0 &&
-        nextWidth > 0 &&
-        nextWidth !== width
-      ) {
-        void instance.current.setViewport(
-          resizeViewport(instance.current.getViewport(), width, nextWidth),
-        );
-      }
-      width = nextWidth;
-    });
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [graph.error]);
   const focus = useCallback(
     (id: string) => {
       const node = graph.nodes.find((n) => n.id === id);
@@ -446,9 +425,7 @@ export default function WorkflowGraph({
             ? undefined
             : () => {
                 setSelection({ kind: "step", id: n.id });
-                focus(n.id);
               },
-          focus: () => focus(n.id),
         },
       })),
     [graph.nodes, connected, active, pending, selected, focus, view, routes],
@@ -492,7 +469,6 @@ export default function WorkflowGraph({
             inspect: () => {
               const [, edgeId] = JSON.parse(e.id);
               setSelection({ kind: "edge", source: e.source, edgeId });
-              focus(e.source);
             },
             insert:
               !connected &&
@@ -503,7 +479,6 @@ export default function WorkflowGraph({
                 ? () => {
                     const [, edgeId] = JSON.parse(e.id);
                     setSelection({ kind: "insert", source: e.source, edgeId });
-                    focus(e.source);
                   }
                 : undefined,
           },
@@ -540,25 +515,13 @@ export default function WorkflowGraph({
     if (selectedNodeId && definition?.nodes[selectedNodeId])
       setSelection({ kind: "step", id: selectedNodeId });
   }, [selectedNodeId]);
-  const topology =
-    graph.nodes.map((n) => n.id).join("|") +
-    graph.edges.map((e) => e.id + e.target).join("|");
-  const selectedStage =
-    selection?.kind === "step" ? selection.id : selection?.source;
-  const focusRef = useRef(focus);
-  focusRef.current = focus;
-  useEffect(() => {
-    if (!selectedStage) return;
-    const frame = requestAnimationFrame(() => focusRef.current(selectedStage));
-    return () => cancelAnimationFrame(frame);
-  }, [selectedStage, topology]);
   return (
     <section className="workflow-view" aria-label="Workflow visualization">
       <div className="workflow-toolbar">
         <div>
           <GitBranch size={15} />
           <strong>{showRoutes ? "Routes" : "Flow"}</strong>
-          <select
+          <Select
             aria-label="Canvas view"
             value={viewId}
             onChange={(event) => {
@@ -572,7 +535,7 @@ export default function WorkflowGraph({
                 {v.name}
               </option>
             ))}
-          </select>
+          </Select>
           {hiddenCount > 0 && (
             <span>
               {hiddenCount} hidden ·{" "}
@@ -649,7 +612,9 @@ export default function WorkflowGraph({
                     });
                     setViewId(id);
                     setViewName("");
-                    event.currentTarget.closest("details")?.removeAttribute("open");
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
                   }}
                 >
                   Save named view
@@ -712,7 +677,6 @@ export default function WorkflowGraph({
                 onNodeClick={(_, node) => {
                   if (!node.data.synthetic) {
                     setSelection({ kind: "step", id: node.id });
-                    focus(node.id);
                   }
                 }}
                 onPaneClick={() => setSelection(null)}
@@ -759,7 +723,7 @@ export default function WorkflowGraph({
                     <Maximize2 size={13} />
                     Fit workflow
                   </button>
-                  <select
+                  <Select
                     className="flow-step-jump"
                     aria-label="Jump to step"
                     value={selected || ""}
@@ -776,7 +740,7 @@ export default function WorkflowGraph({
                         {n.title || id}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   {connected && (
                     <button className="button" onClick={() => focus(active)}>
                       <Scan size={13} />

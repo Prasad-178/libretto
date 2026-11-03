@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { readWorkflow } from "../workflow";
 import type { StudioDocument, StudioMetadata } from "./types";
@@ -126,7 +127,7 @@ export function SourcesPage({
             {manifest?.collections.length === 1 ? "collection" : "collections"}
           </span>
         </header>
-        <select
+        <Select
           aria-label="Choose collection"
           value={collection?.id || ""}
           onChange={(e) => {
@@ -140,7 +141,7 @@ export function SourcesPage({
               {label(c.id)}
             </option>
           ))}
-        </select>
+        </Select>
         {capabilities?.folderSelection && (
           <button
             className="button"
@@ -261,13 +262,13 @@ export function SourcesPage({
               </label>
               <label>
                 Preview for step
-                <select value={step} onChange={(e) => setStep(e.target.value)}>
+                <Select value={step} onChange={(e) => setStep(e.target.value)}>
                   {Object.entries(workflow?.nodes || {}).map(([id, n]) => (
                     <option value={id} key={id}>
                       {n.title || id}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
             <form

@@ -15,7 +15,10 @@ test("Sources previews real retrieval and opens complete passage evidence", asyn
   ).toBeVisible();
   await page.getByRole("tab", { name: "Sources", exact: true }).click();
   await expect(page.locator(".passages-list>button").first()).toBeVisible();
-  await page.getByLabel("Preview for step").selectOption("faq");
+  await page.getByLabel("Preview for step").click();
+  await page
+    .getByRole("option", { name: "Answer questions", exact: true })
+    .click();
   await page.getByLabel("Test retrieval").fill("Dock room");
   await page
     .getByRole("button", { name: "Search passages", exact: true })
@@ -112,7 +115,8 @@ test("local project folders attach as references and Undo removes the attachment
     .click();
   await page
     .getByRole("combobox", { name: "Project folder", exact: true })
-    .selectOption("knowledge");
+    .click();
+  await page.getByRole("option", { name: "knowledge", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Collection ID", exact: true })
     .fill("policies");

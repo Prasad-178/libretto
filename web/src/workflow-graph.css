@@ -609,7 +609,7 @@
   text-align: left;
   font-size: 12px;
 }
-.workflow-toolbar select {
+.workflow-toolbar :is(select, .studio-select-trigger) {
   font: inherit;
   padding: 5px 8px;
   border: 1px solid #dee4ea;
@@ -697,7 +697,7 @@
   font: inherit;
   background: transparent;
 }
-.routes-toolbar select {
+.routes-toolbar :is(select, .studio-select-trigger) {
   border: 1px solid #dee4ea;
   border-radius: 6px;
   padding: 8px;

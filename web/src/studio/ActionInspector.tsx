@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useState } from "react";
 import type { Workflow } from "../workflow";
 import type { DocumentTransaction } from "./types";
@@ -38,7 +39,7 @@ export function ActionInspector({
       <h3>Action configuration</h3>
       <label>
         Registered action
-        <select
+        <Select
           value={toolName}
           onChange={(e) => {
             setToolName(e.target.value);
@@ -56,7 +57,7 @@ export function ActionInspector({
             .map((t) => (
               <option key={t.name}>{t.name}</option>
             ))}
-        </select>
+        </Select>
       </label>
       {!tool ? (
         <p className="inspector-notice">
@@ -69,7 +70,7 @@ export function ActionInspector({
             <label key={p.name}>
               {p.name}
               {p.required ? " *" : " (optional)"}
-              <select
+              <Select
                 value={args[p.name] || ""}
                 onChange={(e) => {
                   setArgs({ ...args, [p.name]: e.target.value });
@@ -85,7 +86,7 @@ export function ActionInspector({
                   .map(([field]) => (
                     <option key={field}>{field}</option>
                   ))}
-              </select>
+              </Select>
             </label>
           ))}
           <h4>Required facts</h4>
@@ -109,7 +110,7 @@ export function ActionInspector({
           {tool.results.map((result) => (
             <label key={result}>
               {result}
-              <select
+              <Select
                 value={results[result] || ""}
                 onChange={(e) =>
                   setResults({ ...results, [result]: e.target.value })
@@ -121,7 +122,7 @@ export function ActionInspector({
                     {n.title || id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           ))}
           <button

@@ -24,9 +24,12 @@ for (const width of [1280, 1024]) {
     await page.locator(".route-reveal").click();
     await expect(page.getByLabel("Edit route", { exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "Settings", exact: true }).click();
-    if (width === 1024)
-      await page.getByLabel("Settings section").selectOption("models");
-    else
+    if (width === 1024) {
+      await page.getByLabel("Settings section").click();
+      await page
+        .getByRole("option", { name: "Models & speech", exact: true })
+        .click();
+    } else
       await page
         .getByRole("button", { name: "Models & speech", exact: true })
         .click();
@@ -99,10 +102,11 @@ test("named views hide connectors without removing routes from the index", async
   await page
     .getByRole("button", { name: "Save named view", exact: true })
     .click();
-  await expect(page.getByLabel("Canvas view")).toHaveValue(/.+/);
+  await expect(page.getByLabel("Canvas view")).toContainText("Intake only");
   await page.getByRole("tab", { name: /^Routes/ }).click();
   await expect(page.locator(".routes-page tbody tr")).toHaveCount(2);
-  await page.getByLabel("Canvas visibility").selectOption("hidden");
+  await page.getByLabel("Canvas visibility").click();
+  await page.getByRole("option", { name: "Hidden", exact: true }).click();
   await expect(page.locator(".routes-page tbody tr")).toHaveCount(1);
   await expect(page.locator(".routes-page tbody tr")).toContainText("Spoken");
   await page.locator(".route-reveal").click();

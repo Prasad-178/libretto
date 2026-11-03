@@ -1,3 +1,4 @@
+import { Select } from "./ui/Select";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -72,7 +73,7 @@ export function TestScenarios({
       </div>
       <label className="scenario-filter">
         Browse {scenarios.length} scenarios
-        <select
+        <Select
           aria-label="Scenario category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -81,7 +82,7 @@ export function TestScenarios({
           {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
-        </select>
+        </Select>
       </label>
       {scenarios
         .filter((s) => category === "All scenarios" || s.category === category)

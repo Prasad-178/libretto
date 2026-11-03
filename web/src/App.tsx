@@ -1,3 +1,4 @@
+import { Select } from "./ui/Select";
 import {
   lazy,
   Suspense,
@@ -1459,7 +1460,7 @@ export default function App() {
         )}
         <label className="input-label">
           Simulated transfer outcome
-          <select
+          <Select
             disabled={connected}
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
@@ -1470,7 +1471,7 @@ export default function App() {
             <option value="connected">Transfer connected</option>
             <option value="failed">Transfer failed</option>
             <option value="timeout">Transfer timed out</option>
-          </select>
+          </Select>
         </label>
         {error && (
           <div className="error-banner" role="alert">

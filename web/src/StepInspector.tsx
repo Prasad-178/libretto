@@ -1,3 +1,4 @@
+import { Select } from "./ui/Select";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Code2, Expand, Undo2, X } from "lucide-react";
 import { type Workflow } from "./workflow";
@@ -302,7 +303,7 @@ export default function StepInspector({
                         </label>
                         <label>
                           Destination
-                          <select
+                          <Select
                             value={target}
                             onChange={(e) => setTarget(e.target.value)}
                           >
@@ -312,12 +313,12 @@ export default function StepInspector({
                                 {n.title || id}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </label>
                         {node.kind === "action" ? (
                           <label>
                             Action result
-                            <select
+                            <Select
                               value={rule}
                               onChange={(e) => setRule(e.target.value)}
                             >
@@ -327,7 +328,7 @@ export default function StepInspector({
                                 ?.results.map((r) => (
                                   <option key={r}>{r}</option>
                                 ))}
-                            </select>
+                            </Select>
                           </label>
                         ) : (
                           <label>
@@ -418,13 +419,13 @@ export default function StepInspector({
                     </label>
                     <label>
                       On entering this step
-                      <select
+                      <Select
                         value={node.entry || "wait"}
                         onChange={(e) => change("entry", e.target.value)}
                       >
                         <option value="wait">Wait for the caller</option>
                         <option value="respond">Respond immediately</option>
-                      </select>
+                      </Select>
                     </label>
                     <label>
                       Exact readback template

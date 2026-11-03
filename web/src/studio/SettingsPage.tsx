@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
 import { readWorkflow } from "../workflow";
 import type { StudioDocument, DocumentTransaction } from "./types";
@@ -62,7 +63,7 @@ export function SettingsPage({
     >
       <aside className="settings-navigation">
         <h2>Settings</h2>
-        <select
+        <Select
           aria-label="Settings section"
           value={section}
           onChange={(e) => setSection(e.target.value)}
@@ -72,7 +73,7 @@ export function SettingsPage({
               {s.label}
             </option>
           ))}
-        </select>
+        </Select>
         <nav>
           {sections.map((s) => (
             <button
@@ -148,7 +149,7 @@ export function SettingsPage({
                 </label>
                 <label>
                   Start step
-                  <select
+                  <Select
                     value={workflow.start}
                     onChange={(e) => change(["start"], e.target.value)}
                   >
@@ -157,7 +158,7 @@ export function SettingsPage({
                         {n.title || id}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
               </section>
             </>
@@ -181,7 +182,7 @@ export function SettingsPage({
                 ).map(({ role, key, label }) => (
                   <label key={key}>
                     {label}
-                    <select
+                    <Select
                       value={workflow.models?.[key] || ""}
                       onChange={(e) => change(["models", key], e.target.value)}
                     >
@@ -197,7 +198,7 @@ export function SettingsPage({
                         .map((id) => (
                           <option key={id}>{id}</option>
                         ))}
-                    </select>
+                    </Select>
                   </label>
                 ))}
                 <p>
@@ -206,7 +207,7 @@ export function SettingsPage({
                 </p>
                 <label>
                   Response reasoning
-                  <select
+                  <Select
                     value={workflow.models?.reasoning || "minimal"}
                     onChange={(e) =>
                       change(["models", "reasoning"], e.target.value)
@@ -215,7 +216,7 @@ export function SettingsPage({
                     {["minimal", "low", "medium", "high"].map((level) => (
                       <option key={level}>{level}</option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <p>The evaluator uses minimal reasoning separately.</p>
               </section>
@@ -230,7 +231,7 @@ export function SettingsPage({
                   return (
                     <label key={role}>
                       {role === "stt" ? "Speech recognition" : "Voice output"}
-                      <select
+                      <Select
                         value={JSON.stringify(current || null)}
                         onChange={(e) =>
                           change(["speech", role], JSON.parse(e.target.value))
@@ -258,7 +259,7 @@ export function SettingsPage({
                               {c.provider} / {c.model}
                             </option>
                           ))}
-                      </select>
+                      </Select>
                     </label>
                   );
                 })}
@@ -302,7 +303,7 @@ export function SettingsPage({
                       </label>
                       <label>
                         Type
-                        <select
+                        <Select
                           value={field.type}
                           disabled={refs.length > 0}
                           title={
@@ -316,7 +317,7 @@ export function SettingsPage({
                         >
                           <option>string</option>
                           <option>boolean</option>
-                        </select>
+                        </Select>
                       </label>
                       {refs.length > 0 && (
                         <p>
@@ -378,14 +379,14 @@ export function SettingsPage({
                       onChange={(e) => setNewField(e.target.value)}
                     />
                   </label>
-                  <select
+                  <Select
                     aria-label="New field type"
                     value={newType}
                     onChange={(e) => setNewType(e.target.value)}
                   >
                     <option>string</option>
                     <option>boolean</option>
-                  </select>
+                  </Select>
                   <button
                     className="button"
                     onClick={() => {

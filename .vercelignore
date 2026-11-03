@@ -13,3 +13,8 @@ public/
 **/__pycache__/
 **/.pytest_cache/
 **/.ruff_cache/
+
+docs/design/
+docs/improvement-review-2026-11-01.md
+web/test-results/
+web/playwright-report/

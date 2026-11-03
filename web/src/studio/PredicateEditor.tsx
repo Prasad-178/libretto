@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import type { Workflow } from "../workflow";
 const pretty = (s: string) =>
   s.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
@@ -19,7 +20,7 @@ export function PredicateEditor({
   const first = Object.keys(fields)[0] || "";
   return (
     <div className="predicate-editor">
-      <select
+      <Select
         aria-label="Check type"
         value={value.op}
         onChange={(e) =>
@@ -44,10 +45,10 @@ export function PredicateEditor({
         <option value="all">All checks pass</option>
         <option value="any">Any check passes</option>
         <option value="not">Check does not pass</option>
-      </select>
+      </Select>
       {["exists", "equals"].includes(value.op) ? (
         <>
-          <select
+          <Select
             aria-label="Information field"
             value={value.field}
             onChange={(e) =>
@@ -68,10 +69,10 @@ export function PredicateEditor({
                 {pretty(id)}
               </option>
             ))}
-          </select>
+          </Select>
           {value.op === "equals" &&
             (fields[value.field || ""]?.type === "boolean" ? (
-              <select
+              <Select
                 aria-label="Expected value"
                 value={String(value.value)}
                 onChange={(e) =>
@@ -80,7 +81,7 @@ export function PredicateEditor({
               >
                 <option value="true">Yes / confirmed</option>
                 <option value="false">No / not confirmed</option>
-              </select>
+              </Select>
             ) : (
               <input
                 aria-label="Expected value"

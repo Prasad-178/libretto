@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { parseDocument } from "yaml";
 import type { StudioDocument } from "./types";
@@ -39,7 +40,7 @@ export function YamlWorkspace({
     <section className="yaml-workspace-v2" aria-label="YAML workspace">
       <header className="yaml-workspace-toolbar">
         <strong>{document.filename}</strong>
-        <select
+        <Select
           aria-label="Jump to YAML step"
           value=""
           onChange={(e) => {
@@ -61,7 +62,7 @@ export function YamlWorkspace({
                   <option key={pair.key.value}>{pair.key.value}</option>
                 ))
             : null}
-        </select>
+        </Select>
         <span className="yaml-validation-state">
           {document.validation.state === "valid"
             ? "Valid definition"

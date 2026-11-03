@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import type { Workflow } from "../workflow";
 import type { DocumentTransaction, RouteRef } from "./types";
 import type { ToolManifest } from "./tool-manifest";
@@ -63,7 +64,7 @@ export function RouteInspector({
           <>
             <label>
               Rule type
-              <select
+              <Select
                 value={
                   kind === "legacy-mixed"
                     ? "legacy-mixed"
@@ -108,7 +109,7 @@ export function RouteInspector({
                     Legacy mixed rule
                   </option>
                 )}
-              </select>
+              </Select>
             </label>
             {(kind === "language" ||
               kind === "unconfigured" ||
@@ -146,7 +147,7 @@ export function RouteInspector({
         ) : node.kind === "action" ? (
           <label>
             Action result
-            <select
+            <Select
               value={edge.result || ""}
               onChange={(e) => set("result", e.target.value)}
             >
@@ -159,7 +160,7 @@ export function RouteInspector({
               ].map((result) => (
                 <option key={result}>{result}</option>
               ))}
-            </select>
+            </Select>
           </label>
         ) : (
           <p className="inspector-help">
@@ -170,25 +171,25 @@ export function RouteInspector({
       <section>
         <label>
           Then go to
-          <select value={edge.to} onChange={(e) => set("to", e.target.value)}>
+          <Select value={edge.to} onChange={(e) => set("to", e.target.value)}>
             {Object.entries(workflow.nodes).map(([id, n]) => (
               <option value={id} key={id}>
                 {n.title || id}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </section>
       <section>
         <label>
           Transition timing
-          <select
+          <Select
             value={edge.timing || "next_response"}
             onChange={(e) => set("timing", e.target.value)}
           >
             <option value="next_response">After the current response</option>
             <option value="before_action">Before running the action</option>
-          </select>
+          </Select>
         </label>
         <p className="inspector-help">
           State checks are deterministic; language matches come from the

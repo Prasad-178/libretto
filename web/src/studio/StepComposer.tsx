@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useState } from "react";
 import type { Workflow } from "../workflow";
 import type { RouteRef } from "./types";
@@ -69,7 +70,7 @@ export function StepComposer({
         </p>
         <label>
           Step type
-          <select
+          <Select
             value={kind}
             onChange={(e) => {
               setKind(e.target.value as NewStepSpec["kind"]);
@@ -79,7 +80,7 @@ export function StepComposer({
             <option value="conversation">Conversation</option>
             <option value="say">Say an exact message</option>
             <option value="action">Run an action</option>
-          </select>
+          </Select>
         </label>
         <label>
           Step title
@@ -124,7 +125,7 @@ export function StepComposer({
         <section>
           <label>
             Registered action
-            <select
+            <Select
               value={toolName}
               onChange={(e) => {
                 setToolName(e.target.value);
@@ -137,7 +138,7 @@ export function StepComposer({
               {available.map((t) => (
                 <option key={t.name}>{t.name}</option>
               ))}
-            </select>
+            </Select>
           </label>
           {!available.length && (
             <p className="inspector-notice">
@@ -149,7 +150,7 @@ export function StepComposer({
             <label key={p.name}>
               {p.name}
               {p.required ? " *" : " (optional)"}
-              <select
+              <Select
                 value={args[p.name] || ""}
                 onChange={(e) => {
                   setArgs({ ...args, [p.name]: e.target.value });
@@ -166,7 +167,7 @@ export function StepComposer({
                   .map(([id]) => (
                     <option key={id}>{id}</option>
                   ))}
-              </select>
+              </Select>
             </label>
           ))}
           <fieldset>
@@ -191,7 +192,7 @@ export function StepComposer({
           {tool?.results.map((result) => (
             <label key={result}>
               When result is {result}
-              <select
+              <Select
                 value={results[result] || ""}
                 required
                 onChange={(e) =>
@@ -204,7 +205,7 @@ export function StepComposer({
                     {n.title || id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           ))}
         </section>

@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
 import { readWorkflow } from "../workflow";
 import { createStudioApi, type SourceFolders } from "./runtime-api";
@@ -52,12 +53,12 @@ export function AddCollectionDialog({
       </p>
       <label>
         Project folder
-        <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+        <Select value={selected} onChange={(e) => setSelected(e.target.value)}>
           <option value="">Choose folder…</option>
           {folders.map((f) => (
             <option key={f.path}>{f.path}</option>
           ))}
-        </select>
+        </Select>
       </label>
       <label>
         Collection ID
