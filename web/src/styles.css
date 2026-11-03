@@ -2576,3 +2576,6 @@ small,
 .studio-select-option[data-disabled] {opacity:.4;cursor:not-allowed;}
 .studio-select-check {position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;color:#245EC7;}
 .studio-select-scroll {display:flex;align-items:center;justify-content:center;height:22px;background:white;color:#708297;}
+
+.studio-select-body {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-width:0;}
+.studio-select-body > span:first-child {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}

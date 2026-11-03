@@ -79,10 +79,12 @@ export function Select({
         onBlur={onBlur as never}
         className={"studio-select-trigger " + className}
       >
+        <span className="studio-select-body">
         <SelectPrimitive.Value placeholder="Choose…" />
         <SelectPrimitive.Icon className="studio-select-chevron">
           <ChevronDown size={15} />
         </SelectPrimitive.Icon>
+        </span>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal
         container={trigger?.closest("dialog") ?? undefined}
