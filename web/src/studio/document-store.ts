@@ -12,9 +12,9 @@ export type {
 } from "./types";
 export const emptyMetadata = (): StudioMetadata => ({
   version: 1,
-  positions: {},
+  positions: Object.create(null),
   groups: [],
-  sourceNames: {},
+  sourceNames: Object.create(null),
   views: [],
   presentation: [],
 });

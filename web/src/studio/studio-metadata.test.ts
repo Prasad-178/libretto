@@ -65,3 +65,17 @@ it("uses structured route IDs without delimiter collisions and rejects malformed
     /version/i,
   );
 });
+
+it("round trips prototype-like node positions as own properties", () => {
+  const workflow = readWorkflow(
+    "name: Safe\nshared_prompt: Help\nstart: __proto__\nnodes:\n  __proto__: {kind: end}\n",
+  )!;
+  const result = readStudioMetadata(
+    '{"version":1,"positions":{"__proto__":{"x":10,"y":20}}}',
+    workflow,
+  );
+  expect(Object.hasOwn(result.metadata.positions, "__proto__")).toBe(true);
+  expect(
+    JSON.parse(JSON.stringify(result.metadata)).positions.__proto__,
+  ).toEqual({ x: 10, y: 20 });
+});

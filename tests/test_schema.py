@@ -113,3 +113,20 @@ def test_generic_studio_fixtures(path):
     else:
         flow = load_workflow(path)
         assert flow.start in flow.nodes
+
+
+def test_predicate_value_must_match_field_type(tmp_path):
+    text = MINIMAL.replace("{type: string}", "{type: boolean}").replace(
+        "condition: The user has answered.", 'predicate: {op: equals, field: answer, value: "yes"}'
+    )
+    with pytest.raises(ValueError, match="Predicate value"):
+        load(text, tmp_path)
+
+
+def test_workflow_limit_counts_characters_and_bounds_transitions(tmp_path):
+    text = MINIMAL.replace("Speak English.", "界" * 34000)
+    assert load(text, tmp_path).shared_prompt == "界" * 34000
+    edges = "\n".join(f"      - {{id: r{i}, to: end, condition: Go}}" for i in range(257))
+    text = MINIMAL.replace("      - {id: done, to: end, condition: The user has answered.}", edges)
+    with pytest.raises(ValueError, match="256 transitions"):
+        load(text, tmp_path)

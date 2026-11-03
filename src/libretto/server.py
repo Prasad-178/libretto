@@ -377,6 +377,7 @@ def create_app(
                     models = Models(
                         speaker=event.speaker_model or session_workflow.models.speaker,
                         evaluator=event.evaluator_model or session_workflow.models.evaluator,
+                        reasoning=session_workflow.models.reasoning,
                     )
                     adapter = model_factory(credentials, models, client=app.state.pool)
                     session = Session(

@@ -57,3 +57,8 @@ it("accepts an explicitly null optional tool as the server schema does", () => {
     )?.nodes.end.kind,
   ).toBe("end");
 });
+
+it("rejects schema-invalid predicate containers before exposing forms", () => {
+  const malformed=source.replace("edges: []", 'edges: [{id: retry, to: hello, predicate: {op: all, conditions: broken}}]');
+  expect(readWorkflow(malformed)).toBeNull();
+});

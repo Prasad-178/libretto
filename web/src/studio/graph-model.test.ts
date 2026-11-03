@@ -135,3 +135,49 @@ it("reflows a changed topology instead of attaching new paths to obsolete node p
     layoutWorkflow(next, emptyMetadata()),
   );
 });
+
+it.each(["constructor", "toString", "__proto__"])(
+  "lays out schema-valid ID %s safely",
+  (id) => {
+    const workflow = readWorkflow(
+      `version: 1\nid: safe\nname: Safe\nshared_prompt: Help\nstart: ${id}\nnodes:\n  ${id}: {kind: end}\n`,
+    )!;
+    const metadata = emptyMetadata();
+    const layout = layoutWorkflow(workflow, metadata);
+    expect(layout.nodes[0].id).toBe(id);
+    expect(Number.isFinite(layout.entry!.x)).toBe(true);
+    expect(Number.isFinite(layout.nodes[0].x)).toBe(true);
+  },
+);
+it("recomputes connectors and entry against final pinned coordinates", () => {
+  const workflow = readWorkflow(fixtures["./fixtures/intake.yaml"])!;
+  const metadata = emptyMetadata();
+  metadata.positions.collect = { x: 1800, y: 1800 };
+  const layout = layoutWorkflow(workflow, metadata);
+  const route = layout.routes.find((r) => r.ref.source === "collect")!;
+  expect(route.points[1].y).toBeGreaterThan(1800);
+  expect(layout.entry!.x).toBeGreaterThan(1700);
+  expect(layout.entry!.points.at(-1)!.y).toBe(1800);
+  expect(
+    route.points.slice(1).some((b, i) => {
+      const a = route.points[i],
+        p = route.labelPoint;
+      return (
+        p.x >= Math.min(a.x, b.x) &&
+        p.x <= Math.max(a.x, b.x) &&
+        p.y >= Math.min(a.y, b.y) &&
+        p.y <= Math.max(a.y, b.y)
+      );
+    }),
+  ).toBe(true);
+  for (const routed of layout.routes)
+    for (const node of layout.nodes) {
+      const p = routed.labelPoint;
+      expect(
+        p.x > node.x &&
+          p.x < node.x + node.width &&
+          p.y > node.y &&
+          p.y < node.y + node.height,
+      ).toBe(false);
+    }
+});

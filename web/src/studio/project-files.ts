@@ -77,7 +77,7 @@ export function serializeDraft(document: StudioDocument): string {
 }
 export function restoreDraft(text: string): StudioDocument | null {
   try {
-    if (text.length > 1_500_000) return null;
+
     const data = JSON.parse(text);
     if (
       data.version !== 1 ||
@@ -85,9 +85,7 @@ export function restoreDraft(text: string): StudioDocument | null {
       data.filename.length > 240 ||
       /[\\/\0]/.test(data.filename) ||
       typeof data.source !== "string" ||
-      typeof data.importedSource !== "string" ||
-      new TextEncoder().encode(data.source).length > 100_000 ||
-      new TextEncoder().encode(data.importedSource).length > 100_000
+      typeof data.importedSource !== "string"
     )
       return null;
     const document = createDocument(
@@ -121,11 +119,12 @@ export async function openProjectFiles(
     throw new Error(
       "Choose one YAML file and optionally its .studio.json layout.",
     );
-  if (yaml[0].size > 100_000) throw new Error("Workflow exceeds 100 KB.");
+  if (yaml[0].size > 400_003) throw new Error("Workflow exceeds 100,000 characters.");
   const document = createDocument(
     yaml[0].name,
     new Uint8Array(await yaml[0].arrayBuffer()),
   );
+  if ([...document.source].length > 100_000) throw new Error("Workflow exceeds 100,000 characters.");
   const notices: string[] = [];
   if (layouts.length) {
     const workflow = readWorkflow(document.source);

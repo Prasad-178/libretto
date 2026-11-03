@@ -48,10 +48,16 @@ test("changing the query discards an in-flight retrieval response", async ({
 }) => {
   let release: () => void = () => {};
   const pending = new Promise<void>((resolve) => (release = resolve));
+  let fetched: () => void = () => {},
+    finished: () => void = () => {};
+  const responseReady = new Promise<void>((resolve) => (fetched = resolve));
+  const handlerFinished = new Promise<void>((resolve) => (finished = resolve));
   await page.route("**/api/studio/retrieval", async (route) => {
     const response = await route.fetch();
+    fetched();
     await pending;
     await route.fulfill({ response }).catch(() => {});
+    finished();
   });
   await page.goto("/studio");
   await page
@@ -71,8 +77,10 @@ test("changing the query discards an in-flight retrieval response", async ({
     .getByRole("button", { name: "Search passages", exact: true })
     .click();
   await request;
+  await responseReady;
   await page.getByLabel("Test retrieval").fill("membership");
   release();
+  await handlerFinished;
   await expect(page.locator(".retrieval-summary")).toBeHidden();
   await expect(
     page.getByRole("button", { name: "Search passages", exact: true }),

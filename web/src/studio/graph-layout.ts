@@ -1,4 +1,5 @@
 import dagre from "@dagrejs/dagre";
+import { orthogonalRoute } from "./orthogonal-route";
 import type { Workflow } from "../workflow";
 import type { GraphLayout, Point, StudioMetadata } from "./types";
 import { analyzeStructure, describeRoutes, presentRoutes } from "./graph-model";
@@ -27,6 +28,11 @@ export function layoutWorkflow(
     marginy: 140,
   });
   g.setDefaultEdgeLabel(() => ({}));
+  const engineIds = new Map<string, string>();
+  const engineId = (id: string) => {
+    if (!engineIds.has(id)) engineIds.set(id, `n${engineIds.size}`);
+    return engineIds.get(id)!;
+  };
   // Condensed DAG order keeps independent components deterministic; Dagre routes cycle returns.
   const components = structure.components
     .map((ids, i) => ({ ids, rank: structure.ranks[i], i }))
@@ -34,7 +40,7 @@ export function layoutWorkflow(
   for (const { ids } of components)
     for (const id of ids) {
       const terminal = workflow.nodes[id].kind === "end";
-      g.setNode(id, {
+      g.setNode(engineId(id), {
         width: terminal
           ? Math.min(
               STEP_WIDTH,
@@ -51,8 +57,8 @@ export function layoutWorkflow(
   );
   for (const r of routes.filter((r) => drawn.has(routeKey(r.ref))))
     g.setEdge(
-      r.ref.source,
-      r.target,
+      engineId(r.ref.source),
+      engineId(r.target),
       {
         width: 210,
         height: 28,
@@ -62,12 +68,19 @@ export function layoutWorkflow(
     );
   let entryId = "__studio_entry__";
   while (Object.hasOwn(workflow.nodes, entryId)) entryId += "_";
-  g.setNode(entryId, { width: 132, height: 48 });
-  g.setEdge(entryId, workflow.start, { width: 0, height: 0 }, "entry");
+  g.setNode(engineId(entryId), { width: 132, height: 48 });
+  g.setEdge(
+    engineId(entryId),
+    engineId(workflow.start),
+    { width: 0, height: 0 },
+    "entry",
+  );
   dagre.layout(g);
   const nodes = Object.keys(workflow.nodes).map((id) => {
-    const n = g.node(id),
-      pinned = metadata.positions[id],
+    const n = g.node(engineId(id)),
+      pinned = Object.hasOwn(metadata.positions, id)
+        ? metadata.positions[id]
+        : undefined,
       old = previous?.nodes.find((n) => n.id === id);
     return {
       id,
@@ -121,6 +134,13 @@ export function layoutWorkflow(
       Math.max(Math.abs(dx) / (n.width / 2), Math.abs(dy) / (n.height / 2), 1);
     return { x: cx + dx * scale, y: cy + dy * scale };
   };
+  const moved = nodes.some((n) => {
+    const original = g.node(engineId(n.id));
+    return (
+      n.x !== original.x - original.width / 2 ||
+      n.y !== original.y - original.height / 2
+    );
+  });
   const laidRoutes = routes.map((r) => {
     if (r.ref.source === r.target) {
       const n = byId.get(r.target)!,
@@ -146,9 +166,45 @@ export function layoutWorkflow(
         labelPoint: { x: lane + 20, y: center - 24 },
       };
     }
+    if (moved) {
+      const source = byId.get(r.ref.source)!,
+        target = byId.get(r.target)!;
+      const from = {
+          x: source.x + source.width / 2,
+          y: source.y + source.height,
+        },
+        to = { x: target.x + target.width / 2, y: target.y };
+      const points = [
+        from,
+        ...orthogonalRoute(
+          { ...from, y: from.y + 24 },
+          { ...to, y: to.y - 24 },
+          nodes,
+        ),
+        to,
+      ];
+      const segments = points
+        .slice(1)
+        .map((point, index) => ({
+          a: points[index],
+          b: point,
+          length:
+            Math.abs(point.x - points[index].x) +
+            Math.abs(point.y - points[index].y),
+        }));
+      const longest = segments.reduce((a, b) => (a.length >= b.length ? a : b));
+      return {
+        ref: r.ref,
+        points,
+        labelPoint: {
+          x: (longest.a.x + longest.b.x) / 2,
+          y: (longest.a.y + longest.b.y) / 2,
+        },
+      };
+    }
     const edge = g.edge({
-      v: r.ref.source,
-      w: r.target,
+      v: engineId(r.ref.source),
+      w: engineId(r.target),
       name: routeKey(r.ref),
     });
     if (!edge) {
@@ -181,15 +237,31 @@ export function layoutWorkflow(
   });
   const x = Math.min(...nodes.map((n) => n.x)),
     y = Math.min(...nodes.map((n) => n.y));
-  const entryNode = g.node(entryId),
-    entryEdge = g.edge({ v: entryId, w: workflow.start, name: "entry" });
+  const entryNode = g.node(engineId(entryId)),
+    entryEdge = g.edge({
+      v: engineId(entryId),
+      w: engineId(workflow.start),
+      name: "entry",
+    });
+  const start = byId.get(workflow.start)!;
+  const finalEntry = moved
+    ? {
+        x: start.x + start.width / 2 - 66,
+        y: start.y - 138,
+        points: orthogonalRoute(
+          { x: start.x + start.width / 2, y: start.y - 90 },
+          { x: start.x + start.width / 2, y: start.y },
+          nodes,
+        ),
+      }
+    : {
+        x: entryNode.x - 66,
+        y: entryNode.y - 24,
+        points: entryEdge.points,
+      };
   return {
     topology,
-    entry: {
-      x: entryNode.x - 66,
-      y: entryNode.y - 24,
-      points: entryEdge.points,
-    },
+    entry: finalEntry,
     nodes,
     routes: laidRoutes,
     unreachable: structure.unreachable,

@@ -109,3 +109,27 @@ it("does not duplicate a header comment when adding a root property", () => {
   expect(next.startsWith("\uFEFF# exactly once\r\n")).toBe(true);
   expect(parseDocument(next).get("prompt")).toBe("one\ntwo");
 });
+
+it("structural additions preserve existing comments and folded prompt bytes", () => {
+  const source =
+    "name: Demo\nshared_prompt: >-\n  first line\n  second line\nnodes:\n  ask:\n    kind: conversation\n    edges: # exits comment\n      # route comment\n      - id: done # id comment\n        to: end\n  end: {kind: end}\n";
+  const added = set(source, ["welcome"], "Hello");
+  expect(added).toContain(source);
+  const edges = parseDocument(source).toJS().nodes.ask.edges;
+  const routed = set(
+    source,
+    ["nodes", "ask", "edges"],
+    [...edges, { id: "retry", to: "ask", condition: "Again" }],
+  );
+  expect(routed).toContain(
+    "edges: # exits comment\n      # route comment\n      - id: done # id comment\n        to: end\n",
+  );
+  expect(routed).toContain("shared_prompt: >-\n  first line\n  second line\n");
+});
+it.each(["Yes", "No", "on", "OFF"])(
+  "quotes YAML 1.1 ambiguous string %s",
+  (value) => {
+    const next = set("prompt: hello\n", ["prompt"], value);
+    expect(parseDocument(next, { version: "1.1" }).get("prompt")).toBe(value);
+  },
+);

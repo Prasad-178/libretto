@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { readWorkflow } from "../workflow";
 import type { StudioDocument, DocumentTransaction } from "./types";
 import type { StudioCapabilities } from "./runtime-api";
@@ -9,17 +9,22 @@ export function SettingsPage({
   onTransaction,
   onConnection,
   onStep,
+  onHistoryEnd,
 }: {
   document: StudioDocument;
   capabilities: StudioCapabilities | null;
   onTransaction: (tx: DocumentTransaction) => void;
   onConnection: () => void;
   onStep: (id: string) => void;
+  onHistoryEnd: () => void;
 }) {
   const [section, setSection] = useState("conversation"),
     [error, setError] = useState(""),
     [newField, setNewField] = useState(""),
     [newType, setNewType] = useState("string");
+  const historyEnd = useRef(onHistoryEnd);
+  historyEnd.current = onHistoryEnd;
+  useEffect(() => () => historyEnd.current(), []);
   const workflow = readWorkflow(document.source);
   if (!workflow)
     return (
@@ -50,7 +55,11 @@ export function SettingsPage({
     { id: "connection", label: "Test connection" },
   ];
   return (
-    <section className="settings-page" aria-label="Workflow settings">
+    <section
+      className="settings-page"
+      aria-label="Workflow settings"
+      onBlur={onHistoryEnd}
+    >
       <aside className="settings-navigation">
         <h2>Settings</h2>
         <select
@@ -255,15 +264,10 @@ export function SettingsPage({
                 })}
                 <label>
                   Recognition hints · one per line
-                  <textarea
-                    rows={4}
-                    value={(workflow.speech?.hints || []).join("\n")}
-                    onChange={(e) =>
-                      change(
-                        ["speech", "hints"],
-                        e.target.value.split("\n").filter((v) => v.trim()),
-                        "settings:hints",
-                      )
+                  <LineList
+                    value={workflow.speech?.hints || []}
+                    onCommit={(value) =>
+                      change(["speech", "hints"], value, "settings:hints")
                     }
                   />
                 </label>
@@ -300,6 +304,12 @@ export function SettingsPage({
                         Type
                         <select
                           value={field.type}
+                          disabled={refs.length > 0}
+                          title={
+                            refs.length
+                              ? "Update or remove the references below before changing this field type."
+                              : undefined
+                          }
                           onChange={(e) =>
                             change(["fields", id, "type"], e.target.value)
                           }
@@ -308,17 +318,21 @@ export function SettingsPage({
                           <option>boolean</option>
                         </select>
                       </label>
+                      {refs.length > 0 && (
+                        <p>
+                          Update or remove the references below before changing
+                          this field type.
+                        </p>
+                      )}
                       {field.type === "string" && (
                         <label>
                           Allowed choices · one per line
-                          <textarea
-                            value={(field.choices || []).join("\n")}
-                            onChange={(e) =>
+                          <LineList
+                            value={field.choices || []}
+                            onCommit={(value) =>
                               change(
                                 ["fields", id, "choices"],
-                                e.target.value
-                                  .split("\n")
-                                  .filter((v) => v.trim()),
+                                value,
                                 `field:${id}:choices`,
                               )
                             }
@@ -439,5 +453,32 @@ export function SettingsPage({
         </fieldset>
       </div>
     </section>
+  );
+}
+
+function LineList({
+  value,
+  onCommit,
+}: {
+  value: string[];
+  onCommit: (value: string[]) => void;
+}) {
+  const serialized = value.join("\n");
+  const [text, setText] = useState(serialized);
+  useEffect(() => setText(serialized), [serialized]);
+  return (
+    <textarea
+      rows={4}
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={() =>
+        onCommit(
+          text
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean),
+        )
+      }
+    />
   );
 }

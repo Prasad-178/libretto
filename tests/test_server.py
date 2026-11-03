@@ -334,3 +334,28 @@ def test_studio_can_use_bundled_html_without_static_files(monkeypatch):
             response = client.get(path)
             assert response.status_code == 200
             assert response.text == '<html>Bundled studio</html>'
+
+
+def test_session_model_factory_receives_workflow_reasoning():
+    from libretto.server import create_app
+    from libretto.state import Evaluation
+
+    seen = []
+    class Model:
+        async def evaluate(self, context):
+            return Evaluation()
+        async def stream_reply(self, context):
+            yield "Hello"
+        async def close(self):
+            pass
+    def factory(credentials, models, **kwargs):
+        seen.append(models.reasoning)
+        return Model()
+    with TestClient(create_app(load_environment=False, model_factory=factory)) as client:
+        source = client.get("/api/workflow.yaml").text.replace("reasoning: minimal", "reasoning: high")
+        assert "reasoning: high" in source
+        with client.websocket_connect("/api/ws") as ws:
+            ws.send_json({"type": "start", "mode": "text", "openrouter_key": "test", "workflow_yaml": source})
+            assert ws.receive_json()["type"] == "ready"
+            ws.send_json({"type": "close"})
+    assert seen == ["high"]

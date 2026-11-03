@@ -139,6 +139,8 @@ class Workflow(StrictModel):
     def references(self) -> Self:
         if not self.nodes or len(self.nodes) > 64 or len(self.fields) > 64:
             raise ValueError("Workflow must contain 1-64 nodes and at most 64 fields")
+        if sum(len(node.edges) for node in self.nodes.values()) > 256:
+            raise ValueError("Workflow exceeds 256 transitions")
         if self.start not in self.nodes:
             raise ValueError(f"Unknown start node {self.start}")
         for source in self.common_knowledge:
@@ -180,6 +182,11 @@ class Workflow(StrictModel):
             raise ValueError("Predicate nesting exceeds 8")
         if predicate.field and predicate.field not in self.fields:
             raise ValueError(f"Unknown predicate field {predicate.field}")
+        if predicate.op == "equals" and predicate.field:
+            field = self.fields[predicate.field]
+            expected = bool if field.type == "boolean" else str
+            if type(predicate.value) is not expected:
+                raise ValueError(f"Predicate value must match {predicate.field} ({field.type})")
         for child in predicate.conditions:
             self._check_predicate(child, depth + 1)
 
@@ -206,8 +213,8 @@ def load_workflow(path: Path) -> Workflow:
 
 
 def parse_workflow(text: str) -> Workflow:
-    if len(text.encode()) > 100_000:
-        raise ValueError("Workflow exceeds 100 KB")
+    if len(text) > 100_000:
+        raise ValueError("Workflow exceeds 100,000 characters")
     depth = 0
     try:
         for token in yaml.scan(text):

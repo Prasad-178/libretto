@@ -39,6 +39,17 @@ function render(
   const line = source.slice(lineStart, from);
   const indent = scalar ? line.match(/^ */)![0].length : line.length;
   const clone = node.clone() as Node;
+  visit(clone, (_, value) => {
+    if (
+      isScalar(value) &&
+      typeof value.value === "string" &&
+      (!value.type || value.type === "PLAIN")
+    ) {
+      const interpreted = parseDocument(value.value, { version: "1.1" });
+      if (interpreted.errors.length || interpreted.toJS() !== value.value)
+        value.type = "QUOTE_DOUBLE";
+    }
+  });
   clone.commentBefore = undefined;
   const block =
     isScalar(clone) &&
@@ -75,6 +86,77 @@ function operationPatch(
     if (JSON.stringify(doc.getIn(path)) === JSON.stringify(operation.value))
       return null;
     expected.setIn(path, operation.value);
+  }
+  if (
+    operation.op === "set" &&
+    current === undefined &&
+    path.length > 1 &&
+    doc.getIn(path.slice(0, -1), true) === undefined
+  ) {
+    const ancestor = path.slice(0, -1);
+    let value: unknown = { [path.at(-1)!]: operation.value };
+    while (
+      ancestor.length > 1 &&
+      doc.getIn(ancestor.slice(0, -1), true) === undefined
+    ) {
+      value = { [ancestor.pop()!]: value };
+    }
+    return operationPatch(source, { op: "set", path: ancestor, value });
+  }
+  if (operation.op === "delete") {
+    const parent = doc.getIn(path.slice(0, -1), true);
+    if (
+      isCollection(parent) &&
+      !parent.flow &&
+      parent.items.length > 1 &&
+      (current as Node)?.range
+    ) {
+      const pair = isMap(parent)
+        ? parent.items.find(
+            (item) => isScalar(item.key) && item.key.value === path.at(-1),
+          )
+        : null;
+      const start =
+        pair && isScalar(pair.key)
+          ? pair.key.range![0]
+          : (current as Node).range![0];
+      const from = source.lastIndexOf("\n", start - 1) + 1,
+        to = (current as Node).range![2];
+      const next = source.slice(0, from) + source.slice(to);
+      if (
+        JSON.stringify(parse(next).toJS()) === JSON.stringify(expected.toJS())
+      )
+        return { from, to, insert: "" };
+    }
+  }
+  // Append to block containers without serializing any existing sibling text.
+  if (operation.op === "set" && current === undefined) {
+    const parentPath = path.slice(0, -1);
+    const parent = doc.getIn(parentPath, true);
+    if (isCollection(parent) && !parent.flow && parent.range) {
+      const key = path.at(-1)!;
+      const addition = new Document();
+      if (isSeq(parent))
+        addition.contents = addition.createNode([operation.value]);
+      else addition.set(key, operation.value);
+      const at = parent.range[1];
+      const start = parent.range[0];
+      const indent = start - (source.lastIndexOf("\n", start - 1) + 1);
+      let text = render(addition.contents!, "", 0, 0, false);
+      text =
+        text
+          .split(/\r?\n/)
+          .map((line) => " ".repeat(indent) + line)
+          .join("\n") + "\n";
+      if (at > 0 && source[at - 1] !== "\n") text = "\n" + text;
+      if (source.includes("\r\n")) text = text.replaceAll("\n", "\r\n");
+      const next = source.slice(0, at) + text + source.slice(at);
+      if (
+        JSON.stringify(parse(next).toJS()) !== JSON.stringify(expected.toJS())
+      )
+        throw new Error("This insertion cannot preserve YAML safely." + remedy);
+      return { from: at, to: at, insert: text };
+    }
   }
   let changed: Node;
   let target = current;
@@ -153,7 +235,45 @@ export function applyTransaction(
 ): { source: string; patches: TextPatch[] } {
   let pieces: Piece[] = [{ text: source, start: 0 }];
   let current = source;
-  for (const operation of tx.operations) {
+  const pending = [...tx.operations];
+  while (pending.length) {
+    const operation = pending.shift()!;
+    if (
+      operation.op === "set" &&
+      operation.value &&
+      typeof operation.value === "object"
+    ) {
+      const old = parse(current).getIn(operation.path, true);
+      const value = operation.value;
+      if (
+        (isSeq(old) && Array.isArray(value)) ||
+        (isMap(old) && !Array.isArray(value))
+      ) {
+        const previous = old.toJSON();
+        const operations: EditOperation[] = [];
+        for (const key of Object.keys(previous).reverse())
+          if (!Object.hasOwn(value, key))
+            operations.push({
+              op: "delete",
+              path: [
+                ...operation.path,
+                Array.isArray(value) ? Number(key) : key,
+              ],
+            });
+        for (const [key, item] of Object.entries(value))
+          if (JSON.stringify(previous[key]) !== JSON.stringify(item))
+            operations.push({
+              op: "set",
+              path: [
+                ...operation.path,
+                Array.isArray(value) ? Number(key) : key,
+              ],
+              value: item,
+            });
+        pending.unshift(...operations);
+        continue;
+      }
+    }
     const patch = operationPatch(current, operation);
     if (!patch) continue;
     pieces = patchPieces(pieces, patch);

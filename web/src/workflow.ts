@@ -52,7 +52,7 @@ export type Workflow = {
 };
 export function readWorkflow(source: string): Workflow | null {
   try {
-    if (source.length > 100_000) return null;
+    if ([...source].length > 100_000) return null;
     const document = parseDocument(source);
     if (document.errors.length) return null;
     const value = document.toJS({ maxAliasCount: 0 });
@@ -77,6 +77,58 @@ export function readWorkflow(source: string): Workflow | null {
             object[key].every((item: unknown) => typeof item === "string")),
       );
     if (!stringLists(value, ["common_knowledge"])) return null;
+    const record = (v: unknown): v is Record<string, any> =>
+      !!v && typeof v === "object" && !Array.isArray(v);
+    if (!optionalText(value, ["description", "welcome"])) return null;
+    if (
+      value.fields !== undefined &&
+      (!record(value.fields) ||
+        !Object.values(value.fields).every(
+          (field) =>
+            record(field) &&
+            ["string", "boolean"].includes(field.type ?? "string") &&
+            optionalText(field, ["description"]) &&
+            stringLists(field, ["choices"]),
+        ))
+    )
+      return null;
+    if (
+      value.models !== undefined &&
+      (!record(value.models) ||
+        !optionalText(value.models, ["speaker", "evaluator", "reasoning"]))
+    )
+      return null;
+    if (
+      value.knowledge !== undefined &&
+      (!record(value.knowledge) ||
+        !Object.values(value.knowledge).every(
+          (path) => typeof path === "string",
+        ))
+    )
+      return null;
+    if (
+      value.speech !== undefined &&
+      (!record(value.speech) ||
+        !stringLists(value.speech, ["hints"]) ||
+        !["stt", "tts"].every(
+          (key) =>
+            value.speech[key] === undefined ||
+            (record(value.speech[key]) &&
+              optionalText(value.speech[key], ["provider", "model"])),
+        ))
+    )
+      return null;
+
+    const predicateShape = (p: unknown, depth = 0): boolean =>
+      p === undefined ||
+      p === null ||
+      (depth <= 8 &&
+        record(p) &&
+        typeof p.op === "string" &&
+        optionalText(p, ["field"]) &&
+        (p.conditions === undefined ||
+          (Array.isArray(p.conditions) &&
+            p.conditions.every((child) => predicateShape(child, depth + 1)))));
     if (
       !Object.values(value.nodes).every(
         (node: any) =>
@@ -95,6 +147,7 @@ export function readWorkflow(source: string): Workflow | null {
                   edge &&
                   typeof edge.to === "string" &&
                   typeof edge.id === "string" &&
+                  predicateShape(edge.predicate) &&
                   optionalText(edge, [
                     "label",
                     "condition",

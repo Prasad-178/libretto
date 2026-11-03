@@ -139,6 +139,7 @@ export default function App() {
   const [exportOpen, setExportOpen] = useState(false);
   const documentRef = useRef(studioDocument);
   const validationRequest = useRef(1);
+  const autoValidationTimer = useRef<number | undefined>(undefined);
   function replaceDocument(next: StudioDocument) {
     documentRef.current = next;
     setDocument(next);
@@ -297,6 +298,7 @@ export default function App() {
       setError(d.message || "The provider could not complete this request.");
       setConnecting(false);
       if (!ready.current) {
+        dispatchDocument({ type: "test-stop" });
         client.current?.close();
         void audio.current.close();
         setMic(false);
@@ -476,7 +478,7 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    if (!studioDocument.source) return;
+    if (!studioDocument.importedSource) return;
     try {
       localStorage.setItem(DRAFT_STORAGE_KEY, serializeDraft(studioDocument));
     } catch {
@@ -511,8 +513,11 @@ export default function App() {
       studioDocument.validation.state === "valid"
     )
       return;
-    const timer = window.setTimeout(() => void validateSource(), 650);
-    return () => window.clearTimeout(timer);
+    autoValidationTimer.current = window.setTimeout(
+      () => void validateSource(),
+      650,
+    );
+    return () => window.clearTimeout(autoValidationTimer.current);
   }, [source]);
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
@@ -561,6 +566,7 @@ export default function App() {
       setMic(false);
     }
   }
+  const connectionAttempt = useRef(0);
   async function connect() {
     if (connected) {
       client.current?.send({
@@ -570,17 +576,24 @@ export default function App() {
       });
       return;
     }
+    const attempt = ++connectionAttempt.current;
     try {
-      if (!(await validateSource())) {
+      if (!(await validateSource()) || attempt !== connectionAttempt.current) {
         setSettings(false);
         return;
       }
       const snapshot = documentRef.current.lastValid;
       if (!snapshot) return;
       dispatchDocument({ type: "test-start", snapshot });
+      setConnecting(true);
       await audio.current.close();
+      if (attempt !== connectionAttempt.current) return;
       audio.current.beginSession();
       if (mode === "voice") await audio.current.ensure();
+      if (attempt !== connectionAttempt.current) {
+        void audio.current.close();
+        return;
+      }
       setError("");
       setConnecting(true);
       setPhase("Connecting");
@@ -631,6 +644,8 @@ export default function App() {
     });
   }
   function end() {
+    ++connectionAttempt.current;
+    setConnecting(false);
     dispatchDocument({ type: "test-stop" });
     setChats((old) =>
       updateDelivery(old, { type: "call_closed", epoch: 0, at: 0, data: {} }),
@@ -665,6 +680,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
   async function validateSource(): Promise<boolean> {
+    window.clearTimeout(autoValidationTimer.current);
     const draft = documentRef.current;
     const requestId = ++validationRequest.current;
     dispatchDocument({
@@ -880,7 +896,7 @@ export default function App() {
                 onYaml={() => setView("yaml")}
               />
             </Suspense>
-          ) : view === "yaml" && source ? (
+          ) : view === "yaml" ? (
             <YamlWorkspace
               document={studioDocument}
               onChange={(value) => changeSource(value, "yaml")}
@@ -905,6 +921,9 @@ export default function App() {
             />
           ) : source ? (
             <SettingsPage
+              onHistoryEnd={() =>
+                dispatchDocument({ type: "end-history-group" })
+              }
               document={studioDocument}
               capabilities={capabilities}
               onTransaction={(transaction) =>
@@ -939,6 +958,9 @@ export default function App() {
         </main>
         {showTest && (
           <TestPanel snapshot={studioDocument.running}>
+            {connecting && !settings && (
+              <button onClick={end}>Cancel connection</button>
+            )}
             <div className="test-heading">
               <span>
                 <Radio size={15} /> Test your agent
@@ -1375,6 +1397,7 @@ export default function App() {
           </button>
         </div>
         <h2>{connected ? "Session connection" : "Connect your agent"}</h2>
+        {connecting && <button onClick={end}>Cancel connection</button>}
         <p>
           {config?.credential_mode === "visitor"
             ? "This public demo requires your own API keys. Text needs OpenRouter; voice also needs Deepgram. Keys stay in this session."

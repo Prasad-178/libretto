@@ -90,3 +90,12 @@ it("opens raw YAML bytes and ignores a stale or malformed optional sidecar", asy
   );
   await expect(openProjectFiles([yaml, yaml])).rejects.toThrow(/one YAML/);
 });
+
+it("restores oversized invalid drafts without silently dropping their source", () => {
+  const document = createDocument(
+    "draft.yaml",
+    new TextEncoder().encode(minimal),
+  );
+  document.source = "# " + "界".repeat(110000);
+  expect(restoreDraft(serializeDraft(document))?.source).toBe(document.source);
+});

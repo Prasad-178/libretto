@@ -112,3 +112,64 @@ test("a scripted test runs the validated snapshot and freezes document edits unt
     page.getByRole("button", { name: "Open YAML", exact: true }),
   ).toBeEnabled();
 });
+
+test("Settings keeps separate undo sessions and accepts multiline lists", async ({
+  page,
+}) => {
+  await page.goto("/studio");
+  await page
+    .getByLabel("Open workflow files")
+    .setInputFiles(path.resolve("src/studio/fixtures/intake.yaml"));
+  await expect(
+    page.getByRole("button", {
+      name: "Open Collect request step",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  const name = page.getByRole("textbox", {
+    name: "Workflow name",
+    exact: true,
+  });
+  await name.fill("First name");
+  await name.blur();
+  await page.getByRole("tab", { name: "Flow", exact: true }).click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await name.fill("Second name");
+  await name.blur();
+  await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
+  await expect(name).toHaveValue("First name");
+  await page
+    .getByRole("button", { name: "Models & speech", exact: true })
+    .click();
+  const hints = page.getByRole("textbox", {
+    name: "Recognition hints · one per line",
+    exact: true,
+  });
+  await hints.pressSequentially("first");
+  await hints.press("Enter");
+  await hints.pressSequentially("second");
+  await expect(hints).toHaveValue("first\nsecond");
+  await hints.blur();
+  await page
+    .getByRole("button", { name: "Fields & tools", exact: true })
+    .click();
+  await page
+    .locator(".settings-field summary")
+    .filter({ hasText: "email" })
+    .click();
+  await expect(
+    page.getByRole("combobox", { name: "Type", exact: true }).first(),
+  ).toBeDisabled();
+  const choices = page
+    .getByRole("textbox", {
+      name: "Allowed choices · one per line",
+      exact: true,
+    })
+    .first();
+  await choices.pressSequentially("one");
+  await choices.press("Enter");
+  await choices.pressSequentially("two");
+  await expect(choices).toHaveValue("one\ntwo");
+  await choices.blur();
+});
