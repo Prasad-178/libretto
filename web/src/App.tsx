@@ -45,6 +45,15 @@ import {
 } from "./TestScenarios";
 import { readWorkflow, type Workflow } from "./workflow";
 import { createDocument, documentReducer } from "./studio/document-store";
+import {
+  buildExportFiles,
+  documentStatus,
+  DRAFT_STORAGE_KEY,
+  DEVICE_STORAGE_KEY,
+  openProjectFiles,
+  restoreDraft,
+  serializeDraft,
+} from "./studio/project-files";
 import type {
   DocumentAction,
   StudioDocument,
@@ -101,9 +110,20 @@ export default function App() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [input, setInput] = useState("");
   const [view, setView] = useState("workflow");
-  const [studioDocument, setDocument] = useState(() =>
-    createDocument("agent.yaml", new Uint8Array()),
-  );
+  const [studioDocument, setDocument] = useState(() => {
+    try {
+      const restored = restoreDraft(
+        localStorage.getItem(DRAFT_STORAGE_KEY) || "",
+      );
+      if (restored) return restored;
+    } catch {
+      /* Storage may be disabled. Editing remains available. */
+    }
+    return createDocument("agent.yaml", new Uint8Array());
+  });
+  const openInput = useRef<HTMLInputElement>(null);
+  const [fileNotices, setFileNotices] = useState<string[]>([]);
+  const [includeLayout, setIncludeLayout] = useState(false);
   const documentRef = useRef(studioDocument);
   const validationRequest = useRef(1);
   function replaceDocument(next: StudioDocument) {
@@ -321,10 +341,12 @@ export default function App() {
     fetch("/api/workflow.yaml", { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error();
-        return r.text();
+        return r.arrayBuffer();
       })
-      .then((text) => {
-        let next = createDocument("agent.yaml", new TextEncoder().encode(text));
+      .then((buffer) => {
+        if (documentRef.current.source) return;
+        let next = createDocument("agent.yaml", new Uint8Array(buffer));
+        const text = next.source;
         next = documentReducer(next, {
           type: "validation-start",
           requestId: 1,
@@ -422,6 +444,35 @@ export default function App() {
       void audio.current.close();
     };
   }, []);
+  useEffect(() => {
+    if (!studioDocument.source) return;
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, serializeDraft(studioDocument));
+    } catch {
+      /* Browser storage limits never block local editing/export. */
+    }
+  }, [studioDocument.source, studioDocument.metadata]);
+  useEffect(() => {
+    try {
+      const value = JSON.parse(
+        localStorage.getItem(DEVICE_STORAGE_KEY) || "null",
+      );
+      if (value?.version === 1 && ["voice", "text"].includes(value.mode))
+        setMode(value.mode);
+    } catch {
+      /* Invalid device preferences are ignored. */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DEVICE_STORAGE_KEY,
+        JSON.stringify({ version: 1, mode }),
+      );
+    } catch {
+      /* Device preferences are optional. */
+    }
+  }, [mode]);
   useEffect(() => {
     if (settings) dialog.current?.showModal();
     else dialog.current?.close();
@@ -625,15 +676,47 @@ export default function App() {
     setTestTab("conversation");
     setShowTest(true);
   }
-  function downloadYaml() {
-    const url = URL.createObjectURL(
-      new Blob([source], { type: "application/yaml" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "agent.yaml";
-    a.click();
-    URL.revokeObjectURL(url);
+  async function downloadYaml() {
+    const draft = documentRef.current;
+    try {
+      const files = await buildExportFiles(draft, includeLayout);
+      for (const file of files) {
+        const url = URL.createObjectURL(
+          new Blob([file.bytes.slice().buffer], { type: file.mime }),
+        );
+        const a = window.document.createElement("a");
+        a.href = url;
+        a.download = file.filename;
+        a.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      dispatchDocument({
+        type: "export-recorded",
+        source: draft.source,
+        at: Date.now(),
+      });
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Could not build export.",
+      );
+    }
+  }
+  async function openFiles(files: FileList | null) {
+    if (!files?.length || connected || connecting) return;
+    try {
+      const result = await openProjectFiles(Array.from(files));
+      replaceDocument(result.document);
+      setFileNotices(result.notices);
+      const workflow = readWorkflow(result.document.source);
+      setSelected(workflow?.start || "");
+      setView("workflow");
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Could not open files.",
+      );
+    } finally {
+      if (openInput.current) openInput.current.value = "";
+    }
   }
   const workflow = readWorkflow(source) || config?.workflow;
   const liveWorkflow = runningWorkflow || workflow;
@@ -661,6 +744,37 @@ export default function App() {
           Personal / {workflow?.name || "Voice workflow"}
         </span>
         <div className="topbar-actions">
+          <input
+            ref={openInput}
+            type="file"
+            accept=".yaml,.yml,.studio.json"
+            multiple
+            hidden
+            aria-label="Open workflow files"
+            onChange={(event) => void openFiles(event.target.files)}
+          />
+          <button
+            className="button"
+            disabled={connected || connecting}
+            onClick={() => openInput.current?.click()}
+          >
+            <FileCode2 size={14} />
+            Open
+          </button>
+          <span
+            className="topbar-validation"
+            title="Downloads do not overwrite your original project files."
+          >
+            {studioDocument.filename} · {documentStatus(studioDocument)}
+          </span>
+          <label className="topbar-validation">
+            <input
+              type="checkbox"
+              checked={includeLayout}
+              onChange={(event) => setIncludeLayout(event.target.checked)}
+            />{" "}
+            Layout
+          </label>
           <span className="topbar-validation">
             {source === validatedSource
               ? "● Validated"
@@ -679,6 +793,14 @@ export default function App() {
           </button>
         </div>
       </header>
+      {fileNotices.length > 0 && (
+        <div className="file-notices" role="status">
+          {fileNotices.map((notice, index) => (
+            <p key={index}>{notice}</p>
+          ))}
+          <button onClick={() => setFileNotices([])}>Dismiss</button>
+        </div>
+      )}
       <aside className="app-sidebar">
         <div className="nav-caption">WORKSPACE</div>
         <nav>
