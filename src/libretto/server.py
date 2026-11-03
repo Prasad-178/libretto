@@ -19,6 +19,14 @@ from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.runtime import CALL_LIMIT_SECONDS, Session
 from libretto.schema import Models, StrictModel
 from libretto.speech import default_speech_registry
+from libretto.studio_api import (
+    RetrievalPreview,
+    RetrievalRequest,
+    SourceManifest,
+    SourceRequest,
+    inspect_sources,
+    preview_retrieval,
+)
 from libretto.studio_entry import HTML as STUDIO_HTML
 from libretto.tools import ToolRegistry
 from libretto.workspace import StudioWorkspace
@@ -115,6 +123,44 @@ def create_app(
         return SessionCredentials(
             openrouter=os.getenv("OPENROUTER_API_KEY", ""), deepgram=os.getenv("DEEPGRAM_API_KEY", "")
         )
+
+    @app.get("/api/studio/capabilities")
+    async def studio_capabilities():
+        local = workspace.mode == "local-project"
+        choices = []
+        for role, factories in [("stt", registry.stt), ("tts", registry.tts)]:
+            for provider, factory in factories.items():
+                for model in sorted(getattr(factory, "supported_models", []) or []):
+                    choices.append({"role": role, "provider": provider, "model": model})
+        return {"mode": workspace.mode, "localProjectAccess": local, "folderSelection": local,
+                "retrievalPreview": True, "tools": make_tools().manifest(),
+                "workflowFilename": workspace.workflow_path.name,
+                "modelChoices": [{"role": role, "id": model} for role, model in
+                                 [("response", workflow.models.speaker), ("evaluator", workflow.models.evaluator)]],
+                "speechChoices": choices,
+                "limitations": ["Built-in action tools are simulations with receptionist confirmation rules."]}
+
+    @app.get("/api/studio/source-folders")
+    async def source_folders():
+        if workspace.mode != "local-project":
+            raise HTTPException(403, "Run libretto serve workflow.yaml --project-root . to select local folders")
+        return {"folders": workspace.list_source_folders()}
+
+    @app.post("/api/studio/sources", response_model=SourceManifest)
+    async def studio_sources(body: SourceRequest):
+        try:
+            compile_source(body.source)
+            return inspect_sources(workspace, body.source)
+        except (ValueError, TypeError, OSError) as exc:
+            raise HTTPException(422, str(exc)[:500]) from None
+
+    @app.post("/api/studio/retrieval", response_model=RetrievalPreview)
+    async def studio_retrieval(body: RetrievalRequest):
+        try:
+            compile_source(body.source)
+            return preview_retrieval(workspace, body.source, body.stepId, body.query, body.limit)
+        except (ValueError, TypeError, OSError) as exc:
+            raise HTTPException(422, str(exc)[:500]) from None
 
     @app.get("/api/health")
     async def health():
