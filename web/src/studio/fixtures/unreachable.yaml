@@ -1,0 +1,20 @@
+version: 1
+id: unreachable
+name: Unreachable
+start: start
+shared_prompt: Help the caller without inventing details.
+nodes:
+  start:
+    kind: conversation
+    title: Reachable
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: done
+      to: end
+      condition: Finish.
+  end:
+    kind: end
+    title: End
+  orphan:
+    kind: end
+    title: Unreachable

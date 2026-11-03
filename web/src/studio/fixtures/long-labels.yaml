@@ -1,0 +1,19 @@
+version: 1
+id: long-labels
+name: Long Labels
+start: collect
+shared_prompt: Help the caller without inventing details.
+nodes:
+  collect:
+    kind: conversation
+    title: A long step title with Unicode — café and 東京
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: end
+      label: Continue after the caller confirms all the details and explicitly asks
+        to finish this conversation
+      condition: The caller confirms the details.
+  end:
+    kind: end
+    title: End

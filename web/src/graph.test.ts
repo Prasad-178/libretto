@@ -38,7 +38,7 @@ describe("YAML graph visualization", () => {
       ),
     ).toHaveLength(2);
     expect(result.edges.find((e) => e.id.includes("finish"))?.data?.label).toBe(
-      "done = true",
+      "Finish",
     );
     expect(JSON.stringify(flow)).toBe(before);
     for (const node of result.nodes) {
@@ -84,7 +84,7 @@ describe("YAML graph visualization", () => {
     expect(
       graph.buildGraph(looping).edges.find((e) => e.source === e.target)?.data
         ?.label,
-    ).toBe("Please repeat");
+    ).toBe("Retry");
   });
 });
 
@@ -139,7 +139,7 @@ it("preserves logical grouping and every condition on a transition", () => {
       predicate: { op: "equals", field: "approved", value: true },
       result: "captured",
     }),
-  ).toBe("approved = true · Result: captured · Caller approves");
+  ).toBe("Guard");
 });
 
 it("keeps the same graph point centered when the canvas becomes mobile width", () => {
@@ -149,4 +149,11 @@ it("keeps the same graph point centered when the canvas becomes mobile width", (
   expect(graphCenter * next.zoom + next.x).toBeCloseTo(369 / 2);
   expect(next.y).toBe(previous.y);
   expect(next.zoom).toBe(previous.zoom);
+});
+
+it("uses a canonical display label rather than replacing it with a condition summary", () => {
+  expect(graph.branchLabel({ id: "details_complete", to: "end", condition: "All details supplied" }))
+    .toBe("Details complete");
+  expect(graph.branchLabel({ id: "ready", to: "end", label: "Ready to continue", predicate: { op: "exists", field: "answer" } } as any))
+    .toBe("Ready to continue");
 });

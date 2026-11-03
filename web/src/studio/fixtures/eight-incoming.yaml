@@ -1,0 +1,102 @@
+version: 1
+id: eight-incoming
+name: Eight Incoming
+start: choose
+shared_prompt: Help the caller without inventing details.
+nodes:
+  choose:
+    kind: conversation
+    title: Choose path
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: path_0
+      to: branch_0
+      condition: Choose path 0.
+    - id: path_1
+      to: branch_1
+      condition: Choose path 1.
+    - id: path_2
+      to: branch_2
+      condition: Choose path 2.
+    - id: path_3
+      to: branch_3
+      condition: Choose path 3.
+    - id: path_4
+      to: branch_4
+      condition: Choose path 4.
+    - id: path_5
+      to: branch_5
+      condition: Choose path 5.
+    - id: path_6
+      to: branch_6
+      condition: Choose path 6.
+    - id: path_7
+      to: branch_7
+      condition: Choose path 7.
+  branch_0:
+    kind: conversation
+    title: Path 0
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_1:
+    kind: conversation
+    title: Path 1
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_2:
+    kind: conversation
+    title: Path 2
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_3:
+    kind: conversation
+    title: Path 3
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_4:
+    kind: conversation
+    title: Path 4
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_5:
+    kind: conversation
+    title: Path 5
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_6:
+    kind: conversation
+    title: Path 6
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  branch_7:
+    kind: conversation
+    title: Path 7
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: finish
+      to: shared
+      condition: The caller is ready.
+  shared:
+    kind: end
+    title: Shared destination

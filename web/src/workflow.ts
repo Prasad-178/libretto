@@ -1,4 +1,8 @@
 import { parseDocument } from "yaml";
+export type FlowEdge = {
+  id: string; to: string; label?: string; condition?: string; result?: string;
+  predicate?: unknown; timing?: string;
+};
 export type FlowNode = {
   kind: string;
   title: string;
@@ -12,14 +16,7 @@ export type FlowNode = {
   arguments?: Record<string, string>;
   patient: boolean;
   entry?: string;
-  edges: {
-    id: string;
-    to: string;
-    condition?: string;
-    result?: string;
-    predicate?: unknown;
-    timing?: string;
-  }[];
+  edges: FlowEdge[];
 };
 export type Workflow = {
   id: string;
@@ -28,8 +25,9 @@ export type Workflow = {
   shared_prompt: string;
   welcome?: string;
   start: string;
-  models: { speaker: string; evaluator: string };
-  fields?: Record<string, { type: string; description: string }>;
+  models: { speaker: string; evaluator: string; reasoning?: "minimal" | "low" | "medium" | "high" };
+  speech?: { stt: { provider: string; model: string }; tts: { provider: string; model: string }; hints?: string[] };
+  fields?: Record<string, { type: string; description?: string; choices?: string[] }>;
   tools?: string[];
   knowledge?: Record<string, string>;
   common_knowledge?: string[];
@@ -80,7 +78,7 @@ export function readWorkflow(source: string): Workflow | null {
                   edge &&
                   typeof edge.to === "string" &&
                   typeof edge.id === "string" &&
-                  optionalText(edge, ["condition", "result", "timing"]),
+                  optionalText(edge, ["label", "condition", "result", "timing"]),
               ))),
       )
     )

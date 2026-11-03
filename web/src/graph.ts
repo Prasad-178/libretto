@@ -1,6 +1,7 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import type { FlowNode, Workflow } from "./workflow";
+import { routeLabel } from "./studio/workflow-model";
 
 export type Point = { x: number; y: number };
 export type StageData = {
@@ -56,17 +57,7 @@ export function predicateLabel(value: unknown, depth = 0): string {
   return "State condition";
 }
 
-export function branchLabel(edge: FlowNode["edges"][number]): string {
-  return (
-    [
-      edge.predicate ? predicateLabel(edge.predicate) : "",
-      edge.result ? `Result: ${edge.result}` : "",
-      edge.condition || "",
-    ]
-      .filter(Boolean)
-      .join(" · ") || "Continue"
-  );
-}
+export const branchLabel = routeLabel;
 
 export function buildGraph(workflow: Workflow): {
   nodes: StageNode[];

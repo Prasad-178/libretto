@@ -1,0 +1,37 @@
+version: 1
+id: intake
+name: Intake
+start: collect
+shared_prompt: Help the caller without inventing details.
+fields:
+  email:
+    type: string
+    description: Email given by the caller
+  summary:
+    type: string
+    description: What the caller needs
+nodes:
+  collect:
+    kind: conversation
+    title: Collect request
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: details_complete
+      to: acknowledge
+      predicate:
+        op: all
+        conditions:
+        - op: exists
+          field: email
+        - op: exists
+          field: summary
+  acknowledge:
+    kind: say
+    title: Acknowledge
+    text: Thanks for describing your request.
+    edges:
+    - id: spoken
+      to: end
+  end:
+    kind: end
+    title: End

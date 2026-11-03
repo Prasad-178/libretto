@@ -59,6 +59,7 @@ class Predicate(StrictModel):
 
 
 class Edge(StrictModel):
+    label: str = Field(default="", max_length=200)
     id: str
     to: str
     condition: str = ""

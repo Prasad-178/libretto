@@ -1,0 +1,25 @@
+version: 1
+id: duplicate-route-ids
+name: Duplicate Route Ids
+start: first
+shared_prompt: Help the caller without inventing details.
+nodes:
+  first:
+    kind: conversation
+    title: First
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: next
+      to: second
+      condition: Continue.
+  second:
+    kind: conversation
+    title: Second
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: next
+      to: end
+      condition: Continue.
+  end:
+    kind: end
+    title: End

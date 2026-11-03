@@ -1,0 +1,20 @@
+version: 1
+id: self-loop
+name: Self Loop
+start: retry
+shared_prompt: Help the caller without inventing details.
+nodes:
+  retry:
+    kind: conversation
+    title: Clarify answer
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: retry
+      to: retry
+      condition: The answer needs clarification.
+    - id: finish
+      to: end
+      condition: The answer is complete.
+  end:
+    kind: end
+    title: Finished

@@ -1,0 +1,22 @@
+version: 1
+id: cycle-only
+name: Cycle Only
+start: first
+shared_prompt: Help the caller without inventing details.
+nodes:
+  first:
+    kind: conversation
+    title: First question
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: next
+      to: second
+      condition: Continue to the second question.
+  second:
+    kind: conversation
+    title: Second question
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: return
+      to: first
+      condition: Return to the first question.

@@ -421,3 +421,80 @@ async def test_startup_welcome_is_literal_and_interruptible_without_model_calls(
         assert session._seen_turns == set()
     finally:
         await session.close()
+
+
+async def test_route_precedence_and_yaml_order_including_legacy_mixed_edges():
+    from libretto.schema import parse_workflow
+
+    # All destinations remain reachable; IDs and display labels must not select a route.
+    source = """
+version: 1
+id: ordering
+name: Ordering
+start: ask
+shared_prompt: Ask a question.
+fields: {ready: {type: boolean}}
+nodes:
+  ask:
+    kind: conversation
+    edges:
+      - {id: language_first, label: First label, to: language_end, condition: Caller agrees.}
+      - {id: mixed, to: state_end, condition: Legacy language condition., predicate: {op: equals, field: ready, value: true}}
+      - {id: state_second, to: second_end, predicate: {op: equals, field: ready, value: true}}
+      - {id: language_second, to: second_end, condition: Caller agrees too.}
+  language_end: {kind: end}
+  state_end: {kind: end}
+  second_end: {kind: end}
+"""
+    cases = [
+        ({'ready': {'value': True, 'evidence': 'ready'}}, ['language_first'], 'state_end'),
+        ({}, ['language_second', 'language_first'], 'language_end'),
+        ({}, ['mixed'], 'state_end'),  # Existing mixed edges can also match their language rule.
+    ]
+    for updates, matches, expected in cases:
+        session = make_session(Evaluator(updates=updates, matches=matches), flow=parse_workflow(source))
+        try:
+            await session.submit_turn('ready', 't1')
+            await next_event(session, 'ended')
+            assert session.state.active_stage == expected
+        finally:
+            await session.close()
+
+
+async def test_action_results_and_say_follow_their_configured_routes():
+    from libretto.schema import parse_workflow
+
+    source = """
+version: 1
+id: action-results
+name: Action results
+start: ask
+shared_prompt: Help the caller.
+tools: [create_ticket]
+nodes:
+  ask:
+    kind: conversation
+    edges: [{id: ready, to: create, condition: Ready.}]
+  create:
+    kind: action
+    tool: create_ticket
+    edges:
+      - {id: failed, to: failure, result: failed}
+      - {id: captured, to: acknowledge, result: captured}
+  acknowledge:
+    kind: say
+    text: Ticket captured.
+    edges: [{id: spoken, to: done}]
+  done: {kind: end}
+  failure: {kind: end}
+"""
+    session = make_session(Evaluator(matches=['ready']), flow=parse_workflow(source))
+    try:
+        await session.submit_turn('Ready.', 't1')
+        await next_event(session, 'ended')
+        assert session.state.active_stage == 'done'
+        transitions = [(e.data['source'], e.data['destination']) for e in session.trace if e.type == 'transition']
+        assert transitions == [('ask', 'create'), ('create', 'acknowledge'), ('acknowledge', 'done')]
+        assert any(e.data.get('text') == 'Ticket captured.' for e in session.trace if e.type == 'response_done')
+    finally:
+        await session.close()

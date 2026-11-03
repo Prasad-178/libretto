@@ -1,0 +1,33 @@
+version: 1
+id: parallel-results
+name: Parallel Results
+start: collect
+shared_prompt: Help the caller without inventing details.
+tools:
+- create_ticket
+nodes:
+  collect:
+    kind: conversation
+    title: Request action
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: ready
+      to: action
+      condition: Ready for the action.
+  action:
+    kind: action
+    title: Create ticket
+    tool: create_ticket
+    edges:
+    - id: success
+      to: done
+      result: created
+    - id: retry
+      to: collect
+      result: unavailable
+    - id: failure
+      to: collect
+      result: failed
+  done:
+    kind: end
+    title: Ticket created

@@ -1,0 +1,38 @@
+version: 1
+id: multiple-terminals
+name: Multiple Terminals
+start: triage
+shared_prompt: Help the caller without inventing details.
+nodes:
+  triage:
+    kind: conversation
+    title: Choose service
+    prompt: Ask what the caller needs next.
+    edges:
+    - id: option_0
+      to: end_0
+      condition: The caller chooses service 0.
+    - id: option_1
+      to: end_1
+      condition: The caller chooses service 1.
+    - id: option_2
+      to: end_2
+      condition: The caller chooses service 2.
+    - id: option_3
+      to: end_3
+      condition: The caller chooses service 3.
+    - id: try_again
+      to: triage
+      condition: The caller wants to try again.
+  end_0:
+    kind: end
+    title: Service 0 complete
+  end_1:
+    kind: end
+    title: Service 1 complete
+  end_2:
+    kind: end
+    title: Service 2 complete
+  end_3:
+    kind: end
+    title: Service 3 complete

@@ -87,3 +87,29 @@ def test_readback_template_cannot_access_attributes_or_unconfigured_values():
         original["nodes"]["confirm_message"]["readback"] = template
         with pytest.raises(ValueError, match="plain configured field names"):
             parse_workflow(yaml.safe_dump(original))
+
+
+def test_route_display_label_is_optional_and_does_not_change_execution(tmp_path):
+    original = load(MINIMAL, tmp_path)
+    labelled = load(MINIMAL.replace('id: done,', 'id: done, label: Ready to continue,'), tmp_path)
+    edge = labelled.nodes['question'].edges[0]
+    assert edge.label == 'Ready to continue'
+    assert (edge.id, edge.to, edge.condition) == ('done', 'end', original.nodes['question'].edges[0].condition)
+    assert original.nodes['question'].edges[0].label == ''
+
+
+def test_route_label_length_is_bounded(tmp_path):
+    with pytest.raises(ValueError, match='label'):
+        load(MINIMAL.replace('id: done,', 'id: done, label: ' + 'x' * 201 + ','), tmp_path)
+
+
+@pytest.mark.parametrize('path', sorted(Path('web/src/studio/fixtures').glob('*.yaml')))
+def test_generic_studio_fixtures(path):
+    from libretto.schema import load_workflow
+
+    if path.stem == 'unreachable':
+        with pytest.raises(ValueError, match='Unreachable'):
+            load_workflow(path)
+    else:
+        flow = load_workflow(path)
+        assert flow.start in flow.nodes
