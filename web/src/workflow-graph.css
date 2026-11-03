@@ -485,3 +485,294 @@
     display: none;
   }
 }
+/* Studio v2: exact type/color/spacing roles from the approved Paper screens. */
+.workflow-view,
+.workflow-canvas .react-flow {
+  background: #f4f6f8;
+}
+.flow-card {
+  border-color: #dee4ea;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #172b4006;
+  overflow: visible;
+}
+.flow-card.flow-action {
+  background: #f7f7f8;
+}
+.flow-card.inspected {
+  border: 2px solid #245ec7;
+  box-shadow: none;
+}
+.flow-card.is-active {
+  border-color: #0e7c66;
+  box-shadow: 0 0 0 2px #0e7c6620;
+}
+.flow-card-title {
+  padding: 16px 14px 0;
+  gap: 8px;
+  color: #172b40;
+}
+.flow-card-title strong {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+.flow-card > p {
+  margin: 8px 16px 0;
+  font-size: 12px;
+  line-height: 17px;
+  color: #526477;
+  -webkit-line-clamp: 1;
+}
+.flow-exit-count {
+  margin-left: auto;
+  white-space: nowrap;
+  background: #f4f6f8;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: #526477;
+}
+.flow-live-dot {
+  background: #0e7c66;
+}
+.flow-condition {
+  height: 28px;
+  background: white;
+  border: 1px solid #dee4ea;
+  color: #526477;
+  border-radius: 5px;
+  font-size: 12px;
+  max-width: 210px;
+}
+.flow-condition:hover {
+  background: #edf3ff;
+  color: #245ec7;
+}
+.flow-condition.selected {
+  background: #edf3ff;
+  border-color: #245ec7;
+  color: #245ec7;
+}
+.flow-condition.highlighted {
+  background: #edf8f4;
+  border-color: #0e7c66;
+  color: #0e7c66;
+}
+.flow-destination-chips {
+  position: absolute;
+  left: 10px;
+  top: calc(100% + 6px);
+  display: flex;
+  gap: 4px;
+  max-width: 264px;
+}
+.flow-destination-chips button {
+  font-size: 11px;
+  line-height: 20px;
+  background: white;
+  border: 1px dashed #a7b7c7;
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 6px;
+  color: #526477;
+}
+.flow-bundle {
+  position: relative;
+  pointer-events: all;
+}
+.flow-bundle summary {
+  position: relative;
+  cursor: pointer;
+  white-space: nowrap;
+  padding-top: 6px;
+}
+.flow-bundle > div {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  z-index: 100;
+  background: white;
+  box-shadow: 0 4px 18px #172b4020;
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+.flow-bundle > div button {
+  padding: 8px;
+  text-align: left;
+  font-size: 12px;
+}
+.workflow-toolbar select {
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid #dee4ea;
+  border-radius: 5px;
+  background: white;
+}
+.view-editor {
+  position: relative;
+  z-index: 20;
+}
+.view-editor summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.view-editor > div {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  background: white;
+  border: 1px solid #dee4ea;
+  border-radius: 8px;
+  padding: 16px;
+  width: 330px;
+  box-shadow: 0 8px 32px #172b4020;
+}
+.view-editor fieldset {
+  max-height: 320px;
+  overflow: auto;
+  margin: 12px 0;
+  border: 0;
+  padding: 0;
+}
+.view-editor label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+}
+.view-editor > div > label {
+  display: block;
+}
+.view-editor input:not([type="checkbox"]) {
+  width: 100%;
+  border: 1px solid #dee4ea;
+  padding: 8px;
+  margin-top: 6px;
+  border-radius: 4px;
+}
+.routes-page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  padding: 20px 24px;
+}
+.routes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.routes-toolbar > span {
+  margin-left: auto;
+  color: #526477;
+  font-size: 12px;
+}
+.route-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 300px;
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #526477;
+}
+.route-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  background: transparent;
+}
+.routes-toolbar select {
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+  padding: 8px;
+  background: white;
+  font: inherit;
+}
+.routes-scroll {
+  overflow: auto;
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+}
+.routes-page table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.routes-page th {
+  background: #f4f6f8;
+  color: #526477;
+  text-align: left;
+  text-transform: uppercase;
+  font-weight: 500;
+  font-size: 11px;
+}
+.routes-page td,
+.routes-page th {
+  padding: 12px 10px;
+  border-bottom: 1px solid #dee4ea;
+  overflow-wrap: anywhere;
+}
+.routes-page td {
+  vertical-align: top;
+  line-height: 18px;
+}
+.routes-page th:nth-child(4) {
+  width: 30%;
+}
+.routes-page small {
+  display: block;
+  color: #7b591e;
+}
+.routes-page td button {
+  color: #245ec7;
+  text-align: left;
+}
+.route-reveal {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: capitalize;
+}
+@media (max-width: 1100px) {
+  .routes-page {
+    padding: 16px;
+  }
+  .routes-page th:last-child,
+  .routes-page td:last-child {
+    width: 64px;
+  }
+  .route-reveal {
+    font-size: 0;
+  }
+  .route-reveal svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+.flow-terminal .flow-card-title {
+  padding: 0 12px;
+  max-width: 100%;
+  width: 100%;
+  justify-content: center;
+}
+.flow-terminal .flow-card-title strong {
+  min-width: 0;
+  flex: 0 1 auto;
+}

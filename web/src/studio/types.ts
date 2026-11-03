@@ -92,6 +92,7 @@ export type RoutePresentation = {
   target: string;
 };
 export type GraphLayout = {
+  entry?: { x: number; y: number; points: Point[] };
   nodes: { id: string; x: number; y: number; width: number; height: number }[];
   routes: { ref: RouteRef; points: Point[]; labelPoint: Point }[];
   unreachable: string[];

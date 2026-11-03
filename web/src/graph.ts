@@ -1,4 +1,6 @@
-import dagre from "@dagrejs/dagre";
+import { layoutWorkflow } from "./studio/graph-layout";
+import { emptyMetadata } from "./studio/document-store";
+import type { GraphLayout, StudioMetadata } from "./studio/types";
 import type { Edge, Node } from "@xyflow/react";
 import type { FlowNode, Workflow } from "./workflow";
 import { routeLabel } from "./studio/workflow-model";
@@ -13,6 +15,9 @@ export type StageData = {
   stageId?: string;
   inspect?: () => void;
   focus?: () => void;
+  exits?: number;
+  incoming?: number;
+  chips?: { label: string; target: string; inspect: () => void }[];
 };
 export type BranchData = {
   label: string;
@@ -24,6 +29,7 @@ export type BranchData = {
   highlighted?: boolean;
   selected?: boolean;
   insert?: () => void;
+  members?: { label: string; inspect: () => void }[];
 };
 export type StageNode = Node<StageData, "stage">;
 export type BranchEdge = Edge<BranchData, "branch">;
@@ -59,132 +65,113 @@ export function predicateLabel(value: unknown, depth = 0): string {
 
 export const branchLabel = routeLabel;
 
-export function buildGraph(workflow: Workflow): {
+export function buildGraph(
+  workflow: Workflow,
+  metadata: StudioMetadata = emptyMetadata(),
+  previous?: GraphLayout,
+): {
   nodes: StageNode[];
   edges: BranchEdge[];
+  layout: GraphLayout;
 } {
-  const entries = Object.entries(workflow.nodes);
-  if (!entries.length || entries.length > 64)
-    throw new Error("A workflow must have 1–64 stages.");
-  if (!Object.hasOwn(workflow.nodes, workflow.start))
-    throw new Error("Choose an existing start stage in YAML.");
-  const total = entries.reduce(
-    (count, [, n]) => count + (n.edges?.length || 0),
-    0,
-  );
-  if (total > 256)
-    throw new Error("The visual preview supports up to 256 transitions.");
-  const startId = "__libretto_start__" + workflow.id; // Never collide with an actual stage.
-  let syntheticId = startId;
-  while (Object.hasOwn(workflow.nodes, syntheticId)) syntheticId += "_";
-  const g = new dagre.graphlib.Graph({ multigraph: true });
-  g.setGraph({
-    rankdir: "TB",
-    nodesep: 90,
-    ranksep: 100,
-    edgesep: 28,
-    marginx: 40,
-    marginy: 40,
-  });
-  g.setDefaultEdgeLabel(() => ({}));
-  const nodes: StageNode[] = [
-    {
-      id: syntheticId,
-      type: "stage",
-      position: { x: 0, y: 0 },
-      width: 132,
-      height: 56,
-      data: {
-        synthetic: true,
-        stage: {
-          kind: "start",
-          title: "Start",
-          prompt: "",
-          tools: [],
-          patient: false,
-          edges: [],
-        },
+  const layout = layoutWorkflow(workflow, metadata, previous);
+  let startId = "__libretto_start__" + workflow.id;
+  while (Object.hasOwn(workflow.nodes, startId)) startId += "_";
+  const start = layout.nodes.find((n) => n.id === workflow.start)!;
+  const synthetic: StageNode = {
+    id: startId,
+    type: "stage",
+    position: {
+      x: layout.entry?.x ?? start.x + start.width / 2 - 66,
+      y: layout.entry?.y ?? start.y - 100,
+    },
+    width: 132,
+    height: 48,
+    data: {
+      synthetic: true,
+      stage: {
+        kind: "start",
+        title: "Start",
+        prompt: "",
+        tools: [],
+        patient: false,
+        edges: [],
       },
     },
-    ...entries.map(([id, stage]): StageNode => ({
-      id,
-      type: "stage",
-      position: { x: 0, y: 0 },
-      width: stage.kind === "end" ? 132 : 290,
-      height: stage.kind === "end" ? 56 : 142,
-      data: { stage },
-      ariaLabel: `${stage.title || id}, ${stage.kind} stage. Open details.`,
+  };
+  const nodes: StageNode[] = [
+    synthetic,
+    ...layout.nodes.map((n) => ({
+      id: n.id,
+      type: "stage" as const,
+      position: { x: n.x, y: n.y },
+      width: n.width,
+      height: n.height,
+      data: {
+        stage: workflow.nodes[n.id],
+        exits: workflow.nodes[n.id].edges?.length || 0,
+        incoming: layout.routes.filter(
+          (r) =>
+            workflow.nodes[r.ref.source].edges.find(
+              (e) => e.id === r.ref.edgeId,
+            )?.to === n.id,
+        ).length,
+      },
+      ariaLabel: `${workflow.nodes[n.id].title || n.id}, ${workflow.nodes[n.id].kind} step. Open details.`,
     })),
   ];
-  for (const n of nodes)
-    g.setNode(n.id, { width: n.width!, height: n.height! });
-  const edges: BranchEdge[] = [];
-  function connect(source: string, target: string, id: string, label: string) {
-    if (!Object.hasOwn(workflow.nodes, target))
-      throw new Error(
-        `Unknown destination “${target}” from “${source}”. Fix the YAML reference.`,
-      );
-    g.setEdge(
-      source,
-      target,
-      { width: label ? 204 : 0, height: label ? 26 : 0, labelpos: "c" },
-      id,
-    );
-    edges.push({
-      id,
+  const edges: BranchEdge[] = layout.routes.map((r) => {
+    const edge = workflow.nodes[r.ref.source].edges.find(
+      (e) => e.id === r.ref.edgeId,
+    )!;
+    const source = nodes.find((n) => n.id === r.ref.source)!,
+      target = nodes.find((n) => n.id === edge.to)!;
+    const port = (node: StageNode, point: Point) => {
+      const dx = (point.x - node.position.x - node.width! / 2) / node.width!,
+        dy = (point.y - node.position.y - node.height! / 2) / node.height!;
+      return Math.abs(dx) > Math.abs(dy)
+        ? dx < 0
+          ? "left"
+          : "right"
+        : dy < 0
+          ? "top"
+          : "bottom";
+    };
+    return {
+      id: JSON.stringify([r.ref.source, r.ref.edgeId]),
+      source: r.ref.source,
+      target: edge.to,
       type: "branch",
-      source,
-      target,
-      data: { label, points: [], x: 0, y: 0, sourceStage: source },
-    });
-  }
-  connect(
-    syntheticId,
-    workflow.start,
-    JSON.stringify([syntheticId, "start"]),
-    "",
-  );
-  for (const [id, node] of entries) {
-    const seen = new Set<string>();
-    for (const edge of node.edges || []) {
-      if (seen.has(edge.id))
-        throw new Error(`Duplicate transition “${edge.id}” in “${id}”.`);
-      seen.add(edge.id);
-      connect(id, edge.to, JSON.stringify([id, edge.id]), branchLabel(edge));
-    }
-  }
-  dagre.layout(g);
-  for (const n of nodes) {
-    const position = g.node(n.id);
-    n.position = {
-      x: position.x - n.width! / 2,
-      y: position.y - n.height! / 2,
+      sourceHandle: `source-${port(source, r.points[0])}`,
+      targetHandle: `target-${port(target, r.points.at(-1)!)}`,
+      data: {
+        label: branchLabel(edge),
+        points: r.points,
+        x: r.labelPoint.x,
+        y: r.labelPoint.y,
+        sourceStage: r.ref.source,
+      },
     };
-  }
-  function port(id: string, p: Point) {
-    const n = g.node(id);
-    const dx = (p.x - n.x) / n.width;
-    const dy = (p.y - n.y) / n.height;
-    return Math.abs(dx) > Math.abs(dy)
-      ? dx < 0
-        ? "left"
-        : "right"
-      : dy < 0
-        ? "top"
-        : "bottom";
-  }
-  for (const edge of edges) {
-    const layout = g.edge({ v: edge.source, w: edge.target, name: edge.id });
-    edge.data = {
-      ...edge.data!,
-      points: layout.points,
-      x: layout.x ?? 0,
-      y: layout.y ?? 0,
-    };
-    edge.sourceHandle = `source-${port(edge.source, layout.points[0])}`;
-    edge.targetHandle = `target-${port(edge.target, layout.points.at(-1)!)}`;
-  }
-  return { nodes, edges };
+  });
+  edges.unshift({
+    id: JSON.stringify([startId, "start"]),
+    source: startId,
+    target: workflow.start,
+    type: "branch",
+    sourceHandle: "source-bottom",
+    targetHandle: "target-top",
+    data: {
+      label: "",
+      sourceStage: startId,
+      x: 0,
+      y: 0,
+      points: layout.entry?.points ?? [
+        { x: start.x + start.width / 2, y: start.y - 52 },
+        { x: start.x + start.width / 2, y: start.y },
+      ],
+    },
+  });
+  return { nodes, edges, layout };
 }
 
 export function resizeViewport(

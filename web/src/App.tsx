@@ -939,6 +939,14 @@ export default function App() {
                 }
               >
                 <WorkflowGraph
+                  metadata={studioDocument.metadata}
+                  onMetadata={(metadata) =>
+                    dispatchDocument({
+                      type: "metadata",
+                      metadata,
+                      label: "Edit layout",
+                    })
+                  }
                   source={source}
                   onChange={changeSource}
                   onUndo={undoSource}
