@@ -43,6 +43,8 @@ import { describeRoutes } from "./studio/graph-model";
 import { parseIssues } from "./studio/changes";
 import { StudioShell } from "./studio/StudioShell";
 import type { ToolManifest } from "./studio/tool-manifest";
+import { SourcesPage } from "./studio/SourcesPage";
+import type { StudioCapabilities } from "./studio/runtime-api";
 import { AgentEditor } from "./AgentEditor";
 import {
   TestScenarios,
@@ -130,6 +132,9 @@ export default function App() {
   const openInput = useRef<HTMLInputElement>(null);
   const [fileNotices, setFileNotices] = useState<string[]>([]);
   const [toolManifests, setToolManifests] = useState<ToolManifest[]>([]);
+  const [capabilities, setCapabilities] = useState<StudioCapabilities | null>(
+    null,
+  );
   const [exportOpen, setExportOpen] = useState(false);
   const documentRef = useRef(studioDocument);
   const validationRequest = useRef(1);
@@ -333,7 +338,10 @@ export default function App() {
     fetch("/api/studio/capabilities", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data && Array.isArray(data.tools)) setToolManifests(data.tools);
+        if (data && Array.isArray(data.tools)) {
+          setToolManifests(data.tools);
+          setCapabilities(data);
+        }
       })
       .catch(() => {});
     fetch("/api/config", { signal: controller.signal })
@@ -864,6 +872,20 @@ export default function App() {
                 dispatchDocument({ type: "end-history-group" })
               }
               onValidate={() => void validateSource()}
+            />
+          ) : view === "knowledge" && source ? (
+            <SourcesPage
+              document={studioDocument}
+              capabilities={capabilities}
+              selectedStep={selected}
+              onChange={changeSource}
+              onMetadata={(metadata) =>
+                dispatchDocument({
+                  type: "metadata",
+                  metadata,
+                  label: "Rename collection",
+                })
+              }
             />
           ) : source ? (
             <AgentEditor
