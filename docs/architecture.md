@@ -216,3 +216,14 @@ Typical changes:
 | Change call UX or diagnostics | [App.tsx](../web/src/App.tsx), [VoiceCall.tsx](../web/src/VoiceCall.tsx), browser audio and timing modules |
 
 The current product is an English browser prototype with editable YAML and a visual workflow editor. Telephony, durable delivery, multilingual support, freeform canvas rearrangement, semantic retrieval and distributed application metering are outside this implementation.
+
+
+## Studio document and project boundaries
+
+`web/src/studio/document-store.ts` owns raw YAML, revision-bound validation, grouped source/metadata history and the immutable test snapshot. Localized edits in `yaml-edits.ts` preserve untouched source bytes and comments; structural changes replace the smallest edited container. The last valid workflow remains inspectable while a draft is invalid, but cannot silently replace that draft for testing. Exports are explicit downloads, not filesystem saves. Restored browser drafts must be revalidated; credentials are never persisted.
+
+`<name>.studio.json` is optional versioned presentation metadata: positions, source labels, groups and named route views. Its source fingerprint detects mismatches, and references are checked against the opened workflow. Runtime semantics live only in YAML. `graph-model.ts` derives canonical routes, strongly connected components, shared-target chips and result bundles; the searchable Routes index retains every actual transition. Structural edits reflow unpinned nodes, while prompt edits retain geometry. Distinct End steps remain distinct.
+
+`StudioWorkspace` in `workspace.py` resolves source paths within an explicit project root and rejects traversal and symlink escapes. Bare serving selects the bundled hosted workspace; passing a workflow and project root selects local mode. `/api/studio/capabilities`, `/api/studio/source-folders`, `/api/studio/sources` and `/api/studio/retrieval` expose actual runtime manifests and retrieval evidence. The hosted mode refuses folder discovery. Add/detach changes references only; it does not create, edit or delete Markdown files. Retrieval responses identify the submitted source fingerprint, effective scope, normalized query terms and real BM25 scores/passages.
+
+Settings consumes runtime model, speech and tool manifests. HTTP and WebSocket use the same origin. Start validates and captures an exact source revision before asynchronous audio/connection setup, then pauses edits until Stop or disconnection. Test state, source evidence and receipts belong to that snapshot. The Python runtime still includes domain-specific receptionist confirmation rules; generic Studio editing is not a claim that these safeguards have become a general-purpose policy system. No stable library API or LiveKit integration is introduced by this redesign.

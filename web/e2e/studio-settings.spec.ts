@@ -19,10 +19,10 @@ test("settings expose real field references and model roles", async ({
     .getByRole("button", { name: "Models & speech", exact: true })
     .click();
   await expect(
-    page.getByRole("combobox",{name:"Response model",exact:true}),
+    page.getByRole("combobox", { name: "Response model", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("combobox",{name:"Evaluator model",exact:true}),
+    page.getByRole("combobox", { name: "Evaluator model", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath("models-1440.png") });
   await page

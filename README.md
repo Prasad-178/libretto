@@ -20,9 +20,9 @@ A 3 minute 40 second walkthrough of the workflow, YAML and agent settings.
 
 ## Try it
 
-Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse the Workflow, Agent settings, YAML and Knowledge base tabs without connecting to a provider.
+Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse Flow, Routes, YAML, Settings and Sources without connecting to a provider.
 
-To start a conversation, open **API connection** and enter your own keys:
+To start a conversation, open **Connection settings** and enter your own keys:
 
 | Mode | Required keys |
 | --- | --- |
@@ -42,7 +42,7 @@ The test panel includes **15 scenarios** with fictional data, expected sources a
 
 ## What is implemented
 
-- **Visual workflow editing and YAML.** Select a step to edit its prompt, name, readback or action settings in the right panel. Select a transition to edit its destination, language condition and state checks; use + to insert a conversation, fixed message or registered action. Graph edits and YAML share one definition, with Undo and YAML export. Validate checks the draft; each test runs an immutable snapshot. Drafts remain in the current tab.
+- **Visual workflow editing and YAML.** Select a step to edit its prompt, name, readback or action settings in the right panel. Select a transition to edit its destination, language condition and state checks; use + to insert a conversation, fixed message or registered action. Graph edits and YAML share one definition, with Undo and YAML export. Validate checks the draft; each test runs an immutable snapshot. A sanitized local draft can be restored in this browser; export downloads a copy and never overwrites your original file.
 - **Concurrent speaking and evaluation.** A streaming speaker produces the reply while a separate structured evaluator proposes facts and routing. Ordinary speech has no preceding LLM classifier.
 - **Runtime-owned state and actions.** Typed fields, allowed graph edges, confirmation checks and session-local action deduplication constrain execution. Corrections invalidate previous confirmations.
 - **Streaming audio and interruption handling.** Browser AudioWorklets capture/play PCM. Work epochs reject stale output; playback acknowledgements distinguish generated speech from delivered speech.
@@ -72,6 +72,24 @@ npm --prefix web run dev
 ```
 
 Vite proxies `/api` and its WebSocket to port 8000. A frontend build is required when serving the compiled studio directly from the Python server.
+
+## Studio files and local sources
+
+Studio is available at `/studio`. Open a YAML file to edit its prompts, routes and fields. The complete Routes index keeps return paths and routes hidden by a saved view discoverable. The editor supports desktop windows at least 1024px wide.
+
+**Open** reads your selected files. **Export YAML** downloads the current definition under its original filename; it does not write back to disk. Optionally download `<name>.studio.json` alongside `<name>.yaml` for presentation hints and named views. Open both files together to restore them. YAML remains the runtime definition: the sidecar is never required to run it. Invalid drafts can be exported explicitly; testing requires validation and freezes the selected revision until Stop.
+
+To inspect your own Markdown knowledge, run a local project:
+
+```sh
+uv run libretto serve /absolute/path/to/project/agent.yaml --project-root /absolute/path/to/project
+```
+
+Open that runtime's `http://127.0.0.1:8000/studio`. Source paths are relative to the explicit project root and cannot escape it. **Sources → Add collection** lists existing Markdown folders; attaching or detaching changes YAML references, not the source files. Retrieval preview uses the runtime's BM25 index and exposes ranked passages, normalized terms and content hashes. Missing folders are reported rather than fabricated.
+
+Bare `libretto serve` and the hosted demo use bundled sources only. They cannot browse arbitrary local folders; selecting a YAML file in the browser does not grant filesystem access to its neighboring files. Connection settings target the same runtime that serves Studio. Provider keys stay in memory, outside YAML, sidecars and persisted drafts.
+
+Generic example graphs are in `web/src/studio/fixtures/`, including intake, branching, shared destinations and cycles. Studio supports generic graph editing; the bundled runtime still includes receptionist-specific confirmation safeguards. This work does not ship a stable importable library API or a LiveKit adapter.
 
 ## A workflow is a file
 

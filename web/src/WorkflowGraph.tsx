@@ -629,7 +629,7 @@ export default function WorkflowGraph({
                 </fieldset>
                 <button
                   disabled={!viewName.trim()}
-                  onClick={() => {
+                  onClick={(event) => {
                     const id = crypto.randomUUID();
                     onMetadata({
                       ...metadata,
@@ -649,6 +649,7 @@ export default function WorkflowGraph({
                     });
                     setViewId(id);
                     setViewName("");
+                    event.currentTarget.closest("details")?.removeAttribute("open");
                   }}
                 >
                   Save named view

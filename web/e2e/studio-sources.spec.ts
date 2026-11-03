@@ -78,3 +78,47 @@ test("changing the query discards an in-flight retrieval response", async ({
     page.getByRole("button", { name: "Search passages", exact: true }),
   ).toBeEnabled();
 });
+
+test("local project folders attach as references and Undo removes the attachment", async ({
+  page,
+}, info) => {
+  await page.route("**/api/studio/**", async (route) => {
+    const url = new URL(route.request().url());
+    url.port = "8002";
+    const response = await route.fetch({ url: url.toString() });
+    await route.fulfill({ response });
+  });
+  await page.goto("/studio");
+  await page
+    .getByLabel("Open workflow files")
+    .setInputFiles(path.resolve("src/studio/fixtures/intake.yaml"));
+  await expect(
+    page.getByRole("button", {
+      name: "Open Collect request step",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page
+    .getByRole("button", { name: "+ Add collection", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Project folder", exact: true })
+    .selectOption("knowledge");
+  await page
+    .getByRole("textbox", { name: "Collection ID", exact: true })
+    .fill("policies");
+  await expect(page.getByText(/Found .* Markdown files/)).toBeVisible();
+  await page.screenshot({ path: info.outputPath("local-add-collection.png") });
+  await page.getByRole("button", { name: "Add to draft", exact: true }).click();
+  await expect(page.locator(".passages-list>button").first()).toBeVisible();
+  await page.getByLabel("Test retrieval").fill("zzxxyyqqnomatch");
+  await page
+    .getByRole("button", { name: "Search passages", exact: true })
+    .click();
+  await expect(page.locator(".passages-list>button")).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
+  await expect(page.locator(".passages-list>button")).toHaveCount(0);
+  await page.getByRole("tab", { name: "YAML", exact: true }).click();
+  await expect(page.locator(".cm-content")).not.toContainText("policies");
+});

@@ -76,6 +76,24 @@ test("export names match selected files and preserve imported bytes", async ({
     await readFile(fixture),
   );
   await expect(page.getByText(/Exported · unchanged/)).toBeVisible();
+  const reopened = [];
+  for (const download of downloads)
+    reopened.push({
+      name: download.suggestedFilename(),
+      mimeType: "application/octet-stream",
+      buffer: await readFile(await download.path()),
+    });
+  await page.getByLabel("Open workflow files").setInputFiles(reopened);
+  await expect(
+    page.getByRole("button", {
+      name: "Open Collect request step",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "YAML", exact: true }).click();
+  await expect(page.locator(".cm-content")).toContainText(
+    "Ask what the caller needs next.",
+  );
 });
 
 test("YAML Problems stays a 200px strip at 1024", async ({ page }, info) => {

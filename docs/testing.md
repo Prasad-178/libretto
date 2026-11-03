@@ -1,4 +1,24 @@
-# Test the fictional coworking front desk
+# Studio and runtime verification
+
+Run the automated checks from the repository root:
+
+```sh
+uv sync --locked
+npm --prefix web ci
+uv run ruff check src tests app.py
+uv run pytest -q
+uv run libretto evaluate
+npm --prefix web test
+npm --prefix web run build
+(cd web && npx playwright install chromium)
+npm --prefix web run test:e2e
+```
+
+Playwright starts the Python backend on port 8000 a local-project backend on 8002, and Vite on 5174, reusing local servers outside CI. Start with these ports free for a fully isolated run; CI starts both itself. HTTP validation, source inspection and retrieval use the real local backend. The conversation test scripts the WebSocket boundary, so these browser checks never invoke paid models or speech providers. A passing scripted test does not establish real-provider voice quality.
+
+The browser suite covers 1440/1280/1024 layouts, inspector widths, expanded prompt editing, keyboard focus restoration, reduced-motion settings, route search/reveal, grouped Undo, configured insertion, invalid drafts and the last-valid graph, exact export filenames/bytes, source scope and ranked evidence, stale retrieval rejection, and immutable test snapshots/Stop. Screenshots and failed-run traces are written to `web/test-results/`; inspect these when changing layout. Frontend unit tests additionally cover ten generic graph fixtures, route conservation, source-preserving edits, metadata and history. Backend tests use temporary projects for local-folder containment and source manifests.
+
+## Fictional coworking front desk
 
 Northline Workspace is an invented coworking business. All prices, policies, staff, addresses and caller profiles are fake. Caller telephone numbers use the reserved fictional 202-555-01xx range. No customer accounts, live availability or external business systems exist.
 

@@ -337,15 +337,18 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/studio/capabilities", { signal: controller.signal })
+    const capabilitiesRequest = fetch("/api/studio/capabilities", {
+      signal: controller.signal,
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && Array.isArray(data.tools)) {
           setToolManifests(data.tools);
           setCapabilities(data);
         }
+        return data as StudioCapabilities | null;
       })
-      .catch(() => {});
+      .catch(() => null);
     fetch("/api/config", { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error();
@@ -366,9 +369,13 @@ export default function App() {
         if (!r.ok) throw new Error();
         return r.arrayBuffer();
       })
-      .then((buffer) => {
-        if (documentRef.current.source) return;
-        let next = createDocument("agent.yaml", new Uint8Array(buffer));
+      .then(async (buffer) => {
+        const runtime = await capabilitiesRequest;
+        if (documentRef.current.source || controller.signal.aborted) return;
+        let next = createDocument(
+          runtime?.workflowFilename || "agent.yaml",
+          new Uint8Array(buffer),
+        );
         const text = next.source;
         next = documentReducer(next, {
           type: "validation-start",

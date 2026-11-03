@@ -294,6 +294,11 @@ def test_local_preview_port_is_allowed_but_foreign_origin_is_rejected(monkeypatc
         ) as ws:
             ws.send_json({"type": "start", "mode": "text"})
             assert ws.receive_json()["data"]["code"] == "missing_openrouter_key"
+        with client.websocket_connect(
+            "ws://127.0.0.1:8001/api/ws", headers={"origin": "http://127.0.0.1:5174"}
+        ) as ws:
+            ws.send_json({"type": "start", "mode": "text"})
+            assert ws.receive_json()["data"]["code"] == "missing_openrouter_key"
         with pytest.raises(WebSocketDisconnect):
             with client.websocket_connect(
                 "ws://127.0.0.1:8001/api/ws", headers={"origin": "https://foreign.example"}

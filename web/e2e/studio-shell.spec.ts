@@ -45,6 +45,12 @@ for (const width of [1440, 1280, 1024])
     await page.getByLabel("Step prompt", { exact: true }).focus();
     await page.keyboard.press("Escape");
     await expect(page.getByLabel("Edit step", { exact: true })).toBeHidden();
+    await expect(
+      page.getByRole("button", {
+        name: "Open Collect request step",
+        exact: true,
+      }),
+    ).toBeFocused();
     expect(errors).toEqual([]);
   });
 
