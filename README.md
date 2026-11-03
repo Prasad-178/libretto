@@ -6,6 +6,10 @@
 
 [Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
+[Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
+
+Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The next milestone is a reusable core proven by two action workflows, followed by an optional LiveKit integration; see the roadmap for planned versus shipped behavior.
+
 Libretto is a Python workflow engine and React studio for building stateful voice agents. Define stages, prompts, fields, transitions, knowledge and actions in YAML; inspect the generated workflow; then test it over voice or text while watching state, sources and tool receipts.
 
 The bundled agent is Jamie, the receptionist at **Northline Workspace**, a fictional coworking space. Ask about memberships or rooms, request a transfer, or leave a message after a simulated failed transfer. Transfers and message captures are session-only simulations; they do not contact anyone or create a real ticket.
