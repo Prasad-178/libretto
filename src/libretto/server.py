@@ -16,12 +16,12 @@ from pydantic import Field, SecretStr, ValidationError
 
 from libretto.providers.base import ProviderError, SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
-from libretto.retrieval import build_index
 from libretto.runtime import CALL_LIMIT_SECONDS, Session
-from libretto.schema import Models, StrictModel, load_workflow, parse_workflow
+from libretto.schema import Models, StrictModel
 from libretto.speech import default_speech_registry
 from libretto.studio_entry import HTML as STUDIO_HTML
 from libretto.tools import ToolRegistry
+from libretto.workspace import StudioWorkspace
 
 ROOT = Path(__file__).resolve().parents[2]
 START_TIMEOUT_SECONDS = 15
@@ -70,25 +70,28 @@ def create_app(
     model_factory=OpenRouterAdapter,
     asset_root: Path | None = None,
     speech_registry=None,
+    workflow_path: Path | None = None,
+    project_root: Path | None = None,
+    tool_factory=None,
 ) -> FastAPI:
     registry = speech_registry or default_speech_registry()
     root = asset_root or ROOT
     if load_environment:
         load_dotenv(root / ".env")
-    workflow = load_workflow(root / "examples/receptionist.yaml")
-    index = build_index(workflow, root / "examples")
+    selected_path = workflow_path or root / "examples/receptionist.yaml"
+    workspace = StudioWorkspace(selected_path, project_root or (selected_path.parent if workflow_path else root / "examples"),
+                                "local-project" if workflow_path else "hosted-demo")
+    workflow, index = workspace.compile(selected_path.read_text())
     directory = json.loads((root / "examples/directory.json").read_text())
-    ToolRegistry(directory).validate(workflow)
-    scenarios = json.loads((root / "examples/test-scenarios.json").read_text())
+    make_tools = tool_factory or (lambda: ToolRegistry(directory))
+    make_tools().validate(workflow)
+    scenarios = [] if workflow_path else json.loads((root / "examples/test-scenarios.json").read_text())
 
     def compile_source(source: str):
-        definition = parse_workflow(source)
+        definition, source_index = workspace.compile(source)
         registry.validate(definition.speech)
-        # Visitor edits select only bundled documents and registered simulations.
-        if any(path not in workflow.knowledge.values() for path in definition.knowledge.values()):
-            raise ValueError("Knowledge must use a bundled document directory")
-        ToolRegistry(directory).validate(definition)
-        return definition, build_index(definition, root / "examples")
+        make_tools().validate(definition)
+        return definition, source_index
 
     @asynccontextmanager
     async def lifespan(app):
@@ -100,6 +103,7 @@ def create_app(
         await app.state.pool.aclose()
 
     app = FastAPI(title="Libretto", lifespan=lifespan)
+    app.state.studio_workspace = workspace
 
     def hosted_enabled():
         setting = os.getenv("LIBRETTO_ALLOW_HOSTED_KEYS")
@@ -118,7 +122,7 @@ def create_app(
 
     @app.get("/api/workflow.yaml", response_class=PlainTextResponse)
     async def yaml_source():
-        return (root / "examples/receptionist.yaml").read_text()
+        return workspace.workflow_path.read_text()
 
     @app.get("/api/config")
     async def config():
@@ -328,7 +332,7 @@ def create_app(
                     )
                     adapter = model_factory(credentials, models, client=app.state.pool)
                     session = Session(
-                        session_workflow, adapter, adapter, session_index, ToolRegistry(directory)
+                        session_workflow, adapter, adapter, session_index, make_tools()
                     )
                     session.directory = json.dumps(directory)
                     session.state.transfer_outcome = event.transfer_outcome

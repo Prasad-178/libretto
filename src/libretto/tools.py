@@ -18,6 +18,17 @@ class ToolRegistry:
         self.directory = directory
         self._cache: dict[str, ToolResult] = {}
 
+    def manifest(self) -> list[dict]:
+        return [
+            {"name": "transfer_call", "parameters": [
+                {"name": "recipient", "type": "string", "required": True}],
+             "results": ["connected", "unavailable", "failed", "timeout"]},
+            {"name": "capture_message", "parameters": [
+                {"name": name, "type": "string", "required": True}
+                for name in ["recipient", "caller_name", "callback_number", "message"]],
+             "results": ["captured", "failed"]},
+        ]
+
     def validate(self, workflow) -> None:
         if unknown := set(workflow.tools) - self.names:
             raise ValueError(f"Unregistered tools: {sorted(unknown)}")

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 
@@ -29,3 +31,20 @@ def test_offline_evaluation_reports_source_recall_without_provider_keys(monkeypa
     assert report["retrieval"]["timing"]["count"] == 8
     assert all(c["sources"] and c["passed"] for c in report["retrieval"]["cases"])
     assert "workflow" not in report
+
+
+def test_serve_uses_explicit_workflow_and_project_root(monkeypatch, tmp_path):
+    import uvicorn
+
+    from libretto.cli import main
+
+    source = Path('examples/minimal.yaml').read_text()
+    path = tmp_path / 'survey.yaml'
+    path.write_text(source)
+    applications = []
+    monkeypatch.setattr(uvicorn, 'run', lambda app, **kwargs: applications.append(app))
+    monkeypatch.setattr('sys.argv', ['libretto', 'serve', str(path), '--project-root', str(tmp_path)])
+    main()
+    with TestClient(applications[0]) as client:
+        assert client.get('/api/config').json()['workflow']['id'] == 'tiny-survey'
+        assert client.get('/api/workflow.yaml').text == source

@@ -8,19 +8,21 @@ from libretto.schema import load_workflow
 def main() -> None:
     parser = argparse.ArgumentParser(prog="libretto")
     parser.add_argument("command", choices=["validate", "graph", "serve", "evaluate"])
-    parser.add_argument("workflow", nargs="?", default="examples/receptionist.yaml")
+    parser.add_argument("workflow", nargs="?", default=None)
+    parser.add_argument("--project-root", type=Path)
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--live", action="store_true", help="Opt in to bounded paid model evaluation")
     parser.add_argument("--output", type=Path, default=Path(".local/evaluations/latest.json"))
     args = parser.parse_args()
+    selected_workflow = args.workflow or "examples/receptionist.yaml"
     if args.command == "evaluate":
         import asyncio
 
         from libretto.evaluate import evaluate_live, evaluate_retrieval
 
-        report = {"retrieval": evaluate_retrieval(Path(args.workflow))}
+        report = {"retrieval": evaluate_retrieval(Path(selected_workflow))}
         if args.live:
-            report["workflow"] = asyncio.run(evaluate_live(Path(args.workflow)))
+            report["workflow"] = asyncio.run(evaluate_live(Path(selected_workflow)))
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2))
         print(
@@ -37,9 +39,10 @@ def main() -> None:
 
         from libretto.server import create_app
 
-        uvicorn.run(create_app(), host="127.0.0.1", port=args.port)
+        uvicorn.run(create_app(workflow_path=Path(args.workflow) if args.workflow else None,
+                               project_root=args.project_root), host="127.0.0.1", port=args.port)
     else:
-        workflow = load_workflow(Path(args.workflow))
+        workflow = load_workflow(Path(selected_workflow))
         if args.command == "validate":
             print(f"Valid: {workflow.name} ({len(workflow.nodes)} nodes)")
         else:
