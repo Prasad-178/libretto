@@ -1928,3 +1928,164 @@
     padding: 20px;
   }
 }
+.settings-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background: white;
+}
+.settings-navigation {
+  width: 228px;
+  flex-shrink: 0;
+  border-right: 1px solid #dee4ea;
+  padding: 24px 20px;
+}
+.settings-page h2 {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+  margin: 0 0 24px;
+}
+.settings-navigation nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-navigation nav button {
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #526477;
+}
+.settings-navigation nav button.selected {
+  background: #edf3ff;
+  color: #245ec7;
+  font-weight: 500;
+}
+.settings-navigation > select {
+  display: none;
+}
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 40px;
+  overflow: auto;
+}
+.settings-content > fieldset {
+  border: 0;
+  padding: 0;
+  max-width: 780px;
+}
+.settings-content section {
+  padding-bottom: 28px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid #dee4ea;
+}
+.settings-content h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.settings-content p {
+  font-size: 13px;
+  line-height: 20px;
+  color: #526477;
+  margin: 10px 0;
+}
+.settings-content label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 16px 0;
+}
+.settings-content label > input,
+.settings-content label > textarea,
+.settings-content label > select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  font:
+    13px/20px "IBM Plex Sans Variable",
+    sans-serif;
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+  background: white;
+}
+.settings-content textarea {
+  resize: vertical;
+}
+.settings-field {
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.settings-field summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.settings-field summary span {
+  font-size: 12px;
+  color: #526477;
+}
+.field-reference {
+  display: block;
+  color: #245ec7;
+  font-size: 12px;
+  padding: 5px 0;
+}
+.settings-add-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.settings-add-field label {
+  flex: 1;
+  margin: 0;
+}
+.settings-add-field > select {
+  padding: 10px;
+  border: 1px solid #dee4ea;
+  border-radius: 6px;
+  background: white;
+  font: inherit;
+}
+.settings-content button:disabled {
+  opacity: 0.45;
+}
+.test-snapshot-note {
+  padding: 10px 18px;
+  background: #edf8f4;
+  color: #0e7c66;
+  font-size: 11px;
+  line-height: 17px;
+  border-bottom: 1px solid #dcece6;
+  flex-shrink: 0;
+}
+@media (max-width: 1100px) {
+  .settings-navigation {
+    width: 190px;
+    padding: 20px 16px;
+  }
+  .settings-navigation nav {
+    display: none;
+  }
+  .settings-navigation > select {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #dee4ea;
+    border-radius: 6px;
+    background: white;
+    font: inherit;
+  }
+  .settings-content {
+    padding: 24px;
+  }
+}

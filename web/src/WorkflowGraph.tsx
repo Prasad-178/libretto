@@ -280,6 +280,7 @@ type Props = {
   tools?: ToolManifest[];
   hideInspector?: boolean;
   previewWorkflow?: Workflow | null;
+  selectedNodeId?: string;
   readOnly?: boolean;
   onUndo: () => void;
   canUndo: boolean;
@@ -307,6 +308,7 @@ export default function WorkflowGraph({
   tools,
   hideInspector,
   previewWorkflow,
+  selectedNodeId,
   readOnly = false,
 }: Props) {
   const [selection, updateSelection] = useState<Selection | null>(null);
@@ -534,6 +536,10 @@ export default function WorkflowGraph({
         zoom: 1,
       });
   }, [definition?.id]);
+  useEffect(() => {
+    if (selectedNodeId && definition?.nodes[selectedNodeId])
+      setSelection({ kind: "step", id: selectedNodeId });
+  }, [selectedNodeId]);
   const topology =
     graph.nodes.map((n) => n.id).join("|") +
     graph.edges.map((e) => e.id + e.target).join("|");

@@ -45,7 +45,8 @@ import { StudioShell } from "./studio/StudioShell";
 import type { ToolManifest } from "./studio/tool-manifest";
 import { SourcesPage } from "./studio/SourcesPage";
 import type { StudioCapabilities } from "./studio/runtime-api";
-import { AgentEditor } from "./AgentEditor";
+import { SettingsPage } from "./studio/SettingsPage";
+import { TestPanel } from "./studio/TestPanel";
 import {
   TestScenarios,
   prepareScenario,
@@ -109,9 +110,9 @@ export default function App() {
   const [dgKey, setDgKey] = useState("");
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [outcome, setOutcome] = useState("unavailable");
-  const [active, setActive] = useState("identify");
+  const [active, setActive] = useState("");
   const [pending, setPending] = useState<string | null>(null);
-  const [selected, setSelected] = useState("identify");
+  const [selected, setSelected] = useState("");
   const [facts, setFacts] = useState<Record<string, Fact>>({});
   const [sources, setSources] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
@@ -311,6 +312,7 @@ export default function App() {
       )
         setSettings(true);
     } else if (event.type === "expired" || event.type === "ended") {
+      dispatchDocument({ type: "test-stop" });
       setPhase(
         event.type === "expired"
           ? "Session complete · 5 minute limit"
@@ -409,6 +411,7 @@ export default function App() {
             data: {},
           }),
         );
+        dispatchDocument({ type: "test-stop" });
         const wasReady = ready.current;
         ready.current = false;
         setConnected(false);
@@ -565,6 +568,9 @@ export default function App() {
         setSettings(false);
         return;
       }
+      const snapshot = documentRef.current.lastValid;
+      if (!snapshot) return;
+      dispatchDocument({ type: "test-start", snapshot });
       await audio.current.close();
       audio.current.beginSession();
       if (mode === "voice") await audio.current.ensure();
@@ -582,15 +588,16 @@ export default function App() {
       setReceipts([]);
       setTrace([]);
       traceRef.current = [];
-      setActive(config?.workflow.start || "identify");
+      setActive(snapshot.workflow.start);
       client.current?.connect({
         mode,
         openrouter_key: orKey,
         deepgram_key: dgKey,
         transfer_outcome: outcome,
-        workflow_yaml: source,
+        workflow_yaml: snapshot.source,
       });
     } catch {
+      dispatchDocument({ type: "test-stop" });
       setConnecting(false);
       setError("Audio playback is unavailable. Try text mode.");
     }
@@ -617,6 +624,7 @@ export default function App() {
     });
   }
   function end() {
+    dispatchDocument({ type: "test-stop" });
     setChats((old) =>
       updateDelivery(old, { type: "call_closed", epoch: 0, at: 0, data: {} }),
     );
@@ -740,7 +748,7 @@ export default function App() {
       replaceDocument(result.document);
       setFileNotices(result.notices);
       const workflow = readWorkflow(result.document.source);
-      setSelected(workflow?.start || "");
+      setSelected("");
       setView("workflow");
     } catch (error) {
       setError(
@@ -831,7 +839,8 @@ export default function App() {
                     ? studioDocument.lastValid?.workflow
                     : undefined
                 }
-                readOnly={showingLastValid}
+                readOnly={showingLastValid || !!studioDocument.running}
+                selectedNodeId={selected}
                 tools={toolManifests}
                 hideInspector={showTest}
                 onInspect={() => setShowTest(false)}
@@ -888,17 +897,17 @@ export default function App() {
               }
             />
           ) : source ? (
-            <AgentEditor
-              source={source}
-              onChange={changeSource}
-              tab={view}
-              validated={source === validatedSource}
-              validating={validating}
-              issues={yamlIssues}
-              onValidate={() => void validateSource()}
-              documents={config?.knowledge_documents || []}
-              selected={selected}
-              onSelect={setSelected}
+            <SettingsPage
+              document={studioDocument}
+              capabilities={capabilities}
+              onTransaction={(transaction) =>
+                dispatchDocument({ type: "transaction", transaction })
+              }
+              onConnection={() => setSettings(true)}
+              onStep={(id) => {
+                setSelected(id);
+                setView("workflow");
+              }}
             />
           ) : (
             <div className="loading-state">
@@ -922,7 +931,7 @@ export default function App() {
           </div>
         </main>
         {showTest && (
-          <aside className="test-panel">
+          <TestPanel snapshot={studioDocument.running}>
             <div className="test-heading">
               <span>
                 <Radio size={15} /> Test your agent
@@ -1285,7 +1294,7 @@ export default function App() {
                     <Square size={12} />
                   </button>
                   <button className="end-button" onClick={end}>
-                    End
+                    Stop
                   </button>
                 </div>
               ) : (
@@ -1325,7 +1334,7 @@ export default function App() {
                 <Download size={12} />
               </button>
             </div>
-          </aside>
+          </TestPanel>
         )}
       </div>
       {exportOpen && (
