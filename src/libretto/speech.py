@@ -165,9 +165,39 @@ class SpeechRegistry:
         return coordinator
 
 
+class DefaultSpeechRegistry(SpeechRegistry):
+    """LiveKit is the default engine; the native Deepgram path is explicit legacy support."""
+
+    def validate(self, config) -> None:
+        if config.engine == "livekit":
+            from libretto.integrations.livekit.config import validate_speech
+
+            validate_speech(config)
+        else:
+            super().validate(config)
+
+    def required_credentials(self, config) -> set[str]:
+        if config.engine == "livekit":
+            from libretto.integrations.livekit.config import required_credentials
+
+            return required_credentials(config)
+        return super().required_credentials(config)
+
+    def create(self, config, credentials, session, send_audio, send_control):
+        if config.engine == "livekit":
+            try:
+                from libretto.integrations.livekit.coordinator import LiveKitCoordinator
+            except ImportError as error:
+                raise ProviderError(
+                    "livekit_not_installed", "Install libretto-voice[studio] for LiveKit voice."
+                ) from error
+            return LiveKitCoordinator(config, credentials, session, send_audio, send_control)
+        return super().create(config, credentials, session, send_audio, send_control)
+
+
 def default_speech_registry() -> SpeechRegistry:
     from libretto.providers.deepgram import DeepgramSTT, DeepgramTTS
 
-    return SpeechRegistry(
+    return DefaultSpeechRegistry(
         stt={"deepgram": DeepgramSTT}, tts={"deepgram": DeepgramTTS}, credentials={"deepgram": "deepgram"}
     )

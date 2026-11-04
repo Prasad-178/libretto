@@ -290,6 +290,7 @@ def test_websocket_wrong_epoch_cannot_acknowledge_readback(tmp_path):
         .replace("knowledge: {policies: knowledge}", "knowledge: {}")
         .replace("common_knowledge: [policies]", "common_knowledge: []")
     )
+    source += "\nspeech:\n  engine: direct\n  credential_mode: providers\n  stt: {provider: deepgram, model: flux-general-en}\n  tts: {provider: deepgram, model: flux-haley-en}\n"
     path = tmp_path / "agent.yaml"
     path.write_text(source)
     sessions = []

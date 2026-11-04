@@ -25,8 +25,8 @@ def test_speech_configuration_is_independent_and_bounded():
 
     flow = load_workflow(Path("examples/minimal.yaml"))
     assert hasattr(flow, "speech"), "Workflow needs independent speech provider configuration"
-    assert flow.speech.stt.provider == "deepgram"
-    assert flow.speech.tts.provider == "deepgram"
+    assert flow.speech.stt.provider == "assemblyai"
+    assert flow.speech.tts.provider == "cartesia"
     source = Path("examples/minimal.yaml").read_text()
     changed = parse_workflow(
         source

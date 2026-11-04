@@ -117,13 +117,35 @@ class Models(StrictModel):
 
 
 class SpeechEndpoint(StrictModel):
+    voice: str | None = Field(default=None, max_length=100)
     provider: str = Field(default="deepgram", min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
     model: str = Field(min_length=1, max_length=100)
 
 
 class Speech(StrictModel):
-    stt: SpeechEndpoint = Field(default_factory=lambda: SpeechEndpoint(model="flux-general-en"))
-    tts: SpeechEndpoint = Field(default_factory=lambda: SpeechEndpoint(model="flux-haley-en"))
+    engine: Literal["livekit", "direct"] = "livekit"
+    credential_mode: Literal["inference", "providers"] = "inference"
+    stt: SpeechEndpoint = Field(
+        default_factory=lambda: SpeechEndpoint(provider="assemblyai", model="universal-streaming")
+    )
+    tts: SpeechEndpoint = Field(
+        default_factory=lambda: SpeechEndpoint(
+            provider="cartesia", model="sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
+        )
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def legacy_configuration(cls, value):
+        if isinstance(value, dict) and "engine" not in value and value.get("stt") and value.get("tts"):
+            if all(
+                value[role].get("provider", "deepgram") == "deepgram"
+                for role in ("stt", "tts")
+                if isinstance(value[role], dict)
+            ):
+                return {**value, "engine": "direct", "credential_mode": "providers"}
+        return value
+
     hints: list[str] = Field(default_factory=list, max_length=64)
 
     @model_validator(mode="after")

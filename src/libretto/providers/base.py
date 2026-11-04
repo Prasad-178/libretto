@@ -13,12 +13,27 @@ class ProviderError(Exception):
         self.code, self.public_message = code, public_message
 
 
+CREDENTIAL_NAMES = (
+    "openrouter",
+    "deepgram",
+    "livekit_api_key",
+    "livekit_api_secret",
+    "assemblyai",
+    "cartesia",
+)
+
+
 class SessionCredentials:
-    def __init__(self, *, openrouter: str = "", deepgram: str = "", sources: dict | None = None):
-        self._keys = {"openrouter": SecretStr(openrouter), "deepgram": SecretStr(deepgram)}
+    """Ephemeral secrets with origin labels; public status contains no values."""
+
+    def __init__(self, *, sources: dict | None = None, **keys: str):
+        if set(keys) - set(CREDENTIAL_NAMES):
+            raise ValueError("Unsupported credential name")
+        if any(not isinstance(value, str) or len(value) > 1024 for value in keys.values()):
+            raise ValueError("Credential must be a string of at most 1024 characters")
+        self._keys = {name: SecretStr(keys.get(name, "")) for name in CREDENTIAL_NAMES}
         self._sources = sources or {
-            name: "hosted" if value else "missing"
-            for name, value in (("openrouter", openrouter), ("deepgram", deepgram))
+            name: "hosted" if keys.get(name) else "missing" for name in CREDENTIAL_NAMES
         }
 
     def __repr__(self) -> str:
@@ -30,18 +45,18 @@ class SessionCredentials:
     def public_status(self) -> dict[str, str]:
         return dict(self._sources)
 
-    def with_overrides(self, *, openrouter: str = "", deepgram: str = "") -> "SessionCredentials":
-        overrides = {"openrouter": openrouter.strip(), "deepgram": deepgram.strip()}
-        if any(len(value) > 1024 for value in overrides.values()):
-            raise ValueError("Credential is too long")
+    def with_overrides(self, **keys: str) -> "SessionCredentials":
+        if set(keys) - set(CREDENTIAL_NAMES):
+            raise ValueError("Unsupported credential name")
+        overrides = {name: keys.get(name, "").strip() for name in CREDENTIAL_NAMES}
         return SessionCredentials(
             **{name: value or self.key(name) for name, value in overrides.items()},
             sources={name: "visitor" if value else self._sources[name] for name, value in overrides.items()},
         )
 
     def clear(self) -> None:
-        self._keys = {name: SecretStr("") for name in self._keys}
-        self._sources = {name: "missing" for name in self._sources}
+        self._keys = {name: SecretStr("") for name in CREDENTIAL_NAMES}
+        self._sources = {name: "missing" for name in CREDENTIAL_NAMES}
 
 
 class Responder(Protocol):

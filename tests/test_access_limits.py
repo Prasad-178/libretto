@@ -19,7 +19,7 @@ def test_vercel_defaults_to_visitor_keys_even_with_accidental_hosted_keys(monkey
 
     with TestClient(create_app(load_environment=False, model_factory=factory)) as client:
         config = client.get("/api/config").json()
-        assert config["credentials"] == {"openrouter": "missing", "deepgram": "missing"}
+        assert set(config["credentials"].values()) == {"missing"}
         assert config["credential_mode"] == "visitor"
         for mode in ("text", "voice"):
             with client.websocket_connect("/api/ws") as ws:
