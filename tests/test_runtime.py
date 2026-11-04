@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+from libretto.demo_tools import details_fingerprint
 from libretto.schema import load_workflow
 
 
@@ -200,7 +201,7 @@ async def test_interrupt_prevents_action_waiting_for_playback():
 
 
 async def test_correction_cannot_reuse_readback_from_an_earlier_turn():
-    from libretto.state import Fact, Message, details_fingerprint
+    from libretto.state import Fact, Message
 
     flow = load_workflow(Path("examples/receptionist.yaml"))
     session = make_session(
@@ -235,7 +236,7 @@ async def test_correction_cannot_reuse_readback_from_an_earlier_turn():
 
 
 async def test_late_evaluator_cannot_confirm_its_own_corrected_readback():
-    from libretto.state import Fact, Message, details_fingerprint
+    from libretto.state import Fact, Message
 
     class Readback:
         async def stream_reply(self, context):

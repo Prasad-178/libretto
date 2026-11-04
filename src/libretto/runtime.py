@@ -7,19 +7,25 @@ from collections import deque
 from dataclasses import asdict, replace
 from typing import AsyncIterator, Callable
 
+from libretto.confirmation import (
+    ConfirmationBlocked,
+    ConfirmationState,
+    DeliveryAck,
+    accept_confirmation,
+    confirmation_fingerprint,
+    record_delivery,
+)
 from libretto.events import ServerEvent
 from libretto.prompts import compose_prompt
 from libretto.requests import begin_request, cancel_request
 from libretto.schema import Edge, Workflow
 from libretto.state import (
-    DETAIL_FIELDS,
     Evaluation,
     Fact,
     GenerationContext,
     Message,
     SessionState,
     StageSnapshot,
-    details_fingerprint,
 )
 
 CALL_LIMIT_SECONDS = 300
@@ -103,6 +109,7 @@ class Session:
             tuple(replace(m) for m in self.state.history),
             self.state.readback_fingerprint,
             self.state.request.id if self.state.request else None,
+            {key: permit.message_id for key, permit in self.state.confirmations.items() if permit.delivered},
         )
 
     async def publish_state(self) -> None:
@@ -301,24 +308,34 @@ class Session:
                 proposals[key] = Fact(value, patch.status, patch.evidence, context.turn_id)
             current = self.state.values()
             changed = {key for key, fact in proposals.items() if current.get(key) != fact.value}
-            if changed.intersection(DETAIL_FIELDS):
-                self.state.facts.pop("message_confirmed", None)
-                self.state.readback_fingerprint = None
-            if "recipient" in changed:
-                self.state.facts.pop("destination_confirmed", None)
-            self.state.facts.update({k: v for k, v in proposals.items() if k != "message_confirmed"})
-            self._record_readback()
-            if "message_confirmed" in proposals:
-                if (
-                    not changed.intersection(DETAIL_FIELDS)
-                    and context.snapshot.readback_fingerprint
-                    and context.snapshot.readback_fingerprint == details_fingerprint(self.state.values())
-                ):
-                    self.state.facts["message_confirmed"] = proposals["message_confirmed"]
+            accepted_fields = {p.acceptance_field for p in self.workflow.confirmations.values()}
+            for policy_id, policy in self.workflow.confirmations.items():
+                affected = changed.intersection(policy.fields)
+                refused = policy.acceptance_field in proposals and proposals[policy.acceptance_field].value is not True
+                if affected or refused:
+                    self.state.confirmations.pop(policy_id, None)
+                    self.state.facts.pop(policy.acceptance_field, None)
+                    self.state.readback_fingerprint = None
+                    if affected and self.workflow.nodes[context.snapshot.stage].confirmation == policy_id:
+                        self._refresh_readback = True
+            self.state.facts.update({k: v for k, v in proposals.items() if k not in accepted_fields})
+            for policy_id, policy in self.workflow.confirmations.items():
+                proposed = proposals.get(policy.acceptance_field)
+                permit = self.state.confirmations.get(policy_id)
+                if proposed and proposed.value is True and permit:
+                    if context.snapshot.confirmation_messages.get(policy_id) != permit.message_id:
+                        continue
+                    try:
+                        fingerprint = confirmation_fingerprint(policy_id, permit.request_id, self.state.values(), policy.fields)
+                        self.state.confirmations[policy_id] = accept_confirmation(
+                            permit, current_request_id=self.state.request.id if self.state.request else "",
+                            current_fingerprint=fingerprint or "", turn_id=context.turn_id,
+                            changed_fields=changed.intersection(policy.fields))
+                        self.state.facts[policy.acceptance_field] = proposed
+                    except ConfirmationBlocked:
+                        pass
             self.state.revision += 1
             node = self.workflow.nodes[context.snapshot.stage]
-            if node.readback and changed.intersection(DETAIL_FIELDS):
-                self._refresh_readback = True
             selected = next(
                 (
                     edge
@@ -371,27 +388,19 @@ class Session:
                 )
 
     def _record_readback(self) -> None:
-        values = self.state.values()
-        fingerprint = details_fingerprint(values)
-        if fingerprint and self.state.history:
-            last = next((m for m in reversed(self.state.history) if m.role == "assistant"), None)
-            current_user = next((m for m in reversed(self.state.history) if m.role == "user"), None)
-            if (
-                last
-                and last.delivered
-                and not last.interrupted
-                and current_user
-                and last.turn_id == current_user.turn_id
-                and "?" in last.content
-                and (
-                    last.readback_fingerprint == fingerprint
-                    or (
-                        not any(node.readback for node in self.workflow.nodes.values())
-                        and all(normalized(str(values[k])) in normalized(last.content) for k in DETAIL_FIELDS)
-                    )
-                )
-            ):
-                self.state.readback_fingerprint = fingerprint
+        if not self.state.request:
+            return
+        for message in self.state.history:
+            policy_id = message.confirmation_id
+            permit = self.state.confirmations.get(policy_id)
+            if permit and permit.message_id == message.id and message.delivered and not message.interrupted:
+                try:
+                    self.state.confirmations[policy_id] = record_delivery(
+                        permit, DeliveryAck(message.id, message.epoch, True),
+                        current_request_id=self.state.request.id)
+                    self.state.readback_fingerprint = permit.fingerprint
+                except ConfirmationBlocked:
+                    continue
 
     async def _progress(self) -> None:
         if self._speaking or self._progressing or not self._pending or self.closed:
@@ -415,16 +424,19 @@ class Session:
                             reason="Required facts or confirmation are missing.",
                         )
                         return
-                    if node.tool == "capture_message" and (
-                        not self.state.readback_fingerprint
-                        or self.state.readback_fingerprint != details_fingerprint(values)
-                    ):
-                        await self.emit(
-                            "action_blocked",
-                            node=target,
-                            reason="The current details need a confirmed readback.",
-                        )
-                        return
+                    if node.confirmation:
+                        policy = self.workflow.confirmations[node.confirmation]
+                        permit = self.state.confirmations.get(node.confirmation)
+                        current_request = self.state.request
+                        fingerprint = confirmation_fingerprint(node.confirmation, current_request.id,
+                            values, policy.fields) if current_request else None
+                        if not (current_request and current_request.name == policy.request and permit
+                                and permit.request_id == current_request.id and permit.accepted_turn_id
+                                and permit.fingerprint == fingerprint and permit.delivered
+                                and (not policy.consent_field or values.get(policy.consent_field) is True)):
+                            await self.emit("action_blocked", node=target, code="confirmation_required",
+                                            reason="The current request needs a delivered and accepted readback.")
+                            return
                     if self.defer_actions:
                         self.state.pending_stage = target
                         self._spawn(self._after_playback(source, edge, epoch))
@@ -444,7 +456,7 @@ class Session:
                     return
                 if node.kind == "action":
                     arguments = {key: values[field] for key, field in node.arguments.items()}
-                    key = f"{target}:{details_fingerprint(values) or str(arguments)}"
+                    key = f"{target}:{self.state.readback_fingerprint or str(arguments)}"
                     receipt = self._actions.get(key)
                     if receipt is None:
                         await self.emit("tool_started", tool=node.tool, arguments=arguments)
@@ -549,9 +561,18 @@ class Session:
                 generated_content=text,
                 epoch=epoch,
                 delivered=not self.defer_actions,
-                readback_fingerprint=details_fingerprint(values) if set(DETAIL_FIELDS) <= fields else None,
+                readback_fingerprint=confirmation_fingerprint(node.confirmation, self.state.request.id,
+                    values, self.workflow.confirmations[node.confirmation].fields)
+                    if node.confirmation and self.state.request else None,
+                confirmation_id=node.confirmation,
+                request_id=self.state.request.id if self.state.request else None,
             )
             self.state.history.append(message)
+            if node.confirmation and message.readback_fingerprint and self.state.request:
+                policy = self.workflow.confirmations[node.confirmation]
+                self.state.confirmations[node.confirmation] = ConfirmationState(node.confirmation,
+                    self.state.request.id, message.readback_fingerprint, message.id, epoch,
+                    delivered=message.delivered or not policy.require_delivery)
             self._speaking = True
             try:
                 await self.emit("readback", message_id=message.id, fields=sorted(fields))
@@ -594,6 +615,8 @@ class Session:
             message.interrupted = interrupted
             if interrupted:
                 self.state.readback_fingerprint = None
+                if message.confirmation_id:
+                    self.state.confirmations.pop(message.confirmation_id, None)
 
     def playback_finished(self, speech_id: str = "") -> None:
         message_id = self._speech_messages.get(speech_id)
@@ -643,6 +666,11 @@ class Session:
                 if not message.interrupted:
                     interrupted_ids.append(message.id)
                 message.interrupted = True
+        for message in self.state.history:
+            if message.interrupted and message.confirmation_id:
+                permit = self.state.confirmations.get(message.confirmation_id)
+                if permit and permit.message_id == message.id:
+                    self.state.confirmations.pop(message.confirmation_id, None)
         if (
             self.state.history
             and self.state.history[-1].role == "assistant"

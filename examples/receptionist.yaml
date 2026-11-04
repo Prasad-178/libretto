@@ -47,8 +47,22 @@ fields:
   destination_confirmed: {type: boolean, description: "Caller explicitly approved transfer to the current recipient"}
   message_consent: {type: boolean, description: "Caller explicitly asked or agreed to leave a message"}
   message_confirmed: {type: boolean, description: "Caller confirmed a readback of the CURRENT message and contact details"}
+requests:
+  front_desk:
+    fields: [recipient, caller_name, callback_number, message, destination_confirmed, message_consent, message_confirmed]
+confirmations:
+  transfer_destination:
+    request: front_desk
+    fields: [recipient]
+    acceptance_field: destination_confirmed
+  message_details:
+    request: front_desk
+    fields: [recipient, caller_name, callback_number, message]
+    acceptance_field: message_confirmed
+    consent_field: message_consent
 nodes:
   identify:
+    begin_request: front_desk
     kind: conversation
     title: Identify intent
     prompt: |
@@ -87,6 +101,9 @@ nodes:
         predicate: {op: exists, field: recipient}
       - {id: message_instead, to: take_message, condition: The caller explicitly prefers to leave a message.}
   confirm_transfer:
+    confirmation: transfer_destination
+    entry: respond
+    readback: "Transfer to {recipient}. Shall I connect you?"
     kind: conversation
     title: Confirm transfer
     prompt: |
@@ -102,6 +119,7 @@ nodes:
       - {id: changed, to: destination, condition: The caller changes or questions the destination.}
       - {id: message_instead, to: take_message, condition: The caller asks to leave a message instead.}
   transfer:
+    confirmation: transfer_destination
     kind: action
     title: Attempt transfer
     tool: transfer_call
@@ -149,6 +167,7 @@ nodes:
             - {op: exists, field: message}
       - {id: declined, to: wrap_up, condition: The caller declines to provide the required details.}
   confirm_message:
+    confirmation: message_details
     kind: conversation
     title: Confirm details
     patient: true
@@ -171,6 +190,7 @@ nodes:
         predicate: {op: equals, field: message_confirmed, value: true}
       - {id: corrected, to: take_message, condition: The caller corrects or adds message/contact details.}
   save_message:
+    confirmation: message_details
     kind: action
     title: Capture message
     tool: capture_message

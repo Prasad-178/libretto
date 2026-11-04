@@ -1,13 +1,12 @@
 """Typed session data; credentials deliberately do not belong here."""
 
-import hashlib
-import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import Field
 
+from libretto.confirmation import ConfirmationState
 from libretto.schema import StrictModel
 
 
@@ -48,6 +47,8 @@ class Message:
     epoch: int = 0
     delivered: bool = True
     readback_fingerprint: str | None = None
+    confirmation_id: str | None = None
+    request_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,7 @@ class StageSnapshot:
     history: tuple[Message, ...]
     readback_fingerprint: str | None = None
     request_id: str | None = None
+    confirmation_messages: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -107,16 +109,8 @@ class SessionState:
     transfer_outcome: str = "unavailable"
     session_id: str = field(default_factory=lambda: uuid4().hex)
     request: RequestState | None = None
+    confirmations: dict[str, ConfirmationState] = field(default_factory=dict)
 
     def values(self) -> dict[str, Any]:
         return {key: fact.value for key, fact in self.facts.items() if fact.status == "answered"}
 
-
-DETAIL_FIELDS = ("recipient", "caller_name", "callback_number", "message")
-
-
-def details_fingerprint(values: dict[str, Any]) -> str | None:
-    if not all(values.get(key) for key in DETAIL_FIELDS):
-        return None
-    encoded = json.dumps({key: values[key] for key in DETAIL_FIELDS}, sort_keys=True).encode()
-    return hashlib.sha256(encoded).hexdigest()

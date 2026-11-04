@@ -72,8 +72,17 @@ class RequestSpec(StrictModel):
     fields: list[str] = Field(default_factory=list)
 
 
+class ConfirmationSpec(StrictModel):
+    request: str
+    fields: list[str] = Field(min_length=1)
+    acceptance_field: str
+    consent_field: str | None = None
+    require_delivery: bool = True
+
+
 class Node(StrictModel):
     begin_request: str | None = None
+    confirmation: str | None = None
     kind: Literal["conversation", "action", "say", "end"]
     title: str = ""
     prompt: str = ""
@@ -140,6 +149,8 @@ class Workflow(StrictModel):
     speech: Speech = Field(default_factory=Speech)
     nodes: dict[str, Node]
     requests: dict[str, RequestSpec] = Field(default_factory=dict)
+    confirmations: dict[str, ConfirmationSpec] = Field(default_factory=dict)
+    evaluation_prompt: str = Field(default="", max_length=5000)
 
     @model_validator(mode="after")
     def references(self) -> Self:
@@ -160,7 +171,29 @@ class Workflow(StrictModel):
                 if field in scoped_fields:
                     raise ValueError(f"Field {field} belongs to multiple requests")
                 scoped_fields.add(field)
+        for name, policy in self.confirmations.items():
+            if policy.request not in self.requests:
+                raise ValueError(f"Unknown confirmation request {policy.request}")
+            scope = set(self.requests[policy.request].fields)
+            if set(policy.fields) - scope:
+                raise ValueError(f"Confirmation fields must belong to request {policy.request}")
+            if policy.acceptance_field in policy.fields:
+                raise ValueError("Acceptance field cannot be a protected detail")
+            for flag in [policy.acceptance_field] + ([policy.consent_field] if policy.consent_field else []):
+                if flag not in scope or self.fields[flag].type != "boolean":
+                    raise ValueError(f"Confirmation flag {flag} must be a request-local boolean")
         for node_id, node in self.nodes.items():
+            if node.confirmation:
+                if node.confirmation not in self.confirmations:
+                    raise ValueError(f"Unknown confirmation {node.confirmation} at {node_id}")
+                if node.kind != "action" and not (node.kind == "conversation" and node.readback and node.entry == "respond"):
+                    raise ValueError("Confirmation node must be an action or responding readback")
+                if node.readback:
+                    template_fields = {field for _, field, _, _ in Formatter().parse(node.readback) if field}
+                    valid_template = all(field is None or (field in self.fields and not spec and not conversion)
+                        for _, field, spec, conversion in Formatter().parse(node.readback))
+                    if valid_template and set(self.confirmations[node.confirmation].fields) - template_fields:
+                        raise ValueError("Readback must include all protected confirmation fields")
             if node.begin_request is not None and node.begin_request not in self.requests:
                 raise ValueError(f"Unknown request {node.begin_request} at {node_id}")
             if node.readback:

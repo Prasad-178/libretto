@@ -1,11 +1,13 @@
 """Registered local demonstration tools. No outbound business actions."""
 
+import hashlib
 import json
 import re
 import uuid
 from pathlib import Path
+from typing import Any
 
-from libretto.state import SessionState, ToolResult, details_fingerprint
+from libretto.state import SessionState, ToolResult
 
 
 class DemoToolRegistry:
@@ -53,7 +55,6 @@ class DemoToolRegistry:
             or not values.get("message_confirmed")
             or not 7 <= len(phone) <= 15
             or not state.readback_fingerprint
-            or state.readback_fingerprint != details_fingerprint(values)
             or any(
                 arguments.get(field) != values.get(field)
                 for field in ("recipient", "caller_name", "callback_number", "message")
@@ -72,3 +73,13 @@ class DemoToolRegistry:
                 },
             )
         return self._cache[key]
+
+
+DETAIL_FIELDS = ("recipient", "caller_name", "callback_number", "message")
+
+
+def details_fingerprint(values: dict[str, Any]) -> str | None:
+    if not all(values.get(key) for key in DETAIL_FIELDS):
+        return None
+    encoded = json.dumps({key: values[key] for key in DETAIL_FIELDS}, sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()

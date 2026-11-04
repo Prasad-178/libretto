@@ -2,6 +2,7 @@ from pathlib import Path
 
 from test_runtime import Evaluator, Search, Speaker, next_event
 
+from libretto.demo_tools import details_fingerprint
 from libretto.schema import load_workflow
 
 
@@ -15,6 +16,8 @@ async def test_transfer_failure_offers_message_instead_of_claiming_success():
     session = Session(flow, Speaker(), evaluator, Search(), ToolRegistry())
     session.state.active_stage = "confirm_transfer"
     session.state.facts["recipient"] = Fact("billing", "answered", "billing", "previous")
+    await session._entry_response(session.epoch)
+    await next_event(session, "response_done")
     try:
         await session.submit_turn("Yes.", "approval")
         result = await next_event(session, "tool_result")
@@ -57,7 +60,7 @@ async def test_complete_details_skip_to_confirmation_without_an_extra_user_turn(
 
 async def test_mock_capture_requires_current_confirmed_readback():
     from libretto.demo_tools import DemoToolRegistry as ToolRegistry
-    from libretto.state import Fact, SessionState, details_fingerprint
+    from libretto.state import Fact, SessionState
 
     state = SessionState("save_message")
     values = {
@@ -138,7 +141,7 @@ async def test_faq_side_question_keeps_message_task_and_uses_real_sources():
 async def test_a_later_confirmation_of_an_existing_readback_can_capture():
     from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
-    from libretto.state import Fact, Message, details_fingerprint
+    from libretto.state import Fact, Message
 
     session = Session(
         load_workflow(Path("examples/receptionist.yaml")),
@@ -158,6 +161,8 @@ async def test_a_later_confirmation_of_an_existing_readback_can_capture():
     session.state.facts = {k: Fact(v, "answered", str(v), "old") for k, v in values.items()}
     session.state.history = [Message("assistant", "billing Sam 5550100 Please call. Correct?", "old")]
     session.state.readback_fingerprint = details_fingerprint(values)
+    await session._entry_response(session.epoch)
+    await next_event(session, "response_done")
     try:
         await session.submit_turn("Yes.", "approval")
         assert (await next_event(session, "tool_result")).data["status"] == "captured"
@@ -258,7 +263,7 @@ async def test_missing_recipient_cannot_produce_a_validated_readback():
 async def test_corrected_details_force_new_readback_even_when_semantic_route_is_omitted():
     from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
-    from libretto.state import Fact, details_fingerprint
+    from libretto.state import Fact
 
     session = Session(
         load_workflow(Path("examples/receptionist.yaml")),

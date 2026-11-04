@@ -12,6 +12,7 @@ def cancel_request(state: SessionState) -> None:
         for field in state.request.fields:
             state.facts.pop(field, None)
     state.request = None
+    state.confirmations.clear()
     state.readback_fingerprint = None
     state.pending_stage = None
 

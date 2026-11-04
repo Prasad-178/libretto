@@ -70,3 +70,74 @@ def test_duplicate_complete_delivery_does_not_revoke_accepted_permission():
                               turn_id='approval',changed_fields=set())
     repeated=record_delivery(state,DeliveryAck('readback-1',3,True),current_request_id='request-a')
     assert repeated.accepted_turn_id == 'approval'
+
+
+def test_policy_schema_rejects_unknown_scope_and_nonboolean_acceptance():
+    from libretto.schema import parse_workflow
+    source='''version: 1
+id: policy
+name: Policy
+start: collect
+shared_prompt: Help
+fields:
+  address: {type: string}
+  accepted: {type: string}
+requests:
+  visit: {fields: [address, accepted]}
+confirmations:
+  booking: {request: visit, fields: [address], acceptance_field: accepted}
+nodes:
+  collect: {kind: end}
+'''
+    with pytest.raises(ValueError,match='boolean'):
+        parse_workflow(source)
+    with pytest.raises(ValueError,match='Unknown confirmation request'):
+        parse_workflow(source.replace('request: visit','request: missing'))
+
+
+@pytest.mark.parametrize('punctuation',['.','?','\n','。'])
+async def test_readback_punctuation_does_not_change_explicit_delivery(punctuation):
+    from support.workflow_harness import ScriptedEvaluator, ScriptedResponder, drain_until
+
+    from libretto.runtime import Session
+    from libretto.schema import parse_workflow
+    from libretto.state import Evaluation, Fact
+    flow=parse_workflow('''version: 1
+id: repair
+name: Repair
+start: confirm
+shared_prompt: Help
+fields:
+  address: {type: string}
+  accepted: {type: boolean}
+requests:
+  visit: {fields: [address, accepted]}
+confirmations:
+  booking: {request: visit, fields: [address], acceptance_field: accepted}
+nodes:
+  confirm:
+    kind: conversation
+    begin_request: visit
+    confirmation: booking
+    entry: respond
+    readback: "Address {address}"
+    edges: [{id: approved, to: wait, predicate: {op: equals, field: accepted, value: true}}]
+  wait:
+    kind: conversation
+    edges: [{id: again, to: confirm, condition: another request}]
+''')
+    flow.nodes['confirm'].readback += punctuation
+    class Search:
+        def search(self,*args,**kwargs): return []
+    session=Session(flow,ScriptedResponder(['Thanks']),ScriptedEvaluator([
+        Evaluation(updates={'accepted':{'value':True,'evidence':'yes'}})]),Search(),None)
+    session.state.facts['address']=Fact('7 Test St','answered','7 Test St','details')
+    try:
+        await session._entry_response(session.epoch)
+        await drain_until(session,'response_done')
+        await session.submit_turn('yes','approval')
+        await drain_until(session,'transition')
+        assert session.state.active_stage == 'wait'
+        assert session.state.confirmations['booking'].accepted_turn_id == 'approval'
+    finally:
+        await session.close()
