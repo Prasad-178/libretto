@@ -1,6 +1,6 @@
 # Libretto roadmap
 
-Updated 2026-11-04. Direction approved by Prasad; M1 is implemented and locally verified on its feature branch; later milestones are planned. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
+Updated 2026-11-04. Direction approved by Prasad; M1 is merged into main and locally verified; later milestones are planned. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -14,7 +14,7 @@ Accounts, billing, subscriptions, organizations, collaboration, shared workspace
 
 | Area | Existing behavior | Remaining gap relevant to this roadmap |
 | --- | --- | --- |
-| Definition | Strict YAML schema, fields, graph, prompts, knowledge, actions, model/speech configuration | Explicit request/confirmation semantics and compiled application tool contracts are implemented on the M1 branch. |
+| Definition | Strict YAML schema, fields, graph, prompts, knowledge, actions, model/speech configuration | Explicit request/confirmation semantics and compiled application tool contracts are implemented on main. |
 | Runtime | Parallel responder/evaluator, transitions, cancellation epochs, readbacks and simulated actions | Core authority is generic; Northline guidance and simulated handlers are explicit application configuration. |
 | Studio | Flow/Routes, inspectors, source-preserving edits/history, import/export/sidecar, Sources/retrieval, Settings, fixed test snapshots | Bounded usability gaps remain; no new product-platform layer is needed. |
 | Developer API | Python source package, provider protocols and an internal Session | WorkflowRunner and the developer registry are documented and clean-install tested; see the library guide. |
@@ -38,7 +38,7 @@ Milestone order is not a calendar estimate. Keep one active milestone and a smal
 
 ## M1 — two agents, one reusable core
 
-Local implementation and compatibility checks are complete on `feat/reusable-core-m1`; the whole-branch review and verified fix pass are complete; merge/CI/license/release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 does not start implicitly.
+M1 is merged into main. The whole-branch review, verified fix pass and [follow-up maintainability review](docs/milestones/2026-11-04-m1-follow-up-review.md) are complete locally. Check CI at the current head; license and release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 does not start implicitly.
 
 ### Scope
 

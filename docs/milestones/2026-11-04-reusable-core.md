@@ -61,3 +61,7 @@ These decisions are recorded for review, including temporary sequencing decision
 - Inherited session/time/turn limits remain unchanged in M1 — accepted the documented scope/evidence after review — cost if wrong: these limits may surprise library users.
 - Worklet overflow is not treated as an authorization defect because the complete app path interrupts before drain — accepted the documented scope/evidence after review — cost if wrong: this relies on that browser event ordering.
 - License selection, release, deployment and remote CI remain owner/external gates — accepted the documented scope/evidence after review — cost if wrong: local completion does not establish release or merge readiness.
+
+## Follow-up after merge
+
+M1 was merged into main and pushed at `b68df8b`. A subsequent [correctness/readability review](2026-11-04-m1-follow-up-review.md) fixes the deferred CLI issue, full-buffer event-stream termination and malformed tool declarations; it records updated verification counts and module ownership. The original review/verification record above describes its historical head.

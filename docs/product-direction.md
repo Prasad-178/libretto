@@ -1,6 +1,6 @@
 # Libretto product direction
 
-Status: approved direction and exclusions, confirmed by Prasad on 2026-11-04. Technical contracts in the linked implementation spec are planned work, not shipped APIs.
+Status: approved direction and exclusions, confirmed by Prasad on 2026-11-04. The M1 core contracts are implemented on main; later roadmap milestones remain planned.
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
