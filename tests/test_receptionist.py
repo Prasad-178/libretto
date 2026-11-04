@@ -6,9 +6,9 @@ from libretto.schema import load_workflow
 
 
 async def test_transfer_failure_offers_message_instead_of_claiming_success():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
     from libretto.state import Fact
-    from libretto.tools import ToolRegistry
 
     flow = load_workflow(Path("examples/receptionist.yaml"))
     evaluator = Evaluator(updates={"destination_confirmed": {"value": True, "evidence": "Yes"}})
@@ -27,8 +27,8 @@ async def test_transfer_failure_offers_message_instead_of_claiming_success():
 
 
 async def test_complete_details_skip_to_confirmation_without_an_extra_user_turn():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
-    from libretto.tools import ToolRegistry
 
     evaluator = Evaluator(
         matches=["leave_message"],
@@ -56,8 +56,8 @@ async def test_complete_details_skip_to_confirmation_without_an_extra_user_turn(
 
 
 async def test_mock_capture_requires_current_confirmed_readback():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.state import Fact, SessionState, details_fingerprint
-    from libretto.tools import ToolRegistry
 
     state = SessionState("save_message")
     values = {
@@ -83,9 +83,9 @@ async def test_mock_capture_requires_current_confirmed_readback():
 
 
 async def test_cancel_request_preserves_history_but_clears_task():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
     from libretto.state import Evaluation, Fact
-    from libretto.tools import ToolRegistry
 
     class Cancel:
         async def evaluate(self, context):
@@ -107,10 +107,10 @@ async def test_cancel_request_preserves_history_but_clears_task():
 
 
 async def test_faq_side_question_keeps_message_task_and_uses_real_sources():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.retrieval import RetrievalIndex
     from libretto.runtime import Session
     from libretto.state import Fact
-    from libretto.tools import ToolRegistry
 
     class Answer:
         async def stream_reply(self, context):
@@ -136,9 +136,9 @@ async def test_faq_side_question_keeps_message_task_and_uses_real_sources():
 
 
 async def test_a_later_confirmation_of_an_existing_readback_can_capture():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
     from libretto.state import Fact, Message, details_fingerprint
-    from libretto.tools import ToolRegistry
 
     session = Session(
         load_workflow(Path("examples/receptionist.yaml")),
@@ -167,8 +167,8 @@ async def test_a_later_confirmation_of_an_existing_readback_can_capture():
 
 
 async def test_validated_readback_is_generated_without_another_model_and_requires_playback():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
-    from libretto.tools import ToolRegistry
 
     class CountingSpeaker:
         calls = 0
@@ -227,9 +227,9 @@ async def test_validated_readback_is_generated_without_another_model_and_require
 
 
 async def test_missing_recipient_cannot_produce_a_validated_readback():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
     from libretto.state import Fact
-    from libretto.tools import ToolRegistry
 
     session = Session(
         load_workflow(Path("examples/receptionist.yaml")), Speaker(), Evaluator(), Search(), ToolRegistry()
@@ -256,9 +256,9 @@ async def test_missing_recipient_cannot_produce_a_validated_readback():
 
 
 async def test_corrected_details_force_new_readback_even_when_semantic_route_is_omitted():
+    from libretto.demo_tools import DemoToolRegistry as ToolRegistry
     from libretto.runtime import Session
     from libretto.state import Fact, details_fingerprint
-    from libretto.tools import ToolRegistry
 
     session = Session(
         load_workflow(Path("examples/receptionist.yaml")),

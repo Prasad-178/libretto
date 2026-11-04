@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
+from libretto.demo_tools import DemoToolRegistry as ToolRegistry
 from libretto.providers.base import ProviderError, SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.runtime import CALL_LIMIT_SECONDS, Session
@@ -28,7 +29,6 @@ from libretto.studio_api import (
     preview_retrieval,
 )
 from libretto.studio_entry import HTML as STUDIO_HTML
-from libretto.tools import ToolRegistry
 from libretto.workspace import StudioWorkspace
 
 ROOT = Path(__file__).resolve().parents[2]

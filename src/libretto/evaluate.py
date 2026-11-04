@@ -7,13 +7,13 @@ import statistics
 import time
 from pathlib import Path
 
+from libretto.demo_tools import DemoToolRegistry as ToolRegistry
 from libretto.providers.base import SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.retrieval import build_index
 from libretto.runtime import Session
 from libretto.schema import load_workflow
 from libretto.state import Message
-from libretto.tools import ToolRegistry
 
 # Expected facts are independent of the retriever's implementation.
 RETRIEVAL_CASES = [
