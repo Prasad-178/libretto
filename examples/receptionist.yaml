@@ -130,6 +130,7 @@ nodes:
       - {id: unavailable, to: offer_message, result: unavailable}
       - {id: failed, to: offer_message, result: failed}
       - {id: timeout, to: offer_message, result: timeout}
+      - {id: unknown, to: offer_message, result: unknown}
   offer_message:
     kind: conversation
     title: Offer a message
@@ -203,6 +204,7 @@ nodes:
     edges:
       - {id: captured, to: wrap_up, result: captured}
       - {id: failed, to: confirm_message, result: failed}
+      - {id: unknown, to: wrap_up, result: unknown}
   wrap_up:
     kind: conversation
     title: Wrap up

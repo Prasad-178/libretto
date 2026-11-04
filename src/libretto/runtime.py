@@ -1,6 +1,8 @@
 """One connection, one actor. Speaking never universally awaits interpretation."""
 
 import asyncio
+import hashlib
+import json
 import re
 import time
 from collections import deque
@@ -26,6 +28,7 @@ from libretto.state import (
     Message,
     SessionState,
     StageSnapshot,
+    ToolResult,
 )
 
 CALL_LIMIT_SECONDS = 300
@@ -456,16 +459,38 @@ class Session:
                     return
                 if node.kind == "action":
                     arguments = {key: values[field] for key, field in node.arguments.items()}
-                    key = f"{target}:{self.state.readback_fingerprint or str(arguments)}"
-                    receipt = self._actions.get(key)
-                    if receipt is None:
-                        await self.emit("tool_started", tool=node.tool, arguments=arguments)
+                    request_id = self.state.request.id if self.state.request else None
+                    key = json.dumps([self.state.session_id, request_id, target])
+                    argument_hash = hashlib.sha256(json.dumps(arguments, sort_keys=True).encode()).hexdigest()
+                    previous = self._actions.get(key)
+                    if previous is not None:
+                        if previous["argument_hash"] != argument_hash:
+                            await self.emit("action_blocked", node=target, code="action_arguments_changed",
+                                            reason="Start a new request before changing an already dispatched action.")
+                        else:
+                            await self.emit("action_already_completed", node=target, request_id=request_id,
+                                            idempotency_key=key, status=previous.get("status", "unknown"))
+                        return
+                    self._actions[key] = {"argument_hash": argument_hash, "status": "unknown"}
+                    await self.emit("tool_started", tool=node.tool, arguments=arguments,
+                                    request_id=request_id, idempotency_key=key)
+                    cancelled = False
+                    try:
                         result = await self.tools.execute(node.tool, arguments, self.state, key)
-                        receipt = {"tool": node.tool, **result.model_dump()}
-                        self._actions[key] = receipt
-                        self.state.receipts.append(receipt)
+                    except asyncio.CancelledError:
+                        result = ToolResult(status="unknown", data={"reason": "Action interrupted after dispatch"})
+                        cancelled = True
+                    except Exception:
+                        result = ToolResult(status="unknown", data={"reason": "Action outcome could not be established"})
+                    receipt = {"tool": node.tool, **result.model_dump(), "request_id": request_id,
+                               "idempotency_key": key, "argument_fingerprint": argument_hash}
+                    self._actions[key] = {"argument_hash": argument_hash, "status": result.status}
+                    self.state.receipts.append(receipt)
                     await self.emit("tool_result", **receipt)
-                    if epoch != self.epoch:
+                    if cancelled:
+                        raise asyncio.CancelledError
+                    current_request_id = self.state.request.id if self.state.request else None
+                    if epoch != self.epoch or request_id != current_request_id or self.closed:
                         return
                     next_edge = next((e for e in node.edges if e.result == receipt["status"]), None)
                     if not next_edge:

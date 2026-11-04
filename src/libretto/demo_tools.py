@@ -24,11 +24,11 @@ class DemoToolRegistry:
         return [
             {"name": "transfer_call", "parameters": [
                 {"name": "recipient", "type": "string", "required": True}],
-             "results": ["connected", "unavailable", "failed", "timeout"]},
+             "results": ["connected", "unavailable", "failed", "timeout", "unknown"]},
             {"name": "capture_message", "parameters": [
                 {"name": name, "type": "string", "required": True}
                 for name in ["recipient", "caller_name", "callback_number", "message"]],
-             "results": ["captured", "failed"]},
+             "results": ["captured", "failed", "unknown"]},
         ]
 
     def validate(self, workflow) -> None:
