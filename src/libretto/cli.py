@@ -45,19 +45,20 @@ def main() -> None:
         uvicorn.run(create_app(workflow_path=Path(args.workflow) if args.workflow else None,
                                project_root=args.project_root), host="127.0.0.1", port=args.port)
     else:
-        workflow = load_workflow(Path(selected_workflow))
         if args.command == "validate":
             tools = ToolRegistry()
             if args.demo_tools or args.workflow is None:
                 from libretto.demo_tools import DemoToolRegistry
                 tools = DemoToolRegistry()
             try:
-                compile_workflow(Path(selected_workflow).read_text(), tools=tools,
-                                 project_root=args.project_root or Path(selected_workflow).parent)
+                compiled = compile_workflow(Path(selected_workflow).read_text(), tools=tools,
+                                            project_root=args.project_root or Path(selected_workflow).parent)
+                workflow = compiled.workflow
             except WorkflowCompileError as error:
                 for issue in error.issues:
                     print(f"{'.'.join(map(str, issue.path)) or 'source'} [{issue.code}]: {issue.message}")
                 raise SystemExit(1) from None
             print(f"Valid: {workflow.name} ({len(workflow.nodes)} nodes)")
         else:
+            workflow = load_workflow(Path(selected_workflow))
             print(json.dumps(workflow.model_dump(), indent=2))

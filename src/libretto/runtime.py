@@ -54,6 +54,7 @@ class Session:
         self.epoch = 0
         self.created_at = clock()
         self.closed = False
+        self._events_finished = False
         self.defer_actions = False
         self.manual_delivery = False
         self.trace: deque[ServerEvent] = deque(maxlen=500)
@@ -102,7 +103,7 @@ class Session:
         await self.queue.put(event)
 
     async def events(self) -> AsyncIterator[ServerEvent]:
-        while True:
+        while not (self._events_finished and self.queue.empty()):
             event = await self.queue.get()
             if event is None:
                 break
@@ -845,5 +846,6 @@ class Session:
         tasks = [task for task in self._tasks if task is not asyncio.current_task()]
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+        self._events_finished = True
         if not self.queue.full():
             self.queue.put_nowait(None)

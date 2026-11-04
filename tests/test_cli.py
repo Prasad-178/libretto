@@ -62,3 +62,16 @@ def test_validate_rejects_missing_application_handler(monkeypatch, tmp_path, cap
         main()
     assert error.value.code==1
     assert 'unregistered_tool' in capsys.readouterr().out
+
+
+def test_validate_formats_invalid_schema_without_traceback(monkeypatch, tmp_path, capsys):
+    import pytest
+
+    from libretto.cli import main
+    path = tmp_path / 'invalid.yaml'
+    path.write_text('version: 1\nid: broken\n')
+    monkeypatch.setattr('sys.argv', ['libretto', 'validate', str(path)])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 1
+    assert 'name [missing]' in capsys.readouterr().out
