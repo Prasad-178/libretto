@@ -5,7 +5,7 @@ from string import Formatter
 from typing import Any, Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
 class StrictModel(BaseModel):
@@ -163,6 +163,10 @@ class Workflow(StrictModel):
         for source in self.common_knowledge:
             if source not in self.knowledge:
                 raise ValueError(f"Unknown knowledge {source}")
+        def invalid(path, message):
+            raise ValidationError.from_exception_data("Workflow", [{"type": "value_error",
+                "loc": path, "input": None, "ctx": {"error": ValueError(message)}}])
+
         scoped_fields = set()
         for name, request in self.requests.items():
             for field in request.fields:
@@ -173,29 +177,38 @@ class Workflow(StrictModel):
                 scoped_fields.add(field)
         for name, policy in self.confirmations.items():
             if policy.request not in self.requests:
-                raise ValueError(f"Unknown confirmation request {policy.request}")
+                invalid(("confirmations", name, "request"), f"Unknown confirmation request {policy.request}")
             scope = set(self.requests[policy.request].fields)
             if set(policy.fields) - scope:
-                raise ValueError(f"Confirmation fields must belong to request {policy.request}")
+                invalid(("confirmations", name, "fields"), f"Confirmation fields must belong to request {policy.request}")
             if policy.acceptance_field in policy.fields:
-                raise ValueError("Acceptance field cannot be a protected detail")
+                invalid(("confirmations", name, "acceptance_field"), "Acceptance field cannot be a protected detail")
+            if policy.consent_field == policy.acceptance_field:
+                invalid(("confirmations", name, "consent_field"), "Consent and acceptance must be separate fields")
             for flag in [policy.acceptance_field] + ([policy.consent_field] if policy.consent_field else []):
                 if flag not in scope or self.fields[flag].type != "boolean":
-                    raise ValueError(f"Confirmation flag {flag} must be a request-local boolean")
+                    invalid(("confirmations", name), f"Confirmation flag {flag} must be a request-local boolean")
         for node_id, node in self.nodes.items():
             if node.confirmation:
                 if node.confirmation not in self.confirmations:
-                    raise ValueError(f"Unknown confirmation {node.confirmation} at {node_id}")
+                    invalid(("nodes", node_id, "confirmation"), f"Unknown confirmation {node.confirmation} at {node_id}")
                 if node.kind != "action" and not (node.kind == "conversation" and node.readback and node.entry == "respond"):
-                    raise ValueError("Confirmation node must be an action or responding readback")
+                    invalid(("nodes", node_id, "confirmation"), "Confirmation node must be an action or responding readback")
+                if node.kind == "action":
+                    policy = self.confirmations[node.confirmation]
+                    if set(node.requires + list(node.arguments.values())) - set(self.requests[policy.request].fields):
+                        invalid(("nodes", node_id, "requires"), "Confirmed action facts must belong to its request")
                 if node.readback:
                     template_fields = {field for _, field, _, _ in Formatter().parse(node.readback) if field}
                     valid_template = all(field is None or (field in self.fields and not spec and not conversion)
                         for _, field, spec, conversion in Formatter().parse(node.readback))
                     if valid_template and set(self.confirmations[node.confirmation].fields) - template_fields:
                         raise ValueError("Readback must include all protected confirmation fields")
-            if node.begin_request is not None and node.begin_request not in self.requests:
-                raise ValueError(f"Unknown request {node.begin_request} at {node_id}")
+            if node.begin_request is not None:
+                if node.begin_request not in self.requests:
+                    invalid(("nodes", node_id, "begin_request"), f"Unknown request {node.begin_request} at {node_id}")
+                if node.kind != "conversation":
+                    invalid(("nodes", node_id, "begin_request"), "Requests must begin at a conversation node")
             if node.readback:
                 if node.kind != "conversation" or node.entry != "respond":
                     raise ValueError("Readback requires a conversation node with entry: respond")

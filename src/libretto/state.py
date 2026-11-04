@@ -84,6 +84,8 @@ class GenerationContext:
     fields: dict[str, Any] = field(default_factory=dict)
     conditions: dict[str, str] = field(default_factory=dict)
     directory: str = ""
+    evaluation_prompt: str = ""
+    confirmation_policies: dict[str, Any] = field(default_factory=dict)
 
 
 EvaluationContext = GenerationContext

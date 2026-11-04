@@ -39,4 +39,6 @@ def compose_prompt(
         {key: spec.model_dump() for key, spec in workflow.fields.items()},
         {edge.id: edge.condition for edge in node.edges if edge.condition},
         directory,
+        workflow.evaluation_prompt,
+        {key: policy.model_dump() for key, policy in workflow.confirmations.items()},
     )

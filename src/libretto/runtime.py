@@ -420,7 +420,7 @@ class Session:
                 node = self.workflow.nodes[target]
                 if node.kind == "action":
                     values = self.state.values()
-                    if not all(values.get(key) for key in node.requires):
+                    if any(values.get(key) is None or values.get(key) == "" for key in node.requires):
                         await self.emit(
                             "action_blocked",
                             node=target,
@@ -561,7 +561,7 @@ class Session:
 
             values = self.state.values()
             fields = {field for _, field, _, _ in Formatter().parse(node.readback) if field is not None}
-            if not all(values.get(field) for field in fields):
+            if any(values.get(field) is None or values.get(field) == "" for field in fields):
                 await self.emit("readback_blocked", reason="Readback fields are incomplete.")
                 return
             text = node.readback.format_map(values).strip()

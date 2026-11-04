@@ -174,3 +174,40 @@ async def test_unknown_facts_are_null_on_wire_and_omitted_from_updates():
             current
         )
         assert set(result.updates) == {"caller_name"}
+
+
+async def test_generic_evaluator_uses_workflow_guidance_without_demo_rules():
+    from pathlib import Path
+
+    from libretto.prompts import compose_prompt
+    from libretto.providers.base import SessionCredentials
+    from libretto.providers.openrouter import OpenRouterAdapter
+    from libretto.schema import load_workflow
+    from libretto.state import StageSnapshot
+
+    flow = load_workflow(Path("examples/repair_visit/agent.yaml"))
+    ctx = compose_prompt(flow, StageSnapshot(flow.start, 0, 1, {}, ()), [], turn_id="t", text="book a visit")
+
+    def handler(request):
+        body = json.loads(request.content)
+        system = body["messages"][0]["content"]
+        assert "Booking consent means" in system
+        assert "message_consent" not in system
+        assert "destination_confirmed" not in system
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {"updates": {}, "matches": [], "control": "continue", "reason": ""}
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await OpenRouterAdapter(SessionCredentials(openrouter="test"), client=client).evaluate(ctx)

@@ -1,0 +1,72 @@
+version: 1
+id: repair-visit
+name: Repair visit
+start: collect
+shared_prompt: Help arrange a fictional repair visit. Only report booking after an actual tool receipt.
+evaluation_prompt: Extract the caller's address, name, issue and preferred visit window. Booking consent means an explicit request to arrange a visit. Acceptance means approval of the complete readback without corrections.
+fields:
+  customer_name: {type: string, description: Caller name}
+  address: {type: string, description: Service address}
+  issue: {type: string, description: Appliance issue}
+  window: {type: string, description: Preferred visit window}
+  consent: {type: boolean, description: Explicit request to arrange the visit}
+  accepted: {type: boolean, description: Approval of the latest complete readback}
+requests:
+  visit: {fields: [customer_name, address, issue, window, consent, accepted]}
+confirmations:
+  booking:
+    request: visit
+    fields: [customer_name, address, issue, window]
+    acceptance_field: accepted
+    consent_field: consent
+tools: [book_visit]
+knowledge: {policies: knowledge}
+common_knowledge: [policies]
+nodes:
+  collect:
+    kind: conversation
+    title: Collect visit details
+    begin_request: visit
+    prompt: Ask for missing details and consent to arrange the visit.
+    edges:
+      - id: complete
+        to: confirm
+        predicate:
+          op: all
+          conditions:
+            - {op: exists, field: customer_name}
+            - {op: exists, field: address}
+            - {op: exists, field: issue}
+            - {op: exists, field: window}
+            - {op: equals, field: consent, value: true}
+      - {id: refused, to: wrap, condition: The caller refuses or abandons the visit.}
+  confirm:
+    kind: conversation
+    title: Confirm visit
+    confirmation: booking
+    entry: respond
+    readback: "Visit for {customer_name} at {address}, about {issue}, during {window}. Are these details correct?"
+    prompt: Process corrections or explicit approval. The runtime issues the readback and booking receipt.
+    edges:
+      - {id: accepted, to: book, timing: before_action, predicate: {op: equals, field: accepted, value: true}}
+      - {id: refused, to: wrap, condition: The caller refuses or abandons the visit.}
+  book:
+    kind: action
+    title: Book visit
+    confirmation: booking
+    tool: book_visit
+    requires: [customer_name, address, issue, window, consent, accepted]
+    arguments: {customer_name: customer_name, address: address, issue: issue, window: window}
+    edges:
+      - {id: booked, to: wrap, result: booked}
+      - {id: failed, to: wrap, result: failed}
+      - {id: unknown, to: wrap, result: unknown}
+  wrap:
+    kind: conversation
+    title: Visit outcome
+    entry: respond
+    prompt: Explain the actual simulated result. An unknown outcome needs checking, not an automatic retry.
+    edges:
+      - {id: another, to: collect, condition: The caller requests another visit.}
+      - {id: goodbye, to: end, condition: The caller ends the conversation.}
+  end: {kind: end, title: End}

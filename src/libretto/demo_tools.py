@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from libretto.state import SessionState, ToolResult
+from libretto.tool_contracts import ParameterSpec, ToolDefinition
+from libretto.tools import ToolRegistry
 
 
 class DemoToolRegistry:
@@ -19,6 +21,33 @@ class DemoToolRegistry:
             directory = json.loads(path.read_text()) if path.exists() else []
         self.directory = directory
         self._cache: dict[str, ToolResult] = {}
+        self.transfer_outcome = "unavailable"
+
+    def snapshot(self) -> ToolRegistry:
+        """Compose explicit simulated handlers without capturing live session facts."""
+        registry = ToolRegistry()
+        recipients = frozenset(entry["id"] for entry in self.directory)
+        outcome = self.transfer_outcome
+        cache = {}
+
+        async def transfer(arguments, context):
+            if arguments["recipient"] not in recipients:
+                return ToolResult(status="failed", data={"reason": "Unknown recipient."})
+            return ToolResult(status=outcome, data={**arguments, "simulated": True})
+
+        async def capture(arguments, context):
+            phone = re.sub(r"\D", "", arguments["callback_number"])
+            if arguments["recipient"] not in recipients or not 7 <= len(phone) <= 15:
+                return ToolResult(status="failed", data={"reason": "Invalid message details."})
+            if context.idempotency_key not in cache:
+                cache[context.idempotency_key] = ToolResult(status="captured", data={
+                    **arguments, "receipt": "demo-" + uuid.uuid4().hex[:10], "session_only": True})
+            return cache[context.idempotency_key].model_copy(deep=True)
+
+        for contract, handler in zip(self.manifest(), (transfer, capture)):
+            registry.register(ToolDefinition(contract["name"], tuple(ParameterSpec(**p)
+                for p in contract["parameters"]), tuple(contract["results"])), handler)
+        return registry.snapshot()
 
     def manifest(self) -> list[dict]:
         return [
