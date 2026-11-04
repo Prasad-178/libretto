@@ -28,9 +28,9 @@ Files: `docs/milestones/2026-11-04-livekit-feasibility.md`; ignored `.local/live
 
 - [x] Verify Cloud Inference versus direct-plugin credentials in official documentation; confirm AssemblyAI and Cartesia availability.
 - [x] Install SDK 1.8.10 in an isolated ignored environment; leave core project dependencies unchanged during inspection.
-- [ ] Prove finalized input, disabled automatic replies, streaming speech, interruption and shutdown with an SDK-level harness; no credentials or paid requests.
-- [ ] Trace output completion to its source. SDK queue drain alone must not be promoted to verified browser rendering. Select an explicit delivery capability/acknowledgement design before approving guarded action support.
-- [ ] Commit a feasibility decision recording evidence, supported mode and unresolved capabilities. Do not silently weaken the readback rule to claim success.
+- [x] Prove finalized input, disabled automatic replies, streaming speech, interruption and shutdown with an SDK-level harness; no credentials or paid requests.
+- [x] Trace output completion to its source. SDK queue drain alone must not be promoted to verified browser rendering. Select an explicit delivery capability/acknowledgement design before approving guarded action support.
+- [x] Commit a feasibility decision recording evidence, supported mode and unresolved capabilities. Do not silently weaken the readback rule to claim success.
 
 ### Task 2: Provider and integration configuration
 
@@ -54,7 +54,7 @@ Files: `src/libretto/integrations/livekit/`, `examples/livekit_repair/`, integra
 
 Files: existing server and browser connection/audio/session modules, backend API and browser tests.
 
-- [ ] Add API/browser tests for the LiveKit default, scoped room-token exchange, missing settings, stop/reconnect, private credential exclusion and explicit legacy behavior.
+- [ ] Add API/browser tests for the LiveKit default, custom-IO playback acknowledgement, missing settings, stop/reconnect, private credential exclusion and explicit legacy behavior. Studio retains PCM/WebSocket transport through LiveKit custom IO; room-token exchange is only needed by room-based consuming applications.
 - [ ] Connect Studio to the same adapter/runner without a second workflow engine. Replace Deepgram-specific connection assumptions and show integration versus speech-provider configuration clearly.
 - [ ] Keep text mode usable without LiveKit. Preserve source edits, export and test snapshot behavior.
 - [ ] Inspect actual rendered Studio states and run affected browser tests before committing.
