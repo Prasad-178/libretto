@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from libretto.project_paths import resolve_source_directory
 from libretto.retrieval import RetrievalIndex, build_index
 from libretto.schema import Workflow, parse_workflow
 from libretto.tools import ToolRegistry
@@ -46,6 +47,17 @@ def compile_workflow(
         ) from error
     except ValueError as error:
         raise WorkflowCompileError([CompileIssue((), "invalid_yaml", str(error))]) from error
+    issues = _validate_tool_contracts(workflow, tools)
+    if issues:
+        raise WorkflowCompileError(issues)
+    index = _compile_sources(workflow, project_root)
+    return CompiledWorkflow(
+        workflow.model_copy(deep=True), hashlib.sha256(source.encode()).hexdigest(), index, tools.snapshot()
+    )
+
+
+def _validate_tool_contracts(workflow: Workflow, tools: ToolRegistry) -> list[CompileIssue]:
+    """Check application signatures and exhaustive result routes without dispatch."""
     manifest = {item["name"]: item for item in tools.manifest()}
     issues = []
     for name in workflow.tools:
@@ -84,28 +96,20 @@ def compile_workflow(
                 issue("unknown_result", f"Unknown result {result}", "edges")
         if not {"failed", "unknown"} <= set(contract["results"]):
             issue("missing_recovery", "Tool must declare failed and unknown outcomes", "tool")
-    if issues:
-        raise WorkflowCompileError(issues)
+    return issues
+
+
+def _compile_sources(workflow: Workflow, project_root: Path | None) -> RetrievalIndex:
     try:
         if workflow.knowledge and project_root is None:
             raise ValueError("A project_root is required for knowledge sources")
         if project_root is not None:
             root = project_root.resolve()
             for relative in workflow.knowledge.values():
-                directory = (root / relative).resolve()
-                if (
-                    Path(relative).is_absolute()
-                    or ".." in Path(relative).parts
-                    or not directory.is_relative_to(root)
-                ):
-                    raise ValueError("Knowledge must remain inside project_root")
-                if any(not file.resolve().is_relative_to(root) for file in directory.glob("*.md")):
-                    raise ValueError("Knowledge files must remain inside project_root")
+                resolve_source_directory(root, relative)
             index = build_index(workflow, root)
         else:
             index = RetrievalIndex([])
-    except ValueError as error:
+    except (ValueError, OSError) as error:
         raise WorkflowCompileError([CompileIssue(("knowledge",), "invalid_source", str(error))]) from error
-    return CompiledWorkflow(
-        workflow.model_copy(deep=True), hashlib.sha256(source.encode()).hexdigest(), index, tools.snapshot()
-    )
+    return index

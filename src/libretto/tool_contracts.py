@@ -1,4 +1,5 @@
 """Application-supplied contracts; no tool code is loaded from YAML."""
+
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -8,7 +9,7 @@ from libretto.state import ToolResult
 @dataclass(frozen=True)
 class ParameterSpec:
     name: str
-    type: Literal['string', 'boolean']
+    type: Literal["string", "boolean"]
     required: bool = True
 
 
@@ -22,11 +23,11 @@ class ToolDefinition:
         object.__setattr__(self, "parameters", tuple(self.parameters))
         object.__setattr__(self, "results", tuple(self.results))
         if not self.name or len({p.name for p in self.parameters}) != len(self.parameters):
-            raise ValueError('Tool needs a name and unique parameters')
-        if any(not p.name or p.type not in {'string', 'boolean'} for p in self.parameters):
-            raise ValueError('Unsupported tool parameter')
+            raise ValueError("Tool needs a name and unique parameters")
+        if any(not p.name or p.type not in {"string", "boolean"} for p in self.parameters):
+            raise ValueError("Unsupported tool parameter")
         if not self.results or len(set(self.results)) != len(self.results):
-            raise ValueError('Tool needs unique results')
+            raise ValueError("Tool needs unique results")
 
 
 @dataclass(frozen=True)

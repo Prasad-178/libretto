@@ -40,24 +40,38 @@ class DemoToolRegistry:
             if arguments["recipient"] not in recipients or not 7 <= len(phone) <= 15:
                 return ToolResult(status="failed", data={"reason": "Invalid message details."})
             if context.idempotency_key not in cache:
-                cache[context.idempotency_key] = ToolResult(status="captured", data={
-                    **arguments, "receipt": "demo-" + uuid.uuid4().hex[:10], "session_only": True})
+                cache[context.idempotency_key] = ToolResult(
+                    status="captured",
+                    data={**arguments, "receipt": "demo-" + uuid.uuid4().hex[:10], "session_only": True},
+                )
             return cache[context.idempotency_key].model_copy(deep=True)
 
         for contract, handler in zip(self.manifest(), (transfer, capture)):
-            registry.register(ToolDefinition(contract["name"], tuple(ParameterSpec(**p)
-                for p in contract["parameters"]), tuple(contract["results"])), handler)
+            registry.register(
+                ToolDefinition(
+                    contract["name"],
+                    tuple(ParameterSpec(**p) for p in contract["parameters"]),
+                    tuple(contract["results"]),
+                ),
+                handler,
+            )
         return registry.snapshot()
 
     def manifest(self) -> list[dict]:
         return [
-            {"name": "transfer_call", "parameters": [
-                {"name": "recipient", "type": "string", "required": True}],
-             "results": ["connected", "unavailable", "failed", "timeout", "unknown"]},
-            {"name": "capture_message", "parameters": [
-                {"name": name, "type": "string", "required": True}
-                for name in ["recipient", "caller_name", "callback_number", "message"]],
-             "results": ["captured", "failed", "unknown"]},
+            {
+                "name": "transfer_call",
+                "parameters": [{"name": "recipient", "type": "string", "required": True}],
+                "results": ["connected", "unavailable", "failed", "timeout", "unknown"],
+            },
+            {
+                "name": "capture_message",
+                "parameters": [
+                    {"name": name, "type": "string", "required": True}
+                    for name in ["recipient", "caller_name", "callback_number", "message"]
+                ],
+                "results": ["captured", "failed", "unknown"],
+            },
         ]
 
     def validate(self, workflow) -> None:

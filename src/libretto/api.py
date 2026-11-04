@@ -8,7 +8,6 @@ from libretto.confirmation import ConfirmationBlocked
 from libretto.events import ServerEvent
 from libretto.providers.base import Evaluator, Responder
 from libretto.runtime import Session
-from libretto.schema import Edge
 from libretto.state import SessionState
 
 
@@ -32,24 +31,9 @@ class WorkflowRunner:
             compiled.tools.snapshot(),
         )
         self._session.manual_delivery = True
-        self._started = False
 
     async def start(self) -> None:
-        if self._started or self._session.closed:
-            return
-        self._started = True
-        self._session._confirmed.set()
-        await self._session.welcome()
-        node = self._session.workflow.nodes[self._session.state.active_stage]
-        if node.kind == "end":
-            await self._session.emit("ended", message="Conversation complete.")
-            await self._session.close()
-        elif node.kind in {"say", "action"}:
-            start = self._session.state.active_stage
-            self._session._pending = (start, Edge(id="__start__", to=start), self._session.epoch)
-            await self._session._progress()
-        elif node.entry == "respond":
-            self._session._spawn(self._session._entry_response(self._session.epoch))
+        await self._session.start()
 
     async def submit(self, text: str, *, turn_id: str) -> None:
         if not turn_id or not text.strip():

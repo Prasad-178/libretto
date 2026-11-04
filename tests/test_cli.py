@@ -38,16 +38,16 @@ def test_serve_uses_explicit_workflow_and_project_root(monkeypatch, tmp_path):
 
     from libretto.cli import main
 
-    source = Path('examples/minimal.yaml').read_text()
-    path = tmp_path / 'survey.yaml'
+    source = Path("examples/minimal.yaml").read_text()
+    path = tmp_path / "survey.yaml"
     path.write_text(source)
     applications = []
-    monkeypatch.setattr(uvicorn, 'run', lambda app, **kwargs: applications.append(app))
-    monkeypatch.setattr('sys.argv', ['libretto', 'serve', str(path), '--project-root', str(tmp_path)])
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: applications.append(app))
+    monkeypatch.setattr("sys.argv", ["libretto", "serve", str(path), "--project-root", str(tmp_path)])
     main()
     with TestClient(applications[0]) as client:
-        assert client.get('/api/config').json()['workflow']['id'] == 'tiny-survey'
-        assert client.get('/api/workflow.yaml').text == source
+        assert client.get("/api/config").json()["workflow"]["id"] == "tiny-survey"
+        assert client.get("/api/workflow.yaml").text == source
 
 
 def test_validate_rejects_missing_application_handler(monkeypatch, tmp_path, capsys):
@@ -55,23 +55,25 @@ def test_validate_rejects_missing_application_handler(monkeypatch, tmp_path, cap
     from test_action_lifecycle import SOURCE
 
     from libretto.cli import main
-    path=tmp_path/'agent.yaml'
+
+    path = tmp_path / "agent.yaml"
     path.write_text(SOURCE)
-    monkeypatch.setattr('sys.argv',['libretto','validate',str(path)])
+    monkeypatch.setattr("sys.argv", ["libretto", "validate", str(path)])
     with pytest.raises(SystemExit) as error:
         main()
-    assert error.value.code==1
-    assert 'unregistered_tool' in capsys.readouterr().out
+    assert error.value.code == 1
+    assert "unregistered_tool" in capsys.readouterr().out
 
 
 def test_validate_formats_invalid_schema_without_traceback(monkeypatch, tmp_path, capsys):
     import pytest
 
     from libretto.cli import main
-    path = tmp_path / 'invalid.yaml'
-    path.write_text('version: 1\nid: broken\n')
-    monkeypatch.setattr('sys.argv', ['libretto', 'validate', str(path)])
+
+    path = tmp_path / "invalid.yaml"
+    path.write_text("version: 1\nid: broken\n")
+    monkeypatch.setattr("sys.argv", ["libretto", "validate", str(path)])
     with pytest.raises(SystemExit) as error:
         main()
     assert error.value.code == 1
-    assert 'name [missing]' in capsys.readouterr().out
+    assert "name [missing]" in capsys.readouterr().out

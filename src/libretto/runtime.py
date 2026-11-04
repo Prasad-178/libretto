@@ -54,6 +54,7 @@ class Session:
         self.epoch = 0
         self.created_at = clock()
         self.closed = False
+        self._started = False
         self._events_finished = False
         self.defer_actions = False
         self.manual_delivery = False
@@ -75,6 +76,24 @@ class Session:
         self._refresh_readback = False
         self._speech_messages: dict[str, str] = {}
         self._begin_node_request(workflow.start)
+
+    async def start(self) -> None:
+        """Enter the initial node once, using the normal transition machinery."""
+        if self._started or self.closed:
+            return
+        self._started = True
+        self._confirmed.set()
+        await self.welcome()
+        node = self.workflow.nodes[self.state.active_stage]
+        if node.kind == "end":
+            await self.emit("ended", message="Conversation complete.")
+            await self.close()
+        elif node.kind in {"say", "action"}:
+            start = self.state.active_stage
+            self._pending = (start, Edge(id="__start__", to=start), self.epoch)
+            await self._progress()
+        elif node.entry == "respond":
+            self._spawn(self._entry_response(self.epoch))
 
     def _begin_node_request(self, node_id: str) -> None:
         name = self.workflow.nodes[node_id].begin_request

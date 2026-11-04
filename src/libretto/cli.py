@@ -42,17 +42,26 @@ def main() -> None:
 
         from libretto.server import create_app
 
-        uvicorn.run(create_app(workflow_path=Path(args.workflow) if args.workflow else None,
-                               project_root=args.project_root), host="127.0.0.1", port=args.port)
+        uvicorn.run(
+            create_app(
+                workflow_path=Path(args.workflow) if args.workflow else None, project_root=args.project_root
+            ),
+            host="127.0.0.1",
+            port=args.port,
+        )
     else:
         if args.command == "validate":
             tools = ToolRegistry()
             if args.demo_tools or args.workflow is None:
                 from libretto.demo_tools import DemoToolRegistry
+
                 tools = DemoToolRegistry()
             try:
-                compiled = compile_workflow(Path(selected_workflow).read_text(), tools=tools,
-                                            project_root=args.project_root or Path(selected_workflow).parent)
+                compiled = compile_workflow(
+                    Path(selected_workflow).read_text(),
+                    tools=tools,
+                    project_root=args.project_root or Path(selected_workflow).parent,
+                )
                 workflow = compiled.workflow
             except WorkflowCompileError as error:
                 for issue in error.issues:
