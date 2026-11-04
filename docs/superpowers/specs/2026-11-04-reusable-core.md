@@ -1,6 +1,6 @@
 # Reusable Libretto core specification
 
-Status: implemented on the local M1 feature branch (2026-11-04), pending final review/merge. The APIs and YAML extensions below are not yet released. [Product charter](../../product-direction.md) · [Roadmap](../../../ROADMAP.md).
+Status: implemented on the local M1 feature branch (2026-11-04), reviewed and locally verified, pending merge/release. The APIs and YAML extensions below are not yet released. [Product charter](../../product-direction.md) · [Roadmap](../../../ROADMAP.md).
 
 ## Outcome and boundary
 

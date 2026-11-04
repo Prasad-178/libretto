@@ -1,6 +1,6 @@
 # Libretto roadmap
 
-Updated 2026-11-04. Direction approved by Prasad; implementation milestones below are planned. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
+Updated 2026-11-04. Direction approved by Prasad; M1 is implemented and locally verified on its feature branch; later milestones are planned. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -14,15 +14,15 @@ Accounts, billing, subscriptions, organizations, collaboration, shared workspace
 
 | Area | Existing behavior | Remaining gap relevant to this roadmap |
 | --- | --- | --- |
-| Definition | Strict YAML schema, fields, graph, prompts, knowledge, actions, model/speech configuration | Request/confirmation semantics and tool contracts are not yet generic. |
-| Runtime | Parallel responder/evaluator, transitions, cancellation epochs, readbacks and simulated actions | Receptionist-specific fields and rules appear in runtime/state/tools/provider prompts. |
+| Definition | Strict YAML schema, fields, graph, prompts, knowledge, actions, model/speech configuration | Explicit request/confirmation semantics and compiled application tool contracts are implemented on the M1 branch. |
+| Runtime | Parallel responder/evaluator, transitions, cancellation epochs, readbacks and simulated actions | Core authority is generic; Northline guidance and simulated handlers are explicit application configuration. |
 | Studio | Flow/Routes, inspectors, source-preserving edits/history, import/export/sidecar, Sources/retrieval, Settings, fixed test snapshots | Bounded usability gaps remain; no new product-platform layer is needed. |
-| Developer API | Python source package, provider protocols and an internal Session | No documented, clean-install-tested reusable public facade or developer tool registry. |
+| Developer API | Python source package, provider protocols and an internal Session | WorkflowRunner and the developer registry are documented and clean-install tested; see the library guide. |
 | LiveKit | No Libretto adapter shipped | Need one thin integration with explicit media/control ownership. |
 | Testing | Unit/API/browser checks and local retrieval evaluation | UI scenarios mostly remain manual; need reusable executable workflow scenarios. |
-| Distribution | Source checkout works; repository public | Verify license decision and clean Git installation, resources and public API. No registry publication. |
+| Distribution | Source checkout works; repository public | Core-only wheel install/run verified outside checkout. License and release decision remain; no registry publication. |
 
-This baseline was checked against source on 2026-11-04. The Nov 1 improvement review predates fixes to workflow selection, reasoning settings, import/recovery and Studio; reproduce its remaining findings before treating them as current defects. Current source still contains domain-specific confirmation fields and evaluator instructions.
+This baseline was checked against source on 2026-11-04. The Nov 1 improvement review predates fixes to workflow selection, reasoning settings, import/recovery and Studio; reproduce its remaining findings before treating them as current defects. M1 moves domain-specific confirmation rules and interpretation guidance into example configuration.
 
 ## Sequence and gates
 
@@ -38,7 +38,7 @@ Milestone order is not a calendar estimate. Keep one active milestone and a smal
 
 ## M1 — two agents, one reusable core
 
-Local implementation and compatibility checks are complete on `feat/reusable-core-m1`; final whole-branch review and release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 does not start implicitly.
+Local implementation and compatibility checks are complete on `feat/reusable-core-m1`; the whole-branch review and verified fix pass are complete; merge/CI/license/release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 does not start implicitly.
 
 ### Scope
 
