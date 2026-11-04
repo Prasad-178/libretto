@@ -77,7 +77,7 @@ describe("generic graph model", () => {
     moved.nodes.collect.prompt = "Changed prompt";
     expect(layoutWorkflow(moved, metadata, first).nodes).toEqual(first.nodes);
   });
-  it("bundles only parallel results and marks shared destinations structurally", () => {
+  it("bundles parallel results while keeping shared destinations connected", () => {
     const workflow = readWorkflow(
       fixtures["./fixtures/parallel-results.yaml"],
     )!;
@@ -89,7 +89,7 @@ describe("generic graph model", () => {
     const shared = readWorkflow(fixtures["./fixtures/eight-incoming.yaml"])!;
     expect(
       presentRoutes(describeRoutes(shared), null).filter(
-        (p) => p.mode === "chip",
+        (p) => p.target === "shared" && p.mode === "drawn",
       ),
     ).toHaveLength(8);
   });
@@ -108,11 +108,21 @@ it("routes self-loops around the card with right-angle segments", () => {
     ).toBe(true);
 });
 
-it("does not reserve long connector ranks for routes shown as destination chips", async () => {
+it("keeps the receptionist visually reachable through visible connectors", async () => {
   const { default: source } =
     await import("../../../examples/receptionist.yaml?raw");
-  const layout = layoutWorkflow(readWorkflow(source)!, emptyMetadata());
-  expect(layout.bounds.height).toBeLessThan(1500);
+  const workflow = readWorkflow(source)!;
+  const visible = presentRoutes(describeRoutes(workflow), null);
+  const reached = new Set([workflow.start]);
+  for (let i = 0; i < Object.keys(workflow.nodes).length; i++)
+    for (const route of visible)
+      if (
+        route.mode !== "hidden" &&
+        route.mode !== "chip" &&
+        route.refs.some((ref) => reached.has(ref.source))
+      )
+        reached.add(route.target);
+  expect([...reached].sort()).toEqual(Object.keys(workflow.nodes).sort());
 });
 
 it("reflows a changed topology instead of attaching new paths to obsolete node positions", async () => {

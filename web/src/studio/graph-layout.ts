@@ -22,7 +22,7 @@ export function layoutWorkflow(
   g.setGraph({
     rankdir: "TB",
     nodesep: 64,
-    ranksep: 90,
+    ranksep: 48,
     edgesep: 30,
     marginx: 80,
     marginy: 140,

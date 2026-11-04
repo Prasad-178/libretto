@@ -49,12 +49,6 @@ export function presentRoutes(
   view: SavedView | null,
 ): RoutePresentation[] {
   const visible = view ? new Set(view.visibleRoutes.map(routeKey)) : null;
-  const incoming = new Map<string, Set<string>>();
-  for (const r of routes) {
-    const set = incoming.get(r.target) || new Set<string>();
-    set.add(r.ref.source);
-    incoming.set(r.target, set);
-  }
   const result: RoutePresentation[] = [],
     used = new Set<string>();
   for (const route of routes) {
@@ -80,12 +74,9 @@ export function presentRoutes(
     result.push({
       refs,
       target: route.target,
-      mode:
-        (incoming.get(route.target)?.size || 0) >= 4
-          ? "chip"
-          : parallel.length > 1
-            ? "bundle"
-            : "drawn",
+      // Shared destinations still need visible connectors. Replacing every
+      // incoming line with a chip makes reachable branches look disconnected.
+      mode: parallel.length > 1 ? "bundle" : "drawn",
     });
   }
   return result;
