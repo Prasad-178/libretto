@@ -744,7 +744,9 @@ class Session:
             if interrupted:
                 self.state.readback_fingerprint = None
                 if message.confirmation_id:
-                    self.state.confirmations.pop(message.confirmation_id, None)
+                    permit = self.state.confirmations.get(message.confirmation_id)
+                    if permit and permit.message_id == message.id:
+                        self.state.confirmations.pop(message.confirmation_id, None)
 
     def acknowledge_message_delivery(
         self, message_id: str, *, epoch: int, completed: bool, allow_historical: bool = False
