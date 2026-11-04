@@ -38,7 +38,7 @@ Milestone order is not a calendar estimate. Keep one active milestone and a smal
 
 ## M1 — two agents, one reusable core
 
-M1 is merged into main. The whole-branch review, verified fix pass and [follow-up maintainability review](docs/milestones/2026-11-04-m1-follow-up-review.md) are complete locally. Check CI at the current head; license and release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 does not start implicitly.
+M1 is merged into main. The whole-branch review, verified fix pass and [follow-up maintainability review](docs/milestones/2026-11-04-m1-follow-up-review.md) are complete locally. Check CI at the current head; license and release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 implementation and its independent review/fix pass are now complete locally; real-provider acceptance remains pending. See the [M2 evidence](docs/milestones/2026-11-04-livekit-default-migration.md).
 
 ### Scope
 
@@ -67,7 +67,7 @@ Link the M1 spec/plan, exact commits, deterministic scenario outputs, clean-inst
 
 ## M2 — LiveKit as the default voice integration
 
-Direction updated by Prasad on 2026-11-04: LiveKit becomes the default voice integration, including Studio testing; Deepgram becomes an optional STT/TTS choice. This expands M2 from an additional adapter to a migration of the default voice path. This migration has not shipped.
+Direction updated by Prasad on 2026-11-04: LiveKit becomes the default voice integration, including Studio testing; Deepgram becomes an optional STT/TTS choice. This expands M2 from an additional adapter to a migration of the default voice path. The default integration is implemented with pinned SDK 1.8.10 and has completed independent review plus regression fixes. Studio uses verified browser PCM output through SDK custom IO. Live-provider acceptance remains pending; see the [verification record](docs/milestones/2026-11-04-livekit-default-migration.md).
 
 “Default” means the recommended voice setup and Studio voice path. Core-only/text usage must still work without the optional LiveKit dependencies. Configure speech providers separately from the voice-session framework; a LiveKit integration that still requires Deepgram would not meet this milestone. Preserve developer-owned credentials and support self-hosted LiveKit without mandatory LiveKit Cloud/Inference.
 

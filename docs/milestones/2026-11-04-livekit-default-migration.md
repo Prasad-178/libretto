@@ -1,6 +1,6 @@
 # LiveKit default migration verification
 
-Implementation on main, based on `1e8a0e8`. Independent final review is pending. No deployment, remote CI success or live-provider acceptance is claimed.
+Implementation on main, based on `1e8a0e8`. Independent final review of `1e8a0e8..84c9a41` and the single regression-driven fix pass are complete locally. No deployment, remote CI success or live-provider acceptance is claimed.
 
 ## Implemented evidence
 
@@ -9,7 +9,18 @@ Implementation on main, based on `1e8a0e8`. Independent final review is pending.
 - `e5167cf`: SDK adapter around one existing workflow session; repair example; speech-start cancellation and own-message-only stale interruption handling.
 - `1ccb880`: default Northline/Studio migration; LiveKit key/secret fields; optional direct provider fields; model/engine settings; matching playback delegation; updated compatibility tests.
 
-Local checks: Ruff, backend234, frontend116, browser27, production build and retrieval8 pass. The backend suite includes a clean core wheel install/run outside the checkout without FastAPI/LiveKit, and real SDK synthetic audio/turn/delivery tests. Studio connection/model screenshots were inspected. New credentials are not persisted into drafts/YAML or exposed in config/session exports. Tests use fake/synthetic providers; no paid inference was performed.
+Local checks: Ruff, backend240, frontend117, browser27, production build and retrieval8 pass. The backend suite includes a clean core wheel install/run outside the checkout without FastAPI/LiveKit, and real SDK synthetic audio/turn/delivery tests. Studio connection/model screenshots were inspected. New credentials are not persisted into drafts/YAML or exposed in config/session exports. Tests use fake/synthetic providers; no paid inference was performed.
+
+## Final review and fixes
+
+The independent reviewer confirmed one Critical and three Important findings. Each had a reproducing failing test before its fix:
+
+- Partial synthesis failure now revokes delivery eligibility and resolves SDK playback as interrupted. A real default SDK TTS node emits 10 ms of audio, then fails; acknowledging that partial output cannot deliver the full runtime readback.
+- Binding abort signals release blocked text/EOF producers. Tests exercise a full queue behind unacknowledged welcome, interruption and close; interrupted connections can synthesize and acknowledge a fresh reply.
+- Voice rejects a text-mode runner or a session without external delivery before opening providers, preventing text event iteration from granting voice confirmation.
+- Abbreviated legacy Flux YAML uses the same omitted-provider defaults in Studio and Python, so the Deepgram credential field remains available.
+
+Deferred minor: Studio recognition hints/patient controls remain editable although LiveKit does not apply them. The adapter limitation is documented; inline inactive-setting guidance remains future polish. No additional review round was requested.
 
 ## Explicit design decisions
 
