@@ -1,16 +1,18 @@
 import { readWorkflow } from "../workflow";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Download,
   FolderOpen,
   KeyRound,
   Play,
+  Pencil,
   Redo2,
   Undo2,
 } from "lucide-react";
 import type { StudioDocument } from "./types";
 import { DocumentStatus } from "./DocumentStatus";
 import { parseIssues } from "./changes";
+import { RenameDialog } from "./RenameDialog";
 export function StudioShell({
   document,
   tab,
@@ -22,6 +24,7 @@ export function StudioShell({
   onUndo,
   onRedo,
   onConnection,
+  onRename,
   testOpen,
   children,
 }: {
@@ -35,19 +38,15 @@ export function StudioShell({
   onUndo: () => void;
   onRedo: () => void;
   onConnection: () => void;
+  onRename: (name: string, filename: string) => void;
   testOpen: boolean;
   children: ReactNode;
 }) {
+  const [renaming, setRenaming] = useState(false);
   const workflow =
     document.running?.workflow ||
     readWorkflow(document.source) ||
     document.lastValid?.workflow;
-  const count = workflow
-    ? Object.values(workflow.nodes).reduce(
-        (n, node) => n + (node.edges?.length || 0),
-        0,
-      )
-    : null;
   const valid = document.validation.state === "valid";
   return (
     <div className={`studio studio-v2 ${testOpen ? "with-test" : ""}`}>
@@ -59,9 +58,16 @@ export function StudioShell({
           </span>
           libretto
         </a>
-        <span className="studio-file-name" title={document.filename}>
-          {document.filename}
-        </span>
+        <button
+          className="studio-file-name"
+          title="Rename workflow"
+          aria-label="Rename workflow"
+          disabled={!!document.running || !document.source}
+          onClick={() => setRenaming(true)}
+        >
+          <span>{document.filename}</span>
+          <Pencil size={13} />
+        </button>
         <div className="topbar-actions">
           <DocumentStatus document={document} />
           <button
@@ -98,7 +104,6 @@ export function StudioShell({
         <div role="tablist" aria-label="Studio sections">
           {[
             { id: "workflow", label: "Flow" },
-            { id: "routes", label: "Routes" },
             { id: "yaml", label: "YAML" },
             { id: "agent", label: "Settings" },
             { id: "knowledge", label: "Sources" },
@@ -111,7 +116,6 @@ export function StudioShell({
               onClick={() => onTab(t.id)}
             >
               {t.label}
-              {t.id === "routes" && count !== null && <span>{count}</span>}
             </button>
           ))}
         </div>
@@ -157,6 +161,14 @@ export function StudioShell({
         open and export your YAML here.
       </div>
       <main className="studio-main">{children}</main>
+      {renaming && (
+        <RenameDialog
+          name={workflow?.name || ""}
+          filename={document.filename}
+          onSave={onRename}
+          onClose={() => setRenaming(false)}
+        />
+      )}
     </div>
   );
 }

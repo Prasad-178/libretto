@@ -790,6 +790,9 @@
   flex-shrink: 0;
 }
 .studio-file-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border-left: 1px solid #dee4ea;
   padding-left: 24px;
   font-size: 14px;
@@ -799,6 +802,52 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.studio-file-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-file-name svg {
+  flex-shrink: 0;
+}
+.studio-file-name:hover {
+  color: #245bc4;
+}
+.export-dialog.rename-dialog {
+  width: 480px;
+}
+.rename-fields {
+  display: grid;
+  gap: 18px;
+  padding: 24px 28px;
+}
+.rename-fields label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.rename-fields input {
+  border: 1px solid #dce3ec;
+  border-radius: 6px;
+  padding: 10px 12px;
+  width: 100%;
+}
+.rename-fields p {
+  margin: 0;
+  color: #687588;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.rename-fields [role="alert"] {
+  color: #a13f45;
+}
+.rename-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #dee4ea;
+  padding: 16px 28px;
 }
 .studio-v2 .topbar-actions {
   gap: 12px;

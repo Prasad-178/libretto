@@ -43,14 +43,19 @@ export function createDocument(
   };
 }
 function snapshot(d: StudioDocument): DraftSnapshot {
-  return { source: d.source, metadata: d.metadata };
+  return { filename: d.filename, source: d.source, metadata: d.metadata };
 }
 function change(
   d: StudioDocument,
   next: DraftSnapshot,
   group: string | null = null,
 ): StudioDocument {
-  if (next.source === d.source && next.metadata === d.metadata) return d;
+  if (
+    next.filename === d.filename &&
+    next.source === d.source &&
+    next.metadata === d.metadata
+  )
+    return d;
   const executable = next.source !== d.source;
   const revision = d.revision + Number(executable);
   return {
@@ -73,6 +78,28 @@ export function documentReducer(
   action: DocumentAction,
 ): StudioDocument {
   switch (action.type) {
+    case "rename": {
+      if (d.running) return d;
+      const name = action.name.trim(),
+        filename = action.filename.trim();
+      if (!name) throw new Error("Enter a workflow name.");
+      if (
+        filename.length > 240 ||
+        !/^.+\.ya?ml$/i.test(filename) ||
+        /[<>:"/\\|?*\u0000-\u001f]/.test(filename)
+      )
+        throw new Error(
+          "Use a filename ending in .yaml or .yml, without folders or special characters.",
+        );
+      return change(d, {
+        ...snapshot(d),
+        filename,
+        source: applyTransaction(d.source, {
+          label: "Rename workflow",
+          operations: [{ op: "set", path: ["name"], value: name }],
+        }).source,
+      });
+    }
     case "transaction":
       return d.running
         ? d
@@ -183,6 +210,13 @@ export function documentReducer(
     case "test-stop":
       return { ...d, running: null };
     case "export-recorded":
-      return { ...d, exported: { source: action.source, at: action.at } };
+      return {
+        ...d,
+        exported: {
+          filename: d.filename,
+          source: action.source,
+          at: action.at,
+        },
+      };
   }
 }

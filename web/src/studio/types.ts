@@ -40,7 +40,11 @@ export type StudioMetadata = {
   views: SavedView[];
   presentation: { target: string; mode: "auto" | "lines" | "chips" }[];
 };
-export type DraftSnapshot = { source: string; metadata: StudioMetadata };
+export type DraftSnapshot = {
+  filename: string;
+  source: string;
+  metadata: StudioMetadata;
+};
 export type StudioDocument = DraftSnapshot & {
   filename: string;
   importedBytes: Uint8Array;
@@ -56,10 +60,11 @@ export type StudioDocument = DraftSnapshot & {
   past: DraftSnapshot[];
   future: DraftSnapshot[];
   historyGroup: string | null;
-  exported: { source: string; at: number } | null;
+  exported: { filename: string; source: string; at: number } | null;
   running: ValidatedRevision | null;
 };
 export type DocumentAction =
+  | { type: "rename"; name: string; filename: string }
   | { type: "transaction"; transaction: DocumentTransaction }
   | { type: "raw-source"; source: string; historyGroup?: string }
   | { type: "metadata"; metadata: StudioMetadata; label: string }

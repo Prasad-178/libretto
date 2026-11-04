@@ -814,6 +814,9 @@ export default function App() {
       onUndo={undoSource}
       onRedo={() => dispatchDocument({ type: "redo" })}
       onConnection={() => setSettings(true)}
+      onRename={(name, filename) =>
+        dispatchDocument({ type: "rename", name, filename })
+      }
       testOpen={showTest}
     >
       <input

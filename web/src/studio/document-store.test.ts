@@ -113,3 +113,55 @@ it("captures only the current validated source and freezes edits while running",
     reduce(edit(d, "changed"), { type: "test-start", snapshot: d.lastValid! }),
   ).toThrow(/validat/i);
 });
+
+it("renames the display name and filename atomically with Undo and draft restoration", async () => {
+  const { buildExportFiles, serializeDraft, restoreDraft, documentStatus } =
+    await import("./project-files");
+  const initial = validate(create());
+  const exported = reduce(initial, {
+    type: "export-recorded",
+    source: initial.source,
+    at: 1,
+  });
+  const renamed = reduce(exported, {
+    type: "rename",
+    name: "Support desk",
+    filename: "support.yaml",
+  });
+  expect(renamed.filename).toBe("support.yaml");
+  expect(readWorkflow(renamed.source)?.name).toBe("Support desk");
+  expect(restoreDraft(serializeDraft(renamed))?.filename).toBe("support.yaml");
+  expect(
+    (await buildExportFiles(renamed, true)).map((f) => f.filename),
+  ).toEqual(["support.yaml", "support.studio.json"]);
+  const undone = reduce(renamed, { type: "undo" });
+  expect(undone.filename).toBe(initial.filename);
+  expect(undone.source).toBe(initial.source);
+  expect(reduce(undone, { type: "redo" }).filename).toBe("support.yaml");
+  const fileOnly = reduce(exported, {
+    type: "rename",
+    name: readWorkflow(initial.source)!.name,
+    filename: "new.yaml",
+  });
+  expect(fileOnly.validation).toBe(exported.validation);
+  expect(documentStatus(fileOnly)).toBe("Changed since export");
+  const running = reduce(initial, {
+    type: "test-start",
+    snapshot: initial.lastValid!,
+  });
+  expect(
+    reduce(running, {
+      type: "rename",
+      name: "Blocked",
+      filename: "blocked.yaml",
+    }),
+  ).toBe(running);
+});
+it.each(["../other.yaml", "", "bad.txt"])(
+  "rejects invalid renamed filename %s",
+  (filename) => {
+    expect(() =>
+      reduce(create(), { type: "rename", name: "Valid", filename }),
+    ).toThrow();
+  },
+);

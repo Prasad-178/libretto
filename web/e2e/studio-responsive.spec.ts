@@ -16,7 +16,9 @@ for (const width of [1280, 1024]) {
         exact: true,
       }),
     ).toBeVisible();
-    await page.getByRole("tab", { name: /^Routes/ }).click();
+    await page
+      .getByRole("button", { name: "Routes index", exact: true })
+      .click();
     await expect(page.locator(".routes-page tbody tr")).toHaveCount(2);
     await page.getByLabel("Search routes").fill("Details complete");
     await expect(page.locator(".routes-page tbody tr")).toHaveCount(1);
@@ -103,7 +105,7 @@ test("named views hide connectors without removing routes from the index", async
     .getByRole("button", { name: "Save named view", exact: true })
     .click();
   await expect(page.getByLabel("Canvas view")).toContainText("Intake only");
-  await page.getByRole("tab", { name: /^Routes/ }).click();
+  await page.getByRole("button", { name: "Routes index", exact: true }).click();
   await expect(page.locator(".routes-page tbody tr")).toHaveCount(2);
   await page.getByLabel("Canvas visibility").click();
   await page.getByRole("option", { name: "Hidden", exact: true }).click();

@@ -62,7 +62,8 @@ export function documentStatus(document: StudioDocument): string {
   if (document.validation.state === "unavailable")
     return "Validation unavailable";
   if (!document.exported) return "Not exported";
-  return document.exported.source === document.source
+  return document.exported.source === document.source &&
+    document.exported.filename === document.filename
     ? "Exported · unchanged"
     : "Changed since export";
 }
@@ -77,7 +78,6 @@ export function serializeDraft(document: StudioDocument): string {
 }
 export function restoreDraft(text: string): StudioDocument | null {
   try {
-
     const data = JSON.parse(text);
     if (
       data.version !== 1 ||
@@ -119,12 +119,14 @@ export async function openProjectFiles(
     throw new Error(
       "Choose one YAML file and optionally its .studio.json layout.",
     );
-  if (yaml[0].size > 400_003) throw new Error("Workflow exceeds 100,000 characters.");
+  if (yaml[0].size > 400_003)
+    throw new Error("Workflow exceeds 100,000 characters.");
   const document = createDocument(
     yaml[0].name,
     new Uint8Array(await yaml[0].arrayBuffer()),
   );
-  if ([...document.source].length > 100_000) throw new Error("Workflow exceeds 100,000 characters.");
+  if ([...document.source].length > 100_000)
+    throw new Error("Workflow exceeds 100,000 characters.");
   const notices: string[] = [];
   if (layouts.length) {
     const workflow = readWorkflow(document.source);
