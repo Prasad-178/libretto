@@ -993,6 +993,9 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+studio = [
+    { name = "libretto-voice", extra = ["studio"] },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1017,6 +1020,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.25,<2" },
     { name = "ruff", specifier = ">=0.11,<1" },
 ]
+studio = [{ name = "libretto-voice", extras = ["studio"] }]
 
 [[package]]
 name = "livekit"

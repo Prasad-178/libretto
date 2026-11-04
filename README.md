@@ -175,7 +175,7 @@ The State tab and session export report mean/median retrieval time and estimated
 
 ## Deployment and limits
 
-The current demo runs on Vercel at **https://libretto.prasadjs.me**. The checked-in install command explicitly selects the optional `studio` extra with locked dependencies; a core-only install cannot run the demo server. `app.py` is the FastAPI entrypoint; `vercel.json` builds the frontend and allows a 300-second function lifetime. One WebSocket owns one in-memory session. There is no database or reconnect recovery; setup time can make the hosting limit end a call slightly before the five-minute timer.
+The current demo runs on Vercel at **https://libretto.prasadjs.me**. The source checkout enables a `studio` runtime dependency group even for non-dev deployments, so Vercel’s standard locked installer includes the demo dependencies and retains bundle optimization. Core-only library installs remain minimal; use `uv sync --no-default-groups` for a core-only source environment. `app.py` is the FastAPI entrypoint; `vercel.json` builds the frontend and allows a 300-second function lifetime. One WebSocket owns one in-memory session. There is no database or reconnect recovery; setup time can make the hosting limit end a call slightly before the five-minute timer.
 
 Vercel deployments default to visitor keys, even if provider keys are accidentally present in the environment. A shared budget requires explicit operator opt-in with `LIBRETTO_ALLOW_HOSTED_KEYS=true`. Provider usage is billed separately from hosting, and platform included limits still apply. See [security and public-traffic limits](docs/security.md).
 

@@ -25,13 +25,19 @@ libretto = "libretto.cli:main"
 packages = ["src/libretto"]
 
 [dependency-groups]
+studio = ["libretto-voice[studio]"]
 dev = [
-    "libretto-voice[studio]",
+    { include-group = "studio" },
     "httpx2>=2.16.0",
     "pytest>=8,<10",
     "pytest-asyncio>=0.25,<2",
     "ruff>=0.11,<1",
 ]
+
+[tool.uv]
+# Vercel excludes dev dependencies. Keep the demo's runtime group selectable
+# by its standard installer so dependency/bundle optimization stays enabled.
+default-groups = ["dev", "studio"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
