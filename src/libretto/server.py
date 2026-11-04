@@ -444,7 +444,7 @@ def create_app(
                             message_id=session._speech_messages.get(event.speech_id, ""),
                         )
                         if event.drained:
-                            session.playback_finished(event.speech_id)
+                            session.playback_finished(event.speech_id, epoch=event.epoch)
                     elif event.type == "credentials":
                         await session.interrupt()
                         replacement = credentials.with_overrides(

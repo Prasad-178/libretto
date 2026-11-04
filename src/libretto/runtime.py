@@ -83,7 +83,11 @@ class Session:
 
     def _context_current(self, context: GenerationContext) -> bool:
         request_id = self.state.request.id if self.state.request else None
-        return not self.closed and context.snapshot.epoch == self.epoch and context.snapshot.request_id == request_id
+        return (
+            not self.closed
+            and context.snapshot.epoch == self.epoch
+            and context.snapshot.request_id == request_id
+        )
 
     def _spawn(self, awaitable) -> asyncio.Task:
         task = asyncio.create_task(awaitable)
@@ -168,6 +172,12 @@ class Session:
             return
         # New input invalidates undispatched work before any action can progress.
         await self.interrupt()
+        if not speculative and self.state.request is None:
+            self._begin_node_request(self.state.active_stage)
+        node = self.workflow.nodes[self.state.active_stage]
+        self._refresh_readback = bool(
+            node.readback and node.confirmation and node.confirmation not in self.state.confirmations
+        )
         self._seen_turns.add(turn_id)
         self._current = (text, turn_id, self.epoch)
         self._confirmed = asyncio.Event()
@@ -202,7 +212,8 @@ class Session:
         self._spawn(self._respond(context))
 
     async def confirm_turn(self, text: str, turn_id: str) -> None:
-        if self._current == (text.strip(), turn_id, self.epoch):
+        restart = self.state.request is None and self.workflow.nodes[self.state.active_stage].begin_request
+        if self._current == (text.strip(), turn_id, self.epoch) and not restart:
             if not self._confirmed.is_set():
                 self.state.history.append(Message("user", text.strip(), turn_id))
                 self._confirmed.set()
@@ -315,8 +326,11 @@ class Session:
             accepted_fields = {p.acceptance_field for p in self.workflow.confirmations.values()}
             for policy_id, policy in self.workflow.confirmations.items():
                 affected = changed.intersection(policy.fields)
-                refused = any(flag in proposals and proposals[flag].value is not True
-                    for flag in (policy.acceptance_field, policy.consent_field) if flag)
+                refused = any(
+                    flag in proposals and proposals[flag].value is not True
+                    for flag in (policy.acceptance_field, policy.consent_field)
+                    if flag
+                )
                 if affected or refused:
                     self.state.confirmations.pop(policy_id, None)
                     self.state.facts.pop(policy.acceptance_field, None)
@@ -331,11 +345,16 @@ class Session:
                     if context.snapshot.confirmation_messages.get(policy_id) != permit.message_id:
                         continue
                     try:
-                        fingerprint = confirmation_fingerprint(policy_id, permit.request_id, self.state.values(), policy.fields)
+                        fingerprint = confirmation_fingerprint(
+                            policy_id, permit.request_id, self.state.values(), policy.fields
+                        )
                         self.state.confirmations[policy_id] = accept_confirmation(
-                            permit, current_request_id=self.state.request.id if self.state.request else "",
-                            current_fingerprint=fingerprint or "", turn_id=context.turn_id,
-                            changed_fields=changed.intersection(policy.fields))
+                            permit,
+                            current_request_id=self.state.request.id if self.state.request else "",
+                            current_fingerprint=fingerprint or "",
+                            turn_id=context.turn_id,
+                            changed_fields=changed.intersection(policy.fields),
+                        )
                         self.state.facts[policy.acceptance_field] = proposed
                     except ConfirmationBlocked:
                         pass
@@ -401,8 +420,10 @@ class Session:
             if permit and permit.message_id == message.id and message.delivered and not message.interrupted:
                 try:
                     self.state.confirmations[policy_id] = record_delivery(
-                        permit, DeliveryAck(message.id, message.epoch, True),
-                        current_request_id=self.state.request.id)
+                        permit,
+                        DeliveryAck(message.id, message.epoch, True),
+                        current_request_id=self.state.request.id,
+                    )
                     self.state.readback_fingerprint = permit.fingerprint
                 except ConfirmationBlocked:
                     continue
@@ -410,7 +431,8 @@ class Session:
     async def _progress(self) -> None:
         if self._speaking or self._progressing or not self._pending or self.closed:
             return
-        self._progressing = True
+        owner = object()
+        self._progressing = owner
         try:
             source, edge, epoch = self._pending
             self._pending = None
@@ -433,14 +455,29 @@ class Session:
                         policy = self.workflow.confirmations[node.confirmation]
                         permit = self.state.confirmations.get(node.confirmation)
                         current_request = self.state.request
-                        fingerprint = confirmation_fingerprint(node.confirmation, current_request.id,
-                            values, policy.fields) if current_request else None
-                        if not (current_request and current_request.name == policy.request and permit
-                                and permit.request_id == current_request.id and permit.accepted_turn_id
-                                and permit.fingerprint == fingerprint and permit.delivered
-                                and (not policy.consent_field or values.get(policy.consent_field) is True)):
-                            await self.emit("action_blocked", node=target, code="confirmation_required",
-                                            reason="The current request needs a delivered and accepted readback.")
+                        fingerprint = (
+                            confirmation_fingerprint(
+                                node.confirmation, current_request.id, values, policy.fields
+                            )
+                            if current_request
+                            else None
+                        )
+                        if not (
+                            current_request
+                            and current_request.name == policy.request
+                            and permit
+                            and permit.request_id == current_request.id
+                            and permit.accepted_turn_id
+                            and permit.fingerprint == fingerprint
+                            and permit.delivered
+                            and (not policy.consent_field or values.get(policy.consent_field) is True)
+                        ):
+                            await self.emit(
+                                "action_blocked",
+                                node=target,
+                                code="confirmation_required",
+                                reason="The current request needs a delivered and accepted readback.",
+                            )
                             return
                     if self.defer_actions:
                         self.state.pending_stage = target
@@ -467,25 +504,51 @@ class Session:
                     previous = self._actions.get(key)
                     if previous is not None:
                         if previous["argument_hash"] != argument_hash:
-                            await self.emit("action_blocked", node=target, code="action_arguments_changed",
-                                            reason="Start a new request before changing an already dispatched action.")
+                            await self.emit(
+                                "action_blocked",
+                                node=target,
+                                code="action_arguments_changed",
+                                reason="Start a new request before changing an already dispatched action.",
+                            )
                         else:
-                            await self.emit("action_already_completed", node=target, request_id=request_id,
-                                            idempotency_key=key, status=previous.get("status", "unknown"))
+                            await self.emit(
+                                "action_already_completed",
+                                node=target,
+                                request_id=request_id,
+                                idempotency_key=key,
+                                status=previous.get("status", "unknown"),
+                            )
                         return
                     self._actions[key] = {"argument_hash": argument_hash, "status": "unknown"}
-                    await self.emit("tool_started", tool=node.tool, arguments=arguments,
-                                    request_id=request_id, idempotency_key=key)
+                    await self.emit(
+                        "tool_started",
+                        tool=node.tool,
+                        arguments=arguments,
+                        request_id=request_id,
+                        idempotency_key=key,
+                    )
                     cancelled = False
+                    # Historical dispatch may outlive cancellation. It must not own
+                    # the current request's transition lock while awaiting an app.
+                    self._progressing = False
                     try:
                         result = await self.tools.execute(node.tool, arguments, self.state, key)
                     except asyncio.CancelledError:
-                        result = ToolResult(status="unknown", data={"reason": "Action interrupted after dispatch"})
+                        result = ToolResult(
+                            status="unknown", data={"reason": "Action interrupted after dispatch"}
+                        )
                         cancelled = True
                     except Exception:
-                        result = ToolResult(status="unknown", data={"reason": "Action outcome could not be established"})
-                    receipt = {"tool": node.tool, **result.model_dump(), "request_id": request_id,
-                               "idempotency_key": key, "argument_fingerprint": argument_hash}
+                        result = ToolResult(
+                            status="unknown", data={"reason": "Action outcome could not be established"}
+                        )
+                    receipt = {
+                        "tool": node.tool,
+                        **result.model_dump(),
+                        "request_id": request_id,
+                        "idempotency_key": key,
+                        "argument_fingerprint": argument_hash,
+                    }
                     self._actions[key] = {"argument_hash": argument_hash, "status": result.status}
                     self.state.receipts.append(receipt)
                     await self.emit("tool_result", **receipt)
@@ -494,6 +557,7 @@ class Session:
                     current_request_id = self.state.request.id if self.state.request else None
                     if epoch != self.epoch or request_id != current_request_id or self.closed:
                         return
+                    self._progressing = owner
                     next_edge = next((e for e in node.edges if e.result == receipt["status"]), None)
                     if not next_edge:
                         await self.emit(
@@ -535,7 +599,10 @@ class Session:
                 return
             await self.emit("error", code="transition_limit", message="Workflow transition limit reached.")
         finally:
-            self._progressing = False
+            if self._progressing is owner:
+                self._progressing = False
+            if not self._progressing and self._pending and not self.closed and not self._speaking:
+                self._spawn(self._progress())
 
     async def _after_playback(self, source: str, edge: Edge, epoch: int) -> None:
         await self._playback_done.wait()
@@ -588,18 +655,28 @@ class Session:
                 generated_content=text,
                 epoch=epoch,
                 delivered=not (self.defer_actions or self.manual_delivery),
-                readback_fingerprint=confirmation_fingerprint(node.confirmation, self.state.request.id,
-                    values, self.workflow.confirmations[node.confirmation].fields)
-                    if node.confirmation and self.state.request else None,
+                readback_fingerprint=confirmation_fingerprint(
+                    node.confirmation,
+                    self.state.request.id,
+                    values,
+                    self.workflow.confirmations[node.confirmation].fields,
+                )
+                if node.confirmation and self.state.request
+                else None,
                 confirmation_id=node.confirmation,
                 request_id=self.state.request.id if self.state.request else None,
             )
             self.state.history.append(message)
             if node.confirmation and message.readback_fingerprint and self.state.request:
                 policy = self.workflow.confirmations[node.confirmation]
-                self.state.confirmations[node.confirmation] = ConfirmationState(node.confirmation,
-                    self.state.request.id, message.readback_fingerprint, message.id, epoch,
-                    delivered=message.delivered or not policy.require_delivery)
+                self.state.confirmations[node.confirmation] = ConfirmationState(
+                    node.confirmation,
+                    self.state.request.id,
+                    message.readback_fingerprint,
+                    message.id,
+                    epoch,
+                    delivered=message.delivered or not policy.require_delivery,
+                )
             self._speaking = True
             try:
                 await self.emit("readback", message_id=message.id, fields=sorted(fields))
@@ -621,11 +698,15 @@ class Session:
             text="Continue using the actual tool result.",
             directory=self.directory,
         )
-        if self.state.receipts:
+        request_id = self.state.request.id if self.state.request else None
+        current_receipts = [
+            receipt for receipt in self.state.receipts if receipt.get("request_id") == request_id
+        ]
+        if current_receipts:
             from dataclasses import replace
 
             context = replace(
-                context, system=context.system + f"\nACTUAL TOOL RECEIPT: {self.state.receipts[-1]}"
+                context, system=context.system + f"\nACTUAL TOOL RECEIPT: {current_receipts[-1]}"
             )
         self._speaking = True
         await self._respond(context)
@@ -645,26 +726,63 @@ class Session:
                 if message.confirmation_id:
                     self.state.confirmations.pop(message.confirmation_id, None)
 
-    def playback_finished(self, speech_id: str = "") -> None:
+    def acknowledge_message_delivery(
+        self, message_id: str, *, epoch: int, completed: bool, allow_historical: bool = False
+    ) -> None:
+        message = next((m for m in self.state.history if m.id == message_id), None)
+        request_id = self.state.request.id if self.state.request else None
+        if self.closed or not message or message.epoch != epoch or epoch > self.epoch:
+            raise ConfirmationBlocked("stale_delivery", "Delivery does not match output message/epoch")
+        if allow_historical and epoch < self.epoch:
+            # A late drain can restore heard history, never current permission.
+            message.content = message.generated_content if completed else message.content
+            message.delivered = completed
+            message.interrupted = not completed
+            return
+        if (
+            epoch != self.epoch
+            or message.interrupted
+            or (message.request_id is not None and message.request_id != request_id)
+        ):
+            raise ConfirmationBlocked("stale_delivery", "Delivery does not match current output")
+        if message.confirmation_id:
+            permit = self.state.confirmations.get(message.confirmation_id)
+            if not permit:
+                raise ConfirmationBlocked("missing_readback", "Readback is no longer eligible")
+            self.state.confirmations[message.confirmation_id] = record_delivery(
+                permit, DeliveryAck(message_id, epoch, completed), current_request_id=request_id or ""
+            )
+        message.content = message.generated_content if completed else ""
+        message.delivered = completed
+        message.interrupted = not completed
+        if not completed and message.confirmation_id:
+            self.state.confirmations.pop(message.confirmation_id, None)
+        self._record_readback()
+
+    def playback_finished(self, speech_id: str = "", *, epoch: int | None = None) -> bool:
         message_id = self._speech_messages.get(speech_id)
         message = next((m for m in self.state.history if m.id == message_id), None)
         if speech_id and not message:
-            return
+            return False
         if message:
-            # A drain ack can cross the new-turn boundary. Restore heard history,
-            # but never release actions or grant readback confirmation for that epoch.
-            message.content = message.generated_content
-            message.delivered = True
-            message.interrupted = False
+            try:
+                self.acknowledge_message_delivery(
+                    message.id,
+                    epoch=message.epoch if epoch is None else epoch,
+                    completed=True,
+                    allow_historical=True,
+                )
+            except ConfirmationBlocked:
+                return False
             if message.epoch != self.epoch:
-                return
-            self._record_readback()
+                return True
         if all(
             m.delivered or m.interrupted
             for m in self.state.history
             if m.role == "assistant" and m.epoch == self.epoch
         ):
             self._playback_done.set()
+        return True
 
     async def interrupt(self, notify: bool = True) -> None:
         was_speaking = self._speaking
@@ -681,6 +799,13 @@ class Session:
         self._speaking = False
         interrupted_ids = []
         for message in self.state.history:
+            waived = (
+                message.confirmation_id
+                and not was_speaking
+                and not self.workflow.confirmations[message.confirmation_id].require_delivery
+            )
+            if waived:
+                continue
             if message.role == "assistant" and (
                 not message.delivered
                 or (

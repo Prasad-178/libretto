@@ -4,10 +4,11 @@ from copy import deepcopy
 from typing import AsyncIterator, Literal
 
 from libretto.compiler import CompiledWorkflow
-from libretto.confirmation import ConfirmationBlocked, DeliveryAck, record_delivery
+from libretto.confirmation import ConfirmationBlocked
 from libretto.events import ServerEvent
 from libretto.providers.base import Evaluator, Responder
 from libretto.runtime import Session
+from libretto.schema import Edge
 from libretto.state import SessionState
 
 
@@ -40,7 +41,14 @@ class WorkflowRunner:
         self._session._confirmed.set()
         await self._session.welcome()
         node = self._session.workflow.nodes[self._session.state.active_stage]
-        if node.entry == "respond":
+        if node.kind == "end":
+            await self._session.emit("ended", message="Conversation complete.")
+            await self._session.close()
+        elif node.kind in {"say", "action"}:
+            start = self._session.state.active_stage
+            self._session._pending = (start, Edge(id="__start__", to=start), self._session.epoch)
+            await self._session._progress()
+        elif node.entry == "respond":
             self._session._spawn(self._session._entry_response(self._session.epoch))
 
     async def submit(self, text: str, *, turn_id: str) -> None:
@@ -65,31 +73,7 @@ class WorkflowRunner:
             yield deepcopy(event)
 
     async def acknowledge_delivery(self, message_id: str, *, epoch: int, completed: bool) -> None:
-        session = self._session
-        message = next((m for m in session.state.history if m.id == message_id), None)
-        request_id = session.state.request.id if session.state.request else None
-        if (
-            session.closed
-            or not message
-            or epoch != session.epoch
-            or message.epoch != epoch
-            or message.interrupted
-            or (message.request_id is not None and message.request_id != request_id)
-        ):
-            raise ConfirmationBlocked("stale_delivery", "Delivery does not match current output")
-        if message.confirmation_id:
-            permit = session.state.confirmations.get(message.confirmation_id)
-            if not permit:
-                raise ConfirmationBlocked("missing_readback", "Readback is no longer eligible")
-            session.state.confirmations[message.confirmation_id] = record_delivery(
-                permit, DeliveryAck(message_id, epoch, completed), current_request_id=request_id or ""
-            )
-        message.content = message.generated_content if completed else ""
-        message.delivered = completed
-        message.interrupted = not completed
-        if not completed and message.confirmation_id:
-            session.state.confirmations.pop(message.confirmation_id, None)
-        session._record_readback()
+        self._session.acknowledge_message_delivery(message_id, epoch=epoch, completed=completed)
 
     async def interrupt(self) -> None:
         await self._session.interrupt()

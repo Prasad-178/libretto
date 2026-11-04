@@ -114,4 +114,3 @@ class SessionState:
 
     def values(self) -> dict[str, Any]:
         return {key: fact.value for key, fact in self.facts.items() if fact.status == "answered"}
-
