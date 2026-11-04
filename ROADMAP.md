@@ -65,7 +65,19 @@ M1 is merged into main. The whole-branch review, verified fix pass and [follow-u
 
 Link the M1 spec/plan, exact commits, deterministic scenario outputs, clean-install result and compatibility changes. Include explicit old-to-new Northline YAML migration notes. Do not claim all language interpretation or real-world action delivery is deterministic.
 
-## M2 — one optional LiveKit integration
+## M2 — LiveKit as the default voice integration
+
+Direction updated by Prasad on 2026-11-04: LiveKit becomes the default voice integration, including Studio testing; Deepgram becomes an optional STT/TTS choice. This expands M2 from an additional adapter to a migration of the default voice path. This migration has not shipped.
+
+“Default” means the recommended voice setup and Studio voice path. Core-only/text usage must still work without the optional LiveKit dependencies. Configure speech providers separately from the voice-session framework; a LiveKit integration that still requires Deepgram would not meet this milestone. Preserve developer-owned credentials and support self-hosted LiveKit without mandatory LiveKit Cloud/Inference.
+
+The implementation design must cover:
+
+- A single Libretto workflow authority behind LiveKit media/turn handling, with no duplicate automatic replies.
+- A documented non-Deepgram voice configuration plus optional Deepgram configuration, using the same workflow without core changes.
+- Studio's default voice connection, credentials and diagnostics migrated alongside the library quickstart.
+- A clear compatibility path for existing direct-Deepgram configurations; no silent transport/provider fallback.
+- Provider-independent turn detection and interrupted/readback delivery tests, including actual transport acknowledgement granularity.
 
 ### First: a feasibility spike with a decision record
 
