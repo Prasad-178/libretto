@@ -4,11 +4,11 @@
 
 [![CI](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml/badge.svg)](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml)
 
-[Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
+[Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [LiveKit voice](docs/livekit.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
 [Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
 
-Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The reusable-core branch adds an importable runner proven by Northline and a repair-visit workflow; optional LiveKit integration is the next separate milestone. See the roadmap for verification and release status.
+Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The reusable-core branch adds an importable runner proven by Northline and a repair-visit workflow; LiveKit is now the default voice engine; live-provider acceptance remains a separate verification gate. See the roadmap for verification and release status.
 
 Libretto is a Python workflow engine and React studio for building stateful voice agents. Define stages, prompts, fields, transitions, knowledge and actions in YAML; inspect the generated workflow; then test it over voice or text while watching state, sources and tool receipts.
 
@@ -31,9 +31,9 @@ To start a conversation, open **Connection settings** and enter your own keys:
 | Mode | Required keys |
 | --- | --- |
 | Text | OpenRouter |
-| Voice | OpenRouter and a direct Deepgram key with access to the configured Flux models |
+| Voice (default) | OpenRouter plus LiveKit Cloud API key and secret for AssemblyAI STT / Cartesia TTS through LiveKit Inference |
 
-API usage is billed by those providers. The public demo has no funded shared provider keys. Keys stay in tab/session memory, are sent to the backend over HTTPS/WSS, and are excluded from browser storage and app-generated exports. See the [credential boundaries](docs/security.md).
+API usage is billed by those providers. LiveKit Inference speech usage is billed by LiveKit; the existing LLM adapter uses OpenRouter billing. Direct provider keys and explicit legacy Deepgram remain options. The public demo has no funded shared provider keys. Keys stay in tab/session memory, are sent to the backend over HTTPS/WSS, and are excluded from browser storage and app-generated exports. See the [credential boundaries](docs/security.md).
 
 A few natural things to try:
 

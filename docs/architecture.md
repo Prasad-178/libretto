@@ -26,15 +26,15 @@ flowchart TB
     end
     subgraph Backend[FastAPI: one WebSocket per session]
         API[Validate definition and credentials]
-        Speech[Provider-neutral speech coordinator]
+        Speech[LiveKit AgentSession with verified custom IO]
         Runtime[Session runtime]
         Retrieval[Local Markdown retrieval]
         Tools[Registered simulated tools]
     end
     subgraph Providers[External inference services]
-        STT[Deepgram STT and turn detection]
+        STT[Configured STT: AssemblyAI by default]
         LLM[OpenRouter speaker and evaluator requests]
-        TTS[Deepgram TTS]
+        TTS[Configured TTS: Cartesia by default]
     end
     Definition -->|Validated snapshot at start| API
     Capture -->|Binary PCM over WebSocket| Speech
@@ -235,3 +235,5 @@ The current product is an English browser prototype with editable YAML and a vis
 `StudioWorkspace` in `workspace.py` resolves source paths within an explicit project root and rejects traversal and symlink escapes. Bare serving selects the bundled hosted workspace; passing a workflow and project root selects local mode. `/api/studio/capabilities`, `/api/studio/source-folders`, `/api/studio/sources` and `/api/studio/retrieval` expose actual runtime manifests and retrieval evidence. The hosted mode refuses folder discovery. Add/detach changes references only; it does not create, edit or delete Markdown files. Retrieval responses identify the submitted source fingerprint, effective scope, normalized query terms and real BM25 scores/passages.
 
 Settings consumes runtime model, speech and tool manifests. HTTP and WebSocket use the same origin. Start validates and captures an exact source revision before asynchronous audio/connection setup, then pauses edits until Stop or disconnection. Test state, source evidence and receipts belong to that snapshot. The Python runtime still includes domain-specific receptionist confirmation rules; generic Studio editing is not a claim that these safeguards have become a general-purpose policy system. No stable library API or LiveKit integration is introduced by this redesign.
+
+Default voice now uses LiveKit Agents with Studio PCM/WebSocket custom IO and browser-verified playout. Native Deepgram remains explicit legacy support. See [LiveKit](livekit.md) for credentials, delivery semantics and the separate room-application limitation.

@@ -1,5 +1,7 @@
 # Speech provider integration
 
+LiveKit Agents is now the default voice engine. See the [LiveKit guide](livekit.md) for inference/direct credential modes and verified playback. The independent native provider contracts below remain supported for explicit legacy/custom application composition.
+
 The workflow runtime imports no speech vendor. `SpeechCoordinator` connects normalized recognition/synthesis events to runtime turns, interruption reconciliation and browser audio framing. The WebSocket server selects independent adapters through `SpeechRegistry`.
 
 ```yaml
@@ -9,7 +11,7 @@ speech:
   hints: [Northline, Jamie, billing]
 ```
 
-Omitting this section retains those provider/model defaults, with no domain hints. The receptionist example supplies its own English recognition hints. Provider/model names are validated against the server registry. YAML cannot choose a host, load Python or register a new provider. The shipped Deepgram adapters currently allow only the two models above; supporting another model requires checking its protocol/capabilities and updating its adapter allowlist.
+This snippet is the explicit legacy Flux configuration. Omitting speech now selects LiveKit with AssemblyAI recognition and Cartesia synthesis, with no domain hints. The receptionist example supplies its own English recognition hints. Provider/model names are validated against the server registry. YAML cannot choose a host, load Python or register a new provider. The shipped Deepgram adapters currently allow only the two models above; supporting another model requires checking its protocol/capabilities and updating its adapter allowlist.
 
 ## Contracts
 
@@ -35,6 +37,6 @@ Cancellation must discard old audio and establish a safe boundary before new spe
 
 Implement only the appropriate STT or TTS protocol, translate that service's events, declare truthful capabilities and register its factory in the corresponding `SpeechRegistry` allowlist. Supply the registry to `create_app(speech_registry=...)`; the default server registry is in `speech.py`. A mixed pair requires no changes to workflow/state/RAG/tool code.
 
-`SessionCredentials` and the browser currently expose OpenRouter and Deepgram key slots. An adapter using either can reuse it; a service with a new credential type also needs a credential/input binding in those application settings. Provider keys remain outside YAML, traces and exports. Hosts remain fixed inside adapters.
+`SessionCredentials` and the browser expose OpenRouter, LiveKit API key/secret, Deepgram, AssemblyAI and Cartesia credential slots. An adapter using either can reuse it; a service with a new credential type also needs a credential/input binding in those application settings. Provider keys remain outside YAML, traces and exports. Hosts remain fixed inside adapters.
 
-Only Deepgram is a shipped speech provider today. Test adapters prove mixed selection, WebSocket streaming, capability fallback and credential replacement; they are not offered as a live fallback or a claim of real-provider interoperability. For bounded live checks and current timing limitations, see [verification evidence](evidence.md). Browser timing estimates do not establish a controlled acoustic latency benchmark.
+The native Deepgram adapter remains the legacy option; LiveKit SDK inference/plugin integration is the default, with bounded model choices documented in the LiveKit guide. Test adapters prove mixed selection, WebSocket streaming, capability fallback and credential replacement; they are not offered as a live fallback or a claim of real-provider interoperability. For bounded live checks and current timing limitations, see [verification evidence](evidence.md). Browser timing estimates do not establish a controlled acoustic latency benchmark.
