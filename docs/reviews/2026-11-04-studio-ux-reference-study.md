@@ -6,7 +6,7 @@ Status: research and proposed designs for discussion. Application behavior has n
 
 [Studio — UX v3 / November review](https://app.paper.design/file/01M6A0TRXN4CJ9WFK05YH6CX0W/p-5-0)
 
-Eleven 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline:
+Seventeen 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline. The November 5 completion pass arranges them in numbered rows of five for review:
 
 1. Agent: readable shared instructions, expandable editor, first message and model/voice summary.
 2. Model picker: searchable provider groups, current selection, custom ID path and OpenRouter input/output prices.
@@ -19,6 +19,12 @@ Eleven 1440 × 900 screens use a fictional repair-visit workflow so the design r
 9. Edit connection: selected connector highlighted in place, destination, display label, and language/state execution rule in the existing inspector.
 10. Workflow issues: contextual validation messages, source paths and links to the relevant step/connection; knowledge remains visible behind the drawer.
 11. Reasoning effort: open select with an explicit Default option and explanatory copy. The Models & voice screen also shows this control closed.
+12. Expanded instructions: readable large editor with explicit scope, local-save status and a Done control.
+13. State check: all required values collected, compact rule rows and visible completion controls; maps to the existing predicate model.
+14. Action editor: registered Python tool, typed field mappings, prerequisites and booked/failed/unknown destinations; apply mappings/results atomically.
+15. Connection: session-only OpenRouter and LiveKit Inference credential inputs, alongside an honest inactive-vocabulary state for the current LiveKit adapter.
+16. YAML recovery: editable source, actionable validation issue, highlighted source location, last-valid graph explanation and a failed-import notice preserving the current draft.
+17. Export review: change summary, invalid-draft status, YAML/layout file choices and explicit copy/credential-exclusion behavior.
 
 These are static design states. Example events, files and conversation values are illustrative; they are not observed test results. Added controls require implementation and acceptance checks before being described as available.
 
@@ -100,6 +106,16 @@ The menu illustrates the current explicit levels plus Default. Actual enabled le
 Prasad explicitly asked to avoid unnecessary features. The three follow-up states refine existing routing, validation and reasoning controls. A proposed extra test-setup screen was dropped: use the existing Connection/Test controls. Do not add another setup wizard, platform page, general automation engine or competitor feature checklist. More detailed visual states do not authorize implementation of new runtime capabilities.
 
 Interaction review: the selected connector and its label share the cobalt highlight; editing does not move the graph. Display labels are explicitly separate from conditions. Validation links target the offending action/connection and do not auto-generate safety branches. Deleting a required outcome must retain existing validation/reference protections. The issues drawer is dismissible, preserves the library context and distinguishes an unfinished draft from a runnable workflow. Existing YAML/undo behavior must survive these presentation changes.
+
+## Design review handoff — November 5
+
+The scoped desktop design pass is complete for owner review. Each new screen was inspected as a rendered Paper screenshot, with targeted corrections for overflowing state-check rows, selected-action styling, consistent header history access, validation/test status, dropdown centering and modal fit. No text-chevron glyphs or Direct Deepgram “legacy” labels remain on this page. Existing earlier concept pages are preserved.
+
+History controls are available in the shared header; document mutation controls are disabled while testing a frozen snapshot. Export can still reference that snapshot. Prompt expansion shares the same document/history rather than creating a second draft. Action mappings/results use the existing atomic Apply behavior; ordinary text editing retains its established history grouping. Long inspector content needs internal scrolling with reachable completion controls, without moving the graph.
+
+The new screens refine existing controls; they do not introduce a setup wizard, new provider framework, tool execution service or testing engine. LiveKit Inference credentials and the direct-provider credential alternatives must continue to be selected from the current voice configuration. Credential fields use empty placeholders in the design; no real keys were read or entered. Custom vocabulary remains stored but inactive for the current LiveKit adapter.
+
+This is a static desktop review set, not a clickable prototype, verified responsive implementation, deployed fix or merge-readiness claim. Keyboard/focus behavior, narrow widths, long/custom IDs, catalog failure states and source-preservation regressions belong to implementation acceptance. The bounded design set is ready for Prasad's review before implementation planning.
 
 ## Suggested implementation order
 
