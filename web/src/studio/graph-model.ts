@@ -81,10 +81,10 @@ export function presentRoutes(
       refs,
       target: route.target,
       mode:
-        parallel.length > 1
-          ? "bundle"
-          : (incoming.get(route.target)?.size || 0) >= 4
-            ? "chip"
+        (incoming.get(route.target)?.size || 0) >= 4
+          ? "chip"
+          : parallel.length > 1
+            ? "bundle"
             : "drawn",
     });
   }

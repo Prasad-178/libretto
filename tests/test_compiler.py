@@ -61,32 +61,48 @@ def test_northline_compiles_against_explicit_demo_contracts():
     from pathlib import Path
 
     from libretto.demo_tools import DemoToolRegistry
-    compiled = compile_workflow(Path('examples/receptionist.yaml').read_text(),
-                                tools=DemoToolRegistry(), project_root=Path('examples'))
-    assert compiled.tools.names == {'transfer_call', 'capture_message'}
+
+    compiled = compile_workflow(
+        Path("examples/receptionist.yaml").read_text(),
+        tools=DemoToolRegistry(),
+        project_root=Path("examples"),
+    )
+    assert compiled.tools.names == {"transfer_call", "capture_message"}
 
 
 def test_source_symlink_cannot_escape_project_root(tmp_path):
-    outside = tmp_path / 'outside.md'
-    outside.write_text('Secret')
-    root = tmp_path / 'project'
-    (root / 'knowledge').mkdir(parents=True)
-    (root / 'knowledge' / 'linked.md').symlink_to(outside)
-    source = SOURCE.replace('tools: [book_visit]', 'knowledge: {policies: knowledge}\ntools: [book_visit]')
-    with pytest.raises(WorkflowCompileError, match='inside project_root'):
+    outside = tmp_path / "outside.md"
+    outside.write_text("Secret")
+    root = tmp_path / "project"
+    (root / "knowledge").mkdir(parents=True)
+    (root / "knowledge" / "linked.md").symlink_to(outside)
+    source = SOURCE.replace("tools: [book_visit]", "knowledge: {policies: knowledge}\ntools: [book_visit]")
+    with pytest.raises(WorkflowCompileError, match="inside project_root"):
         compile_workflow(source, tools=registry()[0], project_root=root)
 
 
-@pytest.mark.parametrize('old,new,path', [
-    ('request: visit', 'request: missing', ('confirmations','booking','request')),
-    ('fields: [customer_name, address, issue, window]', 'fields: [missing]', ('confirmations','booking','fields')),
-    ('confirmation: booking', 'confirmation: missing', ('nodes','confirm','confirmation')),
-    ('begin_request: visit', 'begin_request: missing', ('nodes','collect','begin_request')),
-    ('    entry: respond\n    readback:', '    entry: wait\n    readback:', ('nodes','confirm','confirmation')),
-])
-def test_policy_contract_errors_identify_the_configuration_path(old,new,path):
+@pytest.mark.parametrize(
+    "old,new,path",
+    [
+        ("request: visit", "request: missing", ("confirmations", "booking", "request")),
+        (
+            "fields: [customer_name, address, issue, window]",
+            "fields: [missing]",
+            ("confirmations", "booking", "fields"),
+        ),
+        ("confirmation: booking", "confirmation: missing", ("nodes", "confirm", "confirmation")),
+        ("begin_request: visit", "begin_request: missing", ("nodes", "collect", "begin_request")),
+        (
+            "    entry: respond\n    readback:",
+            "    entry: wait\n    readback:",
+            ("nodes", "confirm", "confirmation"),
+        ),
+    ],
+)
+def test_policy_contract_errors_identify_the_configuration_path(old, new, path):
     from test_repair_visit import ROOT, tools
-    source=(ROOT/'agent.yaml').read_text().replace(old,new)
+
+    source = (ROOT / "agent.yaml").read_text().replace(old, new)
     with pytest.raises(WorkflowCompileError) as error:
-        compile_workflow(source,tools=tools(),project_root=ROOT)
+        compile_workflow(source, tools=tools(), project_root=ROOT)
     assert error.value.issues[0].path == path

@@ -113,3 +113,24 @@ test("YAML Problems stays a 200px strip at 1024", async ({ page }, info) => {
   expect(panel!.x + panel!.width).toBeLessThanOrEqual(1024);
   await page.screenshot({ path: info.outputPath("yaml-1024.png") });
 });
+
+
+test("repair request policies survive prompt editing and export", async ({ page }, info) => {
+  const repair = path.resolve("../examples/repair_visit/agent.yaml");
+  await page.goto("/studio");
+  await page.getByLabel("Open workflow files").setInputFiles(repair);
+  await page.getByRole("button", { name: "Open Confirm visit step", exact: true }).click();
+  await expect(page.getByText("Confirmation policy:", { exact: false })).toBeVisible();
+  await page.getByLabel("Step prompt", { exact: true }).fill("Review all visit details and ask for approval.");
+  await page.screenshot({ path: info.outputPath("repair-policy-inspector.png") });
+  await page.getByRole("button", { name: "Export YAML", exact: true }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download agent.yaml", exact: true }).click();
+  const source = (await readFile(await (await downloadPromise).path())).toString();
+  expect(source).toContain("prompt: Review all visit details and ask for approval.");
+  expect(source).toContain("begin_request: visit");
+  expect(source).toContain("confirmation: booking");
+  expect(source).toContain("acceptance_field: accepted");
+  expect(source).toContain("consent_field: consent");
+  expect(source).toContain("Booking consent means");
+});

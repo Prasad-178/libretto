@@ -165,6 +165,8 @@ export default function StepInspector({
         {selection.kind !== "step" && <p>From {node.title || id}</p>}
       </header>
       <div className="studio-inspector-scroll">
+        {node.begin_request && <p className="inspector-notice">Begins request: <code>{node.begin_request}</code></p>}
+        {node.confirmation && <p className="inspector-notice">Confirmation policy: <code>{node.confirmation}</code>. Edit this policy in YAML.</p>}
         {readOnly && (
           <p className="inspector-notice">
             Showing the running snapshot. Stop the test to edit.

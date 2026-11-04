@@ -10,6 +10,8 @@ export type FlowEdge = {
   timing?: string;
 };
 export type FlowNode = {
+  begin_request?: string;
+  confirmation?: string;
   kind: string;
   title: string;
   prompt: string;
@@ -25,6 +27,12 @@ export type FlowNode = {
   edges: FlowEdge[];
 };
 export type Workflow = {
+  evaluation_prompt?: string;
+  requests?: Record<string, { fields: string[] }>;
+  confirmations?: Record<string, {
+    request: string; fields: string[]; acceptance_field: string;
+    consent_field?: string | null; require_delivery?: boolean;
+  }>;
   id: string;
   name: string;
   description: string;
@@ -79,7 +87,7 @@ export function readWorkflow(source: string): Workflow | null {
     if (!stringLists(value, ["common_knowledge"])) return null;
     const record = (v: unknown): v is Record<string, any> =>
       !!v && typeof v === "object" && !Array.isArray(v);
-    if (!optionalText(value, ["description", "welcome"])) return null;
+    if (!optionalText(value, ["description", "welcome", "evaluation_prompt"])) return null;
     if (
       value.fields !== undefined &&
       (!record(value.fields) ||
@@ -135,7 +143,7 @@ export function readWorkflow(source: string): Workflow | null {
           node &&
           typeof node === "object" &&
           typeof node.kind === "string" &&
-          optionalText(node, ["title", "prompt", "text", "readback"]) &&
+          optionalText(node, ["title", "prompt", "text", "readback", "begin_request", "confirmation"]) &&
           (node.tool === undefined ||
             node.tool === null ||
             typeof node.tool === "string") &&

@@ -4,8 +4,9 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from libretto.retrieval import build_index
+from libretto.compiler import compile_workflow
 from libretto.schema import load_workflow, parse_workflow
+from libretto.tools import ToolRegistry
 
 
 class StudioWorkspace:
@@ -17,6 +18,7 @@ class StudioWorkspace:
         if not self.workflow_path.is_relative_to(self.project_root):
             raise ValueError('Workflow must remain inside the configured project root')
         self.workflow = load_workflow(self.workflow_path)
+        self.tools = ToolRegistry()
         self.bundled_paths = set(self.workflow.knowledge.values())
 
     def resolve_collection(self, relative: str) -> Path:
@@ -49,7 +51,7 @@ class StudioWorkspace:
                 break
         return folders
 
-    def compile(self, source: str):
+    def compile_compiled(self, source: str, *, tools=None):
         workflow = parse_workflow(source)
         for relative in workflow.knowledge.values():
             if self.mode == 'hosted-demo' and relative not in self.bundled_paths:
@@ -58,4 +60,9 @@ class StudioWorkspace:
             for document in directory.glob('*.md'):
                 if not document.resolve().is_relative_to(self.project_root):
                     raise ValueError('Source files must remain inside the configured project root')
-        return workflow, build_index(workflow, self.project_root)
+        return compile_workflow(source, tools=tools if tools is not None else self.tools,
+                                project_root=self.project_root)
+
+    def compile(self, source: str):
+        compiled = self.compile_compiled(source)
+        return compiled.workflow, compiled.index

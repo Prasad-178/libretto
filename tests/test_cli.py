@@ -48,3 +48,17 @@ def test_serve_uses_explicit_workflow_and_project_root(monkeypatch, tmp_path):
     with TestClient(applications[0]) as client:
         assert client.get('/api/config').json()['workflow']['id'] == 'tiny-survey'
         assert client.get('/api/workflow.yaml').text == source
+
+
+def test_validate_rejects_missing_application_handler(monkeypatch, tmp_path, capsys):
+    import pytest
+    from test_action_lifecycle import SOURCE
+
+    from libretto.cli import main
+    path=tmp_path/'agent.yaml'
+    path.write_text(SOURCE)
+    monkeypatch.setattr('sys.argv',['libretto','validate',str(path)])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code==1
+    assert 'unregistered_tool' in capsys.readouterr().out

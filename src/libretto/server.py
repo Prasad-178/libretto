@@ -14,10 +14,12 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
+from libretto.api import WorkflowRunner
+from libretto.compiler import WorkflowCompileError
 from libretto.demo_tools import DemoToolRegistry as ToolRegistry
 from libretto.providers.base import ProviderError, SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
-from libretto.runtime import CALL_LIMIT_SECONDS, Session
+from libretto.runtime import CALL_LIMIT_SECONDS
 from libretto.schema import Models, StrictModel
 from libretto.speech import default_speech_registry
 from libretto.studio_api import (
@@ -89,17 +91,21 @@ def create_app(
     selected_path = workflow_path or root / "examples/receptionist.yaml"
     workspace = StudioWorkspace(selected_path, project_root or (selected_path.parent if workflow_path else root / "examples"),
                                 "local-project" if workflow_path else "hosted-demo")
-    workflow, index = workspace.compile(selected_path.read_text())
     directory = json.loads((root / "examples/directory.json").read_text())
     make_tools = tool_factory or (lambda: ToolRegistry(directory))
-    make_tools().validate(workflow)
+    workspace.tools = make_tools().snapshot()
     scenarios = [] if workflow_path else json.loads((root / "examples/test-scenarios.json").read_text())
 
-    def compile_source(source: str):
-        definition, source_index = workspace.compile(source)
-        registry.validate(definition.speech)
-        make_tools().validate(definition)
-        return definition, source_index
+    def compile_source(source: str, *, transfer_outcome="unavailable"):
+        tools = make_tools()
+        if isinstance(tools, ToolRegistry):
+            tools.transfer_outcome = transfer_outcome
+        compiled = workspace.compile_compiled(source, tools=tools)
+        registry.validate(compiled.workflow.speech)
+        return compiled
+
+    initial = workspace.compile_compiled(selected_path.read_text())
+    workflow = initial.workflow
 
     @asynccontextmanager
     async def lifespan(app):
@@ -180,17 +186,20 @@ def create_app(
             "directory": directory,
             "test_scenarios": scenarios,
             "knowledge_documents": [
-                {"document": p.document, "heading": p.heading, "text": p.text} for p in index.passages
+                {"document": p.document, "heading": p.heading, "text": p.text} for p in initial.index.passages
             ],
         }
 
     @app.post("/api/workflow/validate")
     async def validate_source(body: WorkflowSource):
         try:
-            definition, _ = compile_source(body.source)
+            definition = compile_source(body.source).workflow
             return {"workflow": definition.model_dump()}
         except (ValueError, TypeError, OSError) as exc:
-            if isinstance(exc, ValidationError):
+            if isinstance(exc, WorkflowCompileError):
+                issues = [{"path": ".".join(map(str, issue.path)) or "source", "code": issue.code,
+                           "message": issue.message} for issue in exc.issues]
+            elif isinstance(exc, ValidationError):
                 issues = [{"path": ".".join(map(str, e["loc"])), "message": e["msg"]} for e in exc.errors()]
             else:
                 issues = [{"path": "source", "message": str(exc)[:500]}]
@@ -245,7 +254,7 @@ def create_app(
             await control(kind, **packet)
 
         async def pump():
-            async for event in session.events():
+            async for event in runner.events():
                 async with send_lock:
                     await ws.send_json(event.wire())
                 if speech:
@@ -340,9 +349,9 @@ def create_app(
                         )
                         continue
                     try:
-                        session_workflow, session_index = (
-                            compile_source(event.workflow_yaml) if event.workflow_yaml else (workflow, index)
-                        )
+                        session_compiled = compile_source(event.workflow_yaml or selected_path.read_text(),
+                                                          transfer_outcome=event.transfer_outcome)
+                        session_workflow = session_compiled.workflow
                     except (ValueError, TypeError, OSError):
                         await control(
                             "error",
@@ -380,9 +389,12 @@ def create_app(
                         reasoning=session_workflow.models.reasoning,
                     )
                     adapter = model_factory(credentials, models, client=app.state.pool)
-                    session = Session(
-                        session_workflow, adapter, adapter, session_index, make_tools()
-                    )
+                    runner = WorkflowRunner(session_compiled, responder=adapter, evaluator=adapter,
+                                            delivery_mode="external" if event.mode == "voice" else "text")
+                    session = runner._session  # Speech coordinator adapts the same lifecycle owner.
+                    if event.mode == "text":
+                        # Studio already renders the literal welcome in its text transcript.
+                        session.workflow.welcome = ""
                     session.directory = json.dumps(directory)
                     session.state.transfer_outcome = event.transfer_outcome
                     session.defer_actions = event.mode == "voice"
@@ -414,10 +426,10 @@ def create_app(
                     await session.publish_state()
                     background.extend([asyncio.create_task(pump()), asyncio.create_task(expire())])
                     if event.mode == "voice":
-                        session._spawn(session.welcome())
+                        session._spawn(runner.start())
                 elif session and not session.closed:
                     if event.type == "text":
-                        await session.submit_turn(event.text, event.turn_id or str(time.monotonic_ns()))
+                        await runner.submit(event.text, turn_id=event.turn_id or str(time.monotonic_ns()))
                     elif event.type == "interrupt":
                         last_playback = event.playback_ms
                         await session.interrupt()

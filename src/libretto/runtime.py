@@ -55,6 +55,7 @@ class Session:
         self.created_at = clock()
         self.closed = False
         self.defer_actions = False
+        self.manual_delivery = False
         self.trace: deque[ServerEvent] = deque(maxlen=500)
         self.queue: asyncio.Queue[ServerEvent | None] = asyncio.Queue(maxsize=600)
         self._tasks: set[asyncio.Task] = set()
@@ -135,12 +136,12 @@ class Session:
         self._message_count += 1
         message = Message(
             "assistant",
-            "" if self.defer_actions else text,
+            "" if (self.defer_actions or self.manual_delivery) else text,
             "welcome",
             id=f"reply-{self._message_count}",
             epoch=epoch,
             generated_content=text,
-            delivered=not self.defer_actions,
+            delivered=not (self.defer_actions or self.manual_delivery),
         )
         self.state.history.append(message)
         self._speaking = True
@@ -229,7 +230,7 @@ class Session:
                         context.turn_id,
                         id=f"reply-{self._message_count}",
                         epoch=epoch,
-                        delivered=not self.defer_actions,
+                        delivered=not (self.defer_actions or self.manual_delivery),
                     )
                     await self.emit(
                         "first_text",
@@ -506,12 +507,12 @@ class Session:
                     self._message_count += 1
                     message = Message(
                         "assistant",
-                        "" if self.defer_actions else node.text,
+                        "" if (self.defer_actions or self.manual_delivery) else node.text,
                         "literal",
                         id=f"reply-{self._message_count}",
                         generated_content=node.text,
                         epoch=epoch,
-                        delivered=not self.defer_actions,
+                        delivered=not (self.defer_actions or self.manual_delivery),
                     )
                     self.state.history.append(message)
                     await self.emit("first_text", turn_id="literal", message_id=message.id)
@@ -580,12 +581,12 @@ class Session:
             turn_id = self._current[1] if self._current else "readback"
             message = Message(
                 "assistant",
-                "" if self.defer_actions else text,
+                "" if (self.defer_actions or self.manual_delivery) else text,
                 turn_id,
                 id=f"reply-{self._message_count}",
                 generated_content=text,
                 epoch=epoch,
-                delivered=not self.defer_actions,
+                delivered=not (self.defer_actions or self.manual_delivery),
                 readback_fingerprint=confirmation_fingerprint(node.confirmation, self.state.request.id,
                     values, self.workflow.confirmations[node.confirmation].fields)
                     if node.confirmation and self.state.request else None,

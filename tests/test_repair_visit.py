@@ -91,53 +91,56 @@ async def test_corrected_address_requires_new_readback_before_booking():
 
 
 async def test_refusal_does_not_book():
-    session = session_for([collected(), Evaluation(
-        updates={'accepted': {'value': False, 'evidence': 'no'}}, matches=['refused'])])
+    session = session_for(
+        [
+            collected(),
+            Evaluation(updates={"accepted": {"value": False, "evidence": "no"}}, matches=["refused"]),
+        ]
+    )
     try:
         await details(session)
-        await session.submit_turn('no', 'refusal')
-        await drain_until(session, 'transition')
+        await session.submit_turn("no", "refusal")
+        await drain_until(session, "transition")
         assert not session.state.receipts
-        assert 'booking' not in session.state.confirmations
+        assert "booking" not in session.state.confirmations
     finally:
         await session.close()
 
 
 async def test_interrupted_repair_readback_cannot_authorize_booking():
-    session = session_for([collected(), Evaluation(updates={
-        'accepted': {'value': True, 'evidence': 'yes'}})])
+    session = session_for([collected(), Evaluation(updates={"accepted": {"value": True, "evidence": "yes"}})])
     session.defer_actions = True
     try:
         await details(session)
         message = session.state.history[-1]
-        session.bind_speech('repair-readback', message.id)
-        session.reconcile_speech('repair-readback', 'Visit for Taylor', interrupted=True)
-        await session.submit_turn('yes', 'approval')
-        await drain_until(session, 'evaluation')
+        session.bind_speech("repair-readback", message.id)
+        session.reconcile_speech("repair-readback", "Visit for Taylor", interrupted=True)
+        await session.submit_turn("yes", "approval")
+        await drain_until(session, "evaluation")
         assert not session.state.receipts
-        assert session.state.values().get('accepted') is not True
+        assert session.state.values().get("accepted") is not True
     finally:
         await session.close()
 
 
 async def test_repeated_identical_visits_need_fresh_approval_and_receipts():
-    approval=Evaluation(updates={'accepted': {'value': True, 'evidence': 'yes'}})
-    session=session_for([collected(), approval, Evaluation(matches=['another']), collected(), approval])
+    approval = Evaluation(updates={"accepted": {"value": True, "evidence": "yes"}})
+    session = session_for([collected(), approval, Evaluation(matches=["another"]), collected(), approval])
     try:
         await details(session)
-        await session.submit_turn('yes','approval-1')
-        first=await drain_until(session,'tool_result')
-        await drain_until(session,'response_done')
-        await session.submit_turn('another visit','another')
-        await drain_until(session,'transition')
-        assert session.state.values().get('accepted') is None
-        await session.submit_turn('book Taylor 7 Test St oven morning','details-2')
-        await drain_until(session,'readback')
-        await drain_until(session,'response_done')
-        assert len(session.state.receipts)==1
-        await session.submit_turn('yes','approval-2')
-        second=await drain_until(session,'tool_result')
-        assert first.data['request_id'] != second.data['request_id']
-        assert first.data['data']['receipt'] != second.data['data']['receipt']
+        await session.submit_turn("yes", "approval-1")
+        first = await drain_until(session, "tool_result")
+        await drain_until(session, "response_done")
+        await session.submit_turn("another visit", "another")
+        await drain_until(session, "transition")
+        assert session.state.values().get("accepted") is None
+        await session.submit_turn("book Taylor 7 Test St oven morning", "details-2")
+        await drain_until(session, "readback")
+        await drain_until(session, "response_done")
+        assert len(session.state.receipts) == 1
+        await session.submit_turn("yes", "approval-2")
+        second = await drain_until(session, "tool_result")
+        assert first.data["request_id"] != second.data["request_id"]
+        assert first.data["data"]["receipt"] != second.data["data"]["receipt"]
     finally:
         await session.close()

@@ -359,3 +359,18 @@ def test_session_model_factory_receives_workflow_reasoning():
             assert ws.receive_json()["type"] == "ready"
             ws.send_json({"type": "close"})
     assert seen == ["high"]
+
+
+def test_policy_errors_have_paths_and_hosted_demo_rejects_unregistered_handlers():
+    from pathlib import Path
+
+    from libretto.server import create_app
+    with TestClient(create_app(load_environment=False)) as client:
+        source=Path('examples/receptionist.yaml').read_text().replace('request: front_desk','request: missing',1)
+        result=client.post('/api/workflow/validate',json={'source':source})
+        assert result.status_code==422
+        assert result.json()['detail'][0]['path']=='confirmations.transfer_destination.request'
+        source=Path('examples/repair_visit/agent.yaml').read_text().replace('knowledge: {policies: knowledge}', 'knowledge: {}').replace('common_knowledge: [policies]', 'common_knowledge: []')
+        result=client.post('/api/workflow/validate',json={'source':source})
+        assert result.status_code==422
+        assert result.json()['detail'][0]['code']=='unregistered_tool'
