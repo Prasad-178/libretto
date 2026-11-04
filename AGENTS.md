@@ -12,3 +12,4 @@ Read [the product direction](docs/product-direction.md) and [the roadmap](ROADMA
 - The next major milestone is two substantive agents using one reusable core, followed by one optional LiveKit integration. Follow the roadmap gates instead of expanding Studio indefinitely.
 - Keep changes independent of employer/client projects and data. The global Burni Consulting access restriction still applies.
 - Make regular meaningful commits. Verify behavior, including actual rendered evidence for UI changes. Do not claim deployed or CI-passing without checking that exact state.
+- Work directly on `main` for this project; do not create feature branches or worktrees unless Prasad explicitly requests one. Keep regular meaningful commits and run applicable checks before pushing. (Owner preference, 2026-11-04.)
