@@ -3,9 +3,9 @@ import type { Workflow } from "./workflow";
 export function voiceEngine(speech: Workflow["speech"]): "livekit" | "direct" {
   return (
     speech?.engine ||
-    (speech?.stt?.provider === "deepgram" &&
+    ((speech?.stt?.provider ?? "deepgram") === "deepgram" &&
     speech?.stt?.model === "flux-general-en" &&
-    speech?.tts?.provider === "deepgram" &&
+    (speech?.tts?.provider ?? "deepgram") === "deepgram" &&
     speech?.tts?.model === "flux-haley-en"
       ? "direct"
       : "livekit")

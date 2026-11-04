@@ -19,7 +19,12 @@ class LiveKitCoordinator:
         self, config, credentials, runner, send_audio, send_control, *, models=None, agent_type=WorkflowAgent
     ):
         self.config, self.credentials = config, credentials
+        if isinstance(runner, WorkflowRunner) and runner.delivery_mode != "external":
+            raise ValueError("LiveKit voice requires a WorkflowRunner with external delivery mode")
         self.core = runner._session if isinstance(runner, WorkflowRunner) else runner
+        if not self.core.manual_delivery:
+            raise ValueError("LiveKit voice requires externally acknowledged session delivery")
+        self.core.defer_actions = True
         self.send_audio, self.control = send_audio, send_control
         self.models = models
         self.agent_type = agent_type
@@ -113,12 +118,14 @@ class LiveKitCoordinator:
             binding.handle = handle
             self.handles[handle.id] = binding
             self.bindings[binding.speech_id] = binding
-        await self.writing.text.put(text)
+        binding = self.writing
+        if not await binding.put(text) or binding.epoch != self.core.epoch:
+            binding.abort()
 
     async def finish_response(self) -> None:
         if self.writing:
             binding, self.writing = self.writing, None
-            await binding.text.put(None)
+            await binding.put(None)
 
     async def playback_finished(self, speech_id: str, *, epoch: int) -> None:
         binding = self.bindings.get(speech_id)
@@ -126,6 +133,8 @@ class LiveKitCoordinator:
             not binding
             or binding.epoch != epoch
             or binding.interrupted
+            or binding.truncated
+            or binding.settled
             or binding.acknowledged
             or not binding.flushed
             or binding is not self.output.active
@@ -134,6 +143,7 @@ class LiveKitCoordinator:
         if not self.core.playback_finished(speech_id, epoch=epoch):
             return
         binding.acknowledged = True
+        binding.settled = True
         self.output.on_playback_finished(playback_position=binding.samples / 24000, interrupted=False)
 
     async def interrupt(self, playback_ms=None) -> None:
@@ -142,9 +152,10 @@ class LiveKitCoordinator:
     async def cancel_output(self, playback_ms=0) -> None:
         self.writing = None
         for binding in tuple(self.bindings.values()):
-            if binding.handle and not binding.handle.done():
-                binding.interrupted = True
-                binding.handle.interrupt()
+            if not binding.settled:
+                binding.abort()
+                if binding.handle and not binding.handle.done():
+                    binding.handle.interrupt()
         if self.sdk:
             await self.sdk.interrupt(force=True)
 
@@ -160,6 +171,9 @@ class LiveKitCoordinator:
         if self.closed:
             return
         self.closed = True
+        for binding in self.bindings.values():
+            if not binding.settled:
+                binding.abort()
         self.input.close()
         if self.sdk:
             await self.sdk.aclose()

@@ -24,3 +24,15 @@ it("keeps explicit legacy Deepgram credentials and deduplicates direct provider 
     }).map((field) => field.field),
   ).toEqual(["deepgram_key"]);
 });
+
+it("recognizes abbreviated legacy YAML using backend provider defaults", () => {
+  // The parser accepts omitted providers, exactly as the backend schema does.
+  const speech = {
+    stt: { model: "flux-general-en" },
+    tts: { model: "flux-haley-en" },
+  };
+  expect(voiceEngine(speech as any)).toBe("direct");
+  expect(
+    voiceCredentialFields(speech as any).map((field) => field.field),
+  ).toEqual(["deepgram_key"]);
+});

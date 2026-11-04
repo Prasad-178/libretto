@@ -23,6 +23,33 @@ class SpeechBinding:
     flushed: bool = False
     interrupted: bool = False
     acknowledged: bool = False
+    truncated: bool = False
+    settled: bool = False
+    aborted: asyncio.Event = field(default_factory=asyncio.Event)
+
+    def abort(self) -> None:
+        self.interrupted = True
+        self.aborted.set()
+
+    async def put(self, chunk: str | None) -> bool:
+        """Backpressure must end when the SDK consumer is interrupted or closed."""
+        if self.aborted.is_set():
+            return False
+        try:
+            self.text.put_nowait(chunk)
+            return True
+        except asyncio.QueueFull:
+            pass
+        pending = asyncio.create_task(self.text.put(chunk))
+        stopped = asyncio.create_task(self.aborted.wait())
+        try:
+            await asyncio.wait((pending, stopped), return_when=asyncio.FIRST_COMPLETED)
+            return pending.done() and not self.aborted.is_set()
+        finally:
+            for task in (pending, stopped):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(pending, stopped, return_exceptions=True)
 
     async def chunks(self):
         while True:
@@ -117,21 +144,39 @@ class BrowserAudioOutput(io.AudioOutput):
             )
         # Only an explicit matching browser acknowledgement calls on_playback_finished.
 
+    def _mark_input_truncated(self) -> None:
+        # SDK1.8.10 invokes this before its failure-cleanup flush. Flush alone
+        # cannot distinguish a complete utterance from a failed partial stream.
+        super()._mark_input_truncated()
+        handle = self.bridge.sdk.current_speech
+        binding = self.bridge.handles.get(handle.id) if handle else self.active
+        if binding:
+            binding.truncated = True
+            binding.abort()
+            self._interrupt_binding(binding)
+
+    def _interrupt_binding(self, binding: SpeechBinding) -> None:
+        if binding.settled:
+            return
+        binding.abort()
+        binding.settled = True
+        self.bridge.core.reconcile_speech(binding.speech_id, "", interrupted=True)
+        if binding is self.active:
+            self.active = None
+            self.on_playback_finished(playback_position=0, interrupted=True)
+        self.bridge.spawn(
+            self.bridge.control(
+                {
+                    "type": "speech_interrupted",
+                    "speech_id": binding.speech_id,
+                    "message_id": binding.message_id,
+                    "epoch": binding.epoch,
+                    "text_spoken": "",
+                }
+            )
+        )
+
     def clear_buffer(self) -> None:
         binding = self.active
-        self.active = None
-        if binding and not binding.acknowledged:
-            binding.interrupted = True
-            self.bridge.core.reconcile_speech(binding.speech_id, "", interrupted=True)
-            self.on_playback_finished(playback_position=0, interrupted=True)
-            self.bridge.spawn(
-                self.bridge.control(
-                    {
-                        "type": "speech_interrupted",
-                        "speech_id": binding.speech_id,
-                        "message_id": binding.message_id,
-                        "epoch": binding.epoch,
-                        "text_spoken": "",
-                    }
-                )
-            )
+        if binding:
+            self._interrupt_binding(binding)
