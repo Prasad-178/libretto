@@ -144,3 +144,16 @@ async def test_repeated_identical_visits_need_fresh_approval_and_receipts():
         assert first.data["data"]["receipt"] != second.data["data"]["receipt"]
     finally:
         await session.close()
+
+
+async def test_withdrawn_booking_consent_invalidates_readback_permission():
+    session=session_for([collected(),Evaluation(updates={'consent': {'value':False,'evidence':'no'}})])
+    try:
+        await details(session)
+        assert 'booking' in session.state.confirmations
+        await session.submit_turn('no','withdraw')
+        await drain_until(session,'evaluation')
+        assert 'booking' not in session.state.confirmations
+        assert not session.state.receipts
+    finally:
+        await session.close()

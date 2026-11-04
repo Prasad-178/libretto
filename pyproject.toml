@@ -7,15 +7,14 @@ name = "libretto-voice"
 version = "0.1.0"
 description = "Voice workflows, written in YAML"
 requires-python = ">=3.12"
-dependencies = [
-  "fastapi>=0.115,<1",
-  "httpx>=0.28,<1",
-  "pydantic>=2.10,<3",
-  "python-dotenv>=1,<2",
-  "pyyaml>=6,<7",
-  "uvicorn[standard]>=0.34,<1",
-  "websockets>=15,<17",
+dependencies = ["pydantic>=2.10,<3", "pyyaml>=6,<7"]
+
+[project.optional-dependencies]
+studio = [
+  "fastapi>=0.115,<1", "httpx>=0.28,<1", "python-dotenv>=1,<2",
+  "uvicorn[standard]>=0.34,<1", "websockets>=15,<17",
 ]
+providers = ["httpx>=0.28,<1"]
 
 [project.scripts]
 libretto = "libretto.cli:main"
@@ -25,6 +24,7 @@ packages = ["src/libretto"]
 
 [dependency-groups]
 dev = [
+    "libretto-voice[studio]",
     "httpx2>=2.16.0",
     "pytest>=8,<10",
     "pytest-asyncio>=0.25,<2",

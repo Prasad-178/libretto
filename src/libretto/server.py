@@ -396,7 +396,6 @@ def create_app(
                         # Studio already renders the literal welcome in its text transcript.
                         session.workflow.welcome = ""
                     session.directory = json.dumps(directory)
-                    session.state.transfer_outcome = event.transfer_outcome
                     session.defer_actions = event.mode == "voice"
                     started_at = time.monotonic()
                     if event.mode == "voice":

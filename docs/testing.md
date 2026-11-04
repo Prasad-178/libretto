@@ -18,6 +18,10 @@ Playwright starts the Python backend on port 8000 a local-project backend on 800
 
 The browser suite covers 1440/1280/1024 layouts, inspector widths, expanded prompt editing, keyboard focus restoration, reduced-motion settings, route search/reveal, grouped Undo, configured insertion, invalid drafts and the last-valid graph, exact export filenames/bytes, source scope and ranked evidence, stale retrieval rejection, immutable test snapshots/Stop, failed-start recovery/cancellation, empty and malformed draft recovery, pinned-layout restoration, and Settings typing/Undo boundaries. Screenshots and failed-run traces are written to `web/test-results/`; inspect these when changing layout. Frontend unit tests additionally cover ten generic graph fixtures, route conservation, source-preserving edits, metadata and history. Backend tests use temporary projects for local-folder containment and source manifests.
 
+## Reusable core checks
+
+`tests/test_install_smoke.py` builds a wheel, installs core dependencies in a temporary environment outside the checkout, and executes a registered stub through public imports with no FastAPI, LiveKit, demo files or provider keys. It uses uv/build dependency resolution and may need network/cache access; it makes no paid inference calls. Request, confirmation, action-lifecycle and public-API tests use fake providers and event barriers. `test_repair_visit.py` covers the second domain. Browser YAML checks import that example, edit its prompt and verify its policy declarations survive export.
+
 ## Fictional coworking front desk
 
 Northline Workspace is an invented coworking business. All prices, policies, staff, addresses and caller profiles are fake. Caller telephone numbers use the reserved fictional 202-555-01xx range. No customer accounts, live availability or external business systems exist.

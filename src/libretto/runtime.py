@@ -315,7 +315,8 @@ class Session:
             accepted_fields = {p.acceptance_field for p in self.workflow.confirmations.values()}
             for policy_id, policy in self.workflow.confirmations.items():
                 affected = changed.intersection(policy.fields)
-                refused = policy.acceptance_field in proposals and proposals[policy.acceptance_field].value is not True
+                refused = any(flag in proposals and proposals[flag].value is not True
+                    for flag in (policy.acceptance_field, policy.consent_field) if flag)
                 if affected or refused:
                     self.state.confirmations.pop(policy_id, None)
                     self.state.facts.pop(policy.acceptance_field, None)

@@ -6,9 +6,9 @@
 
 [Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
-[Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
+[Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
 
-Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The next milestone is a reusable core proven by two action workflows, followed by an optional LiveKit integration; see the roadmap for planned versus shipped behavior.
+Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The reusable-core branch adds an importable runner proven by Northline and a repair-visit workflow; optional LiveKit integration is the next separate milestone. See the roadmap for verification and release status.
 
 Libretto is a Python workflow engine and React studio for building stateful voice agents. Define stages, prompts, fields, transitions, knowledge and actions in YAML; inspect the generated workflow; then test it over voice or text while watching state, sources and tool receipts.
 
@@ -43,6 +43,10 @@ A few natural things to try:
 - Ask about an unpublished discount or try to book a room. The agent should explain its limits without inventing a policy or claiming a booking.
 
 The test panel includes **15 scenarios** with fictional data, expected sources and selectable transfer outcomes. Use **State**, **Sources** and **Trace** to inspect what happened. Calls end after five minutes; a new call starts fresh. Prefer headphones when evaluating interruptions.
+
+## Use the Python core
+
+Register application tools in Python, compile your YAML with `compile_workflow`, and run it with `WorkflowRunner` and your responder/evaluator adapters. Core installation needs no web server or Studio. See the [library guide](docs/library.md) for source installation, public imports, lifecycle/delivery rules and application composition; compare the [repair example](examples/repair_visit/agent.yaml) with Northline. The repository license must still be selected before a reusable release.
 
 ## What is implemented
 

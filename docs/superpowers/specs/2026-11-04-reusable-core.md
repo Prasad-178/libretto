@@ -1,6 +1,6 @@
 # Reusable Libretto core specification
 
-Status: planned technical design for the approved OSS direction (2026-11-04). The APIs and YAML extensions below are not shipped. [Product charter](../../product-direction.md) · [Roadmap](../../../ROADMAP.md).
+Status: implemented on the local M1 feature branch (2026-11-04), pending final review/merge. The APIs and YAML extensions below are not yet released. [Product charter](../../product-direction.md) · [Roadmap](../../../ROADMAP.md).
 
 ## Outcome and boundary
 

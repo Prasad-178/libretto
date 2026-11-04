@@ -38,6 +38,8 @@ Milestone order is not a calendar estimate. Keep one active milestone and a smal
 
 ## M1 — two agents, one reusable core
 
+Local implementation and compatibility checks are complete on `feat/reusable-core-m1`; final whole-branch review and release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 does not start implicitly.
+
 ### Scope
 
 - Characterize repeated requests, punctuation-sensitive readbacks, corrections and cancellation with deterministic adapters.

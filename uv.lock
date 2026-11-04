@@ -262,11 +262,18 @@ name = "libretto-voice"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.optional-dependencies]
+providers = [
+    { name = "httpx" },
+]
+studio = [
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "pydantic" },
     { name = "python-dotenv" },
-    { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
 ]
@@ -274,6 +281,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "httpx2" },
+    { name = "libretto-voice", extra = ["studio"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -281,18 +289,21 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115,<1" },
-    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "fastapi", marker = "extra == 'studio'", specifier = ">=0.115,<1" },
+    { name = "httpx", marker = "extra == 'providers'", specifier = ">=0.28,<1" },
+    { name = "httpx", marker = "extra == 'studio'", specifier = ">=0.28,<1" },
     { name = "pydantic", specifier = ">=2.10,<3" },
-    { name = "python-dotenv", specifier = ">=1,<2" },
+    { name = "python-dotenv", marker = "extra == 'studio'", specifier = ">=1,<2" },
     { name = "pyyaml", specifier = ">=6,<7" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34,<1" },
-    { name = "websockets", specifier = ">=15,<17" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'studio'", specifier = ">=0.34,<1" },
+    { name = "websockets", marker = "extra == 'studio'", specifier = ">=15,<17" },
 ]
+provides-extras = ["studio", "providers"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx2", specifier = ">=2.16.0" },
+    { name = "libretto-voice", extras = ["studio"] },
     { name = "pytest", specifier = ">=8,<10" },
     { name = "pytest-asyncio", specifier = ">=0.25,<2" },
     { name = "ruff", specifier = ">=0.11,<1" },

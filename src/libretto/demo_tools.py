@@ -73,7 +73,7 @@ class DemoToolRegistry:
         if name == "transfer_call":
             if not state.values().get("destination_confirmed"):
                 return ToolResult(status="failed", data={"reason": "Destination not confirmed."})
-            outcome = state.transfer_outcome
+            outcome = getattr(state, "transfer_outcome", "unavailable")
             if outcome not in {"connected", "unavailable", "failed", "timeout"}:
                 outcome = "failed"
             return ToolResult(status=outcome, data={"recipient": recipient, "simulated": True})

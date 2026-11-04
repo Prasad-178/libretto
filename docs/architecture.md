@@ -6,6 +6,14 @@ Libretto separates conversational output from workflow authority. A streaming mo
 
 This document describes the shipped prototype. A constrained graph does not guarantee correct language understanding, correct model answers or real business delivery.
 
+## Reusable core boundary
+
+`compile_workflow` checks YAML against explicit tool registrations and a contained project retrieval root, returning a definition hash and capability snapshot. `WorkflowRunner` wraps one existing `Session`; CLI and Studio validation/start/source inspection use this same compiler. The core import does not bootstrap FastAPI, speech providers, demo files or Studio. See the [library guide](library.md) and [migration](migrations/request-policies.md).
+
+Requests have identities separate from sessions and generation epochs. Explicit conversation entry resets request-local facts and permissions; ordinary correction stages retain identity. Confirmation permits bind configured protected facts to a runtime-issued message and verified delivery, then require approval on a later turn. No tool name, business field name or punctuation confers permission.
+
+Actions bind session/request/node identity and arguments. Reentry does not redispatch; uncertain outcomes do not retry automatically. Historical callbacks cannot advance a newer request. This is process-local deduplication, not durable exactly-once delivery. Generic application registrations and Northline simulation behavior are separate modules; the repair example uses the same engine without receptionist fields.
+
 ## Components and ownership
 
 ```mermaid
@@ -52,7 +60,7 @@ flowchart TB
 | Retrieval index | Bundled-document chunks, lexical ranking and source filtering | A remote search service, embeddings or a semantic reranker |
 | Speech coordinator | Normalized STT/TTS events, runtime integration, speech/message binding and audio framing | Vendor packet formats or provider model internals |
 | Provider adapters | API connections, provider protocols, error mapping and declared capabilities | Business workflow decisions |
-| Tool registry | Allowlisted simulated transfers/message capture and actual result receipts | Real phone routing, external tickets or durable delivery |
+| Tool registry | Explicit application handler contracts and actual result receipts | Real phone routing, external tickets or durable delivery |
 
 ## A definition becomes a fixed session configuration
 

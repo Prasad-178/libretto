@@ -108,7 +108,6 @@ class SessionState:
     history: list[Message] = field(default_factory=list)
     receipts: list[dict[str, Any]] = field(default_factory=list)
     readback_fingerprint: str | None = None
-    transfer_outcome: str = "unavailable"
     session_id: str = field(default_factory=lambda: uuid4().hex)
     request: RequestState | None = None
     confirmations: dict[str, ConfirmationState] = field(default_factory=dict)
