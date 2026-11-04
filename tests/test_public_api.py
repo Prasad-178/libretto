@@ -110,12 +110,13 @@ async def test_external_delivery_mode_rejects_stale_ack():
 
 async def test_close_finishes_full_event_stream_without_discarding_events():
     import asyncio
+
     instance = runner()
     session = instance._session
     for index in range(session.queue.maxsize):
-        await session.emit('diagnostic', index=index)
+        await session.emit("diagnostic", index=index)
     await instance.close()
     async with asyncio.timeout(1):
         events = [event async for event in instance.events()]
     assert len(events) == session.queue.maxsize
-    assert events[-1].data['index'] == session.queue.maxsize - 1
+    assert events[-1].data["index"] == session.queue.maxsize - 1

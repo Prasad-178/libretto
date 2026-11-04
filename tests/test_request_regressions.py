@@ -21,8 +21,13 @@ class EmptySearch:
 
 async def test_blocked_evaluation_keeps_response_and_state_separate():
     evaluator = ScriptedEvaluator([Evaluation(matches=["answered"])], blocked=True)
-    session = Session(load_workflow(Path("examples/minimal.yaml")), ScriptedResponder(["Hello"]),
-                      evaluator, EmptySearch(), None)
+    session = Session(
+        load_workflow(Path("examples/minimal.yaml")),
+        ScriptedResponder(["Hello"]),
+        evaluator,
+        EmptySearch(),
+        None,
+    )
     try:
         await session.submit_turn("An answer", "t1")
         await evaluator.started.wait()
@@ -51,8 +56,13 @@ async def test_recording_handler_can_hold_real_dispatch_boundary():
 
 
 async def test_event_drain_reports_bounded_stall():
-    session = Session(load_workflow(Path("examples/minimal.yaml")), ScriptedResponder(["Hello"]),
-                      ScriptedEvaluator([Evaluation()]), EmptySearch(), None)
+    session = Session(
+        load_workflow(Path("examples/minimal.yaml")),
+        ScriptedResponder(["Hello"]),
+        ScriptedEvaluator([Evaluation()]),
+        EmptySearch(),
+        None,
+    )
     try:
         await session.emit("first")
         await session.emit("second")

@@ -1,4 +1,5 @@
 """Deterministic inference/side-effect boundaries; the production Session remains real."""
+
 import asyncio
 from collections import deque
 from copy import deepcopy
