@@ -9,6 +9,7 @@ from typing import AsyncIterator, Callable
 
 from libretto.events import ServerEvent
 from libretto.prompts import compose_prompt
+from libretto.requests import begin_request, cancel_request
 from libretto.schema import Edge, Workflow
 from libretto.state import (
     DETAIL_FIELDS,
@@ -62,6 +63,17 @@ class Session:
         self._message_count = 0
         self._refresh_readback = False
         self._speech_messages: dict[str, str] = {}
+        self._begin_node_request(workflow.start)
+
+    def _begin_node_request(self, node_id: str) -> None:
+        name = self.workflow.nodes[node_id].begin_request
+        if name is not None:
+            self._pending = None
+            begin_request(self.state, name, self.workflow.requests[name])
+
+    def _context_current(self, context: GenerationContext) -> bool:
+        request_id = self.state.request.id if self.state.request else None
+        return not self.closed and context.snapshot.epoch == self.epoch and context.snapshot.request_id == request_id
 
     def _spawn(self, awaitable) -> asyncio.Task:
         task = asyncio.create_task(awaitable)
@@ -90,11 +102,14 @@ class Session:
             dict(self.state.values()),
             tuple(replace(m) for m in self.state.history),
             self.state.readback_fingerprint,
+            self.state.request.id if self.state.request else None,
         )
 
     async def publish_state(self) -> None:
         await self.emit(
             "state",
+            session_id=self.state.session_id,
+            request=asdict(self.state.request) if self.state.request else None,
             active_stage=self.state.active_stage,
             pending_stage=self.state.pending_stage,
             revision=self.state.revision,
@@ -192,7 +207,7 @@ class Session:
         message = None
         try:
             async for delta in self.responder.stream_reply(context):
-                if epoch != self.epoch or self.closed:
+                if not self._context_current(context):
                     return
                 if not delta:
                     continue
@@ -263,7 +278,7 @@ class Session:
         try:
             evaluation = await self.evaluator.evaluate(context)
             await self._confirmed.wait()
-            if epoch != self.epoch or self.closed:
+            if not self._context_current(context):
                 return
             if not isinstance(evaluation, Evaluation):
                 evaluation = Evaluation.model_validate(evaluation)
@@ -334,7 +349,10 @@ class Session:
                 self._pending = None
                 self.state.pending_stage = None
                 self.state.active_stage = self.workflow.start
-                self.state.facts.clear()
+                if self.workflow.requests:
+                    cancel_request(self.state)
+                else:
+                    self.state.facts.clear()
                 self.state.readback_fingerprint = None
                 await self.interrupt()
             elif evaluation.control == "stop_talking":
@@ -412,6 +430,7 @@ class Session:
                         self._spawn(self._after_playback(source, edge, epoch))
                         return
                 self.state.active_stage = target
+                self._begin_node_request(target)
                 self.state.revision += 1
                 await self.emit("transition", source=source, destination=target, edge=edge.id)
                 await self.publish_state()
@@ -639,6 +658,9 @@ class Session:
         if self.closed:
             return
         self.closed = True
+        if self.state.request:
+            self.state.request.status = "completed"
+        cancel_request(self.state)
         await self.interrupt(notify=False)
         tasks = [task for task in self._tasks if task is not asyncio.current_task()]
         if tasks:

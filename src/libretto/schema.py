@@ -68,7 +68,12 @@ class Edge(StrictModel):
     timing: Literal["next_response", "before_action"] = "next_response"
 
 
+class RequestSpec(StrictModel):
+    fields: list[str] = Field(default_factory=list)
+
+
 class Node(StrictModel):
+    begin_request: str | None = None
     kind: Literal["conversation", "action", "say", "end"]
     title: str = ""
     prompt: str = ""
@@ -134,6 +139,7 @@ class Workflow(StrictModel):
     models: Models = Field(default_factory=Models)
     speech: Speech = Field(default_factory=Speech)
     nodes: dict[str, Node]
+    requests: dict[str, RequestSpec] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def references(self) -> Self:
@@ -146,7 +152,17 @@ class Workflow(StrictModel):
         for source in self.common_knowledge:
             if source not in self.knowledge:
                 raise ValueError(f"Unknown knowledge {source}")
+        scoped_fields = set()
+        for name, request in self.requests.items():
+            for field in request.fields:
+                if field not in self.fields:
+                    raise ValueError(f"Unknown request field {field}")
+                if field in scoped_fields:
+                    raise ValueError(f"Field {field} belongs to multiple requests")
+                scoped_fields.add(field)
         for node_id, node in self.nodes.items():
+            if node.begin_request is not None and node.begin_request not in self.requests:
+                raise ValueError(f"Unknown request {node.begin_request} at {node_id}")
             if node.readback:
                 if node.kind != "conversation" or node.entry != "respond":
                     raise ValueError("Readback requires a conversation node with entry: respond")

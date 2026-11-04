@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic import Field
 
@@ -68,6 +69,7 @@ class StageSnapshot:
     facts: dict[str, Any]
     history: tuple[Message, ...]
     readback_fingerprint: str | None = None
+    request_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,14 @@ EvaluationContext = GenerationContext
 
 
 @dataclass
+class RequestState:
+    id: str
+    name: str
+    status: Literal["active", "completed", "cancelled"] = "active"
+    fields: tuple[str, ...] = ()
+
+
+@dataclass
 class SessionState:
     active_stage: str
     pending_stage: str | None = None
@@ -95,6 +105,8 @@ class SessionState:
     receipts: list[dict[str, Any]] = field(default_factory=list)
     readback_fingerprint: str | None = None
     transfer_outcome: str = "unavailable"
+    session_id: str = field(default_factory=lambda: uuid4().hex)
+    request: RequestState | None = None
 
     def values(self) -> dict[str, Any]:
         return {key: fact.value for key, fact in self.facts.items() if fact.status == "answered"}
