@@ -225,6 +225,8 @@ nodes:
 
 # Adapters are selected independently from the server's allowlist.
 speech:
-  stt: {provider: deepgram, model: flux-general-en}
-  tts: {provider: deepgram, model: flux-haley-en}
+  engine: livekit
+  credential_mode: inference
+  stt: {provider: assemblyai, model: universal-streaming}
+  tts: {provider: cartesia, model: sonic-3, voice: 9626c31c-bec5-4cca-baa8-f8ba9e84c8bc}
   hints: [Northline, Jamie, Sam Rivera, Maya Chen, Alex Morgan, billing, partnerships]

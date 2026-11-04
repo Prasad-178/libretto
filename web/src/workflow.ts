@@ -29,10 +29,16 @@ export type FlowNode = {
 export type Workflow = {
   evaluation_prompt?: string;
   requests?: Record<string, { fields: string[] }>;
-  confirmations?: Record<string, {
-    request: string; fields: string[]; acceptance_field: string;
-    consent_field?: string | null; require_delivery?: boolean;
-  }>;
+  confirmations?: Record<
+    string,
+    {
+      request: string;
+      fields: string[];
+      acceptance_field: string;
+      consent_field?: string | null;
+      require_delivery?: boolean;
+    }
+  >;
   id: string;
   name: string;
   description: string;
@@ -45,8 +51,10 @@ export type Workflow = {
     reasoning?: "minimal" | "low" | "medium" | "high";
   };
   speech?: {
-    stt: { provider: string; model: string };
-    tts: { provider: string; model: string };
+    engine?: "livekit" | "direct";
+    credential_mode?: "inference" | "providers";
+    stt: { provider: string; model: string; voice?: string | null };
+    tts: { provider: string; model: string; voice?: string | null };
     hints?: string[];
   };
   fields?: Record<
@@ -87,7 +95,8 @@ export function readWorkflow(source: string): Workflow | null {
     if (!stringLists(value, ["common_knowledge"])) return null;
     const record = (v: unknown): v is Record<string, any> =>
       !!v && typeof v === "object" && !Array.isArray(v);
-    if (!optionalText(value, ["description", "welcome", "evaluation_prompt"])) return null;
+    if (!optionalText(value, ["description", "welcome", "evaluation_prompt"]))
+      return null;
     if (
       value.fields !== undefined &&
       (!record(value.fields) ||
@@ -112,6 +121,14 @@ export function readWorkflow(source: string): Workflow | null {
         !Object.values(value.knowledge).every(
           (path) => typeof path === "string",
         ))
+    )
+      return null;
+    if (
+      value.speech &&
+      ((value.speech.engine !== undefined &&
+        !["livekit", "direct"].includes(value.speech.engine)) ||
+        (value.speech.credential_mode !== undefined &&
+          !["inference", "providers"].includes(value.speech.credential_mode)))
     )
       return null;
     if (
@@ -143,7 +160,14 @@ export function readWorkflow(source: string): Workflow | null {
           node &&
           typeof node === "object" &&
           typeof node.kind === "string" &&
-          optionalText(node, ["title", "prompt", "text", "readback", "begin_request", "confirmation"]) &&
+          optionalText(node, [
+            "title",
+            "prompt",
+            "text",
+            "readback",
+            "begin_request",
+            "confirmation",
+          ]) &&
           (node.tool === undefined ||
             node.tool === null ||
             typeof node.tool === "string") &&

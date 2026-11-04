@@ -38,6 +38,7 @@ import {
   Terminal,
   X,
 } from "lucide-react";
+import { VoiceCredentials, type VoiceKeys } from "./VoiceCredentials";
 import { YamlWorkspace } from "./studio/YamlWorkspace";
 import { ExportDialog } from "./studio/ExportDialog";
 import { describeRoutes } from "./studio/graph-model";
@@ -108,7 +109,7 @@ export default function App() {
   const [phase, setPhase] = useState("Ready when you are");
   const [mode, setMode] = useState<"voice" | "text">("voice");
   const [orKey, setOrKey] = useState("");
-  const [dgKey, setDgKey] = useState("");
+  const [voiceKeys, setVoiceKeys] = useState<VoiceKeys>({});
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [outcome, setOutcome] = useState("unavailable");
   const [active, setActive] = useState("");
@@ -227,7 +228,7 @@ export default function App() {
       setCredentials(d.credentials);
       setPhase("Listening");
       setOrKey("");
-      setDgKey("");
+      setVoiceKeys({});
       sessionClockBase.current = performance.now() - event.at * 1000;
       deadline.current = sessionClockBase.current + d.call_limit_seconds * 1000;
       if (d.mode === "voice") void enableMicrophone();
@@ -311,6 +312,10 @@ export default function App() {
           "invalid_key",
           "missing_openrouter_key",
           "missing_deepgram_key",
+          "missing_livekit_api_key",
+          "missing_livekit_api_secret",
+          "missing_assemblyai_key",
+          "missing_cartesia_key",
         ].includes(d.code)
       )
         setSettings(true);
@@ -325,14 +330,14 @@ export default function App() {
       setConnected(false);
       setMic(false);
       setOrKey("");
-      setDgKey("");
+      setVoiceKeys({});
       void audio.current.close();
       client.current?.close();
     } else if (event.type === "credentials_updated") {
       setCredentials(d.credentials);
       setSettings(false);
       setOrKey("");
-      setDgKey("");
+      setVoiceKeys({});
       setError("");
     }
   }
@@ -573,7 +578,7 @@ export default function App() {
       client.current?.send({
         type: "credentials",
         openrouter_key: orKey,
-        deepgram_key: dgKey,
+        ...voiceKeys,
       });
       return;
     }
@@ -613,7 +618,7 @@ export default function App() {
       client.current?.connect({
         mode,
         openrouter_key: orKey,
-        deepgram_key: dgKey,
+        ...voiceKeys,
         transfer_outcome: outcome,
         workflow_yaml: snapshot.source,
       });
@@ -659,7 +664,7 @@ export default function App() {
     setMic(false);
     setPhase("Conversation ended");
     setOrKey("");
-    setDgKey("");
+    setVoiceKeys({});
   }
   function download() {
     const content = safeExport({
@@ -1401,7 +1406,7 @@ export default function App() {
         {connecting && <button onClick={end}>Cancel connection</button>}
         <p>
           {config?.credential_mode === "visitor"
-            ? "This public demo requires your own API keys. Text needs OpenRouter; voice also needs Deepgram. Keys stay in this session."
+            ? "This public demo requires your own credentials. Text needs OpenRouter; voice also needs the speech credentials below. Keys stay in this session."
             : "Use the hosted development budget when available, or enter your own provider keys. Keys stay in this session."}
         </p>
         <div className="mode-switch">
@@ -1440,23 +1445,12 @@ export default function App() {
           />
         </label>
         {mode === "voice" && (
-          <label className="input-label">
-            Deepgram API key
-            <span className="field-help">
-              {credentials.deepgram === "hosted"
-                ? "Hosted speech budget available"
-                : "Required for live speech"}
-            </span>
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={dgKey}
-              onChange={(e) => setDgKey(e.target.value)}
-              placeholder="Your Deepgram API key"
-              maxLength={1024}
-            />
-          </label>
+          <VoiceCredentials
+            speech={workflow?.speech}
+            values={voiceKeys}
+            statuses={credentials}
+            onChange={setVoiceKeys}
+          />
         )}
         <label className="input-label">
           Simulated transfer outcome

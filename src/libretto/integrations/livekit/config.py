@@ -4,7 +4,7 @@ from libretto.schema import Speech
 
 MODELS = {
     "stt": {"assemblyai": ("universal-streaming",), "deepgram": ("nova-3",)},
-    "tts": {"cartesia": ("sonic-3",), "deepgram": ("aura-2-thalia-en",)},
+    "tts": {"cartesia": ("sonic-3",), "deepgram": ("aura-2",)},
 }
 
 

@@ -137,11 +137,13 @@ class Speech(StrictModel):
     @model_validator(mode="before")
     @classmethod
     def legacy_configuration(cls, value):
-        if isinstance(value, dict) and "engine" not in value and value.get("stt") and value.get("tts"):
+        legacy_models = {"stt": "flux-general-en", "tts": "flux-haley-en"}
+        if isinstance(value, dict) and "engine" not in value:
             if all(
-                value[role].get("provider", "deepgram") == "deepgram"
-                for role in ("stt", "tts")
-                if isinstance(value[role], dict)
+                isinstance(value.get(role), dict)
+                and value[role].get("provider", "deepgram") == "deepgram"
+                and value[role].get("model") == model
+                for role, model in legacy_models.items()
             ):
                 return {**value, "engine": "direct", "credential_mode": "providers"}
         return value

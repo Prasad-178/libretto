@@ -32,8 +32,8 @@ test("failed startup releases the snapshot and connecting can be cancelled", asy
     .getByRole("button", { name: "Connection settings", exact: true })
     .click();
   await page
+    .getByRole("dialog")
     .getByRole("button", { name: "Start test", exact: true })
-    .last()
     .click();
   await expect(
     page.getByText("Add a key", { exact: true }).last(),
@@ -48,8 +48,8 @@ test("failed startup releases the snapshot and connecting can be cancelled", asy
     .getByRole("button", { name: "Connection settings", exact: true })
     .click();
   await page
+    .getByRole("dialog")
     .getByRole("button", { name: "Start test", exact: true })
-    .last()
     .click();
   await page
     .getByRole("button", { name: "Cancel connection", exact: true })

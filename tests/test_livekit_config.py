@@ -90,3 +90,22 @@ async def test_direct_plugins_preserve_selected_models():
     finally:
         await recognition.aclose()
         await synthesis.aclose()
+
+
+async def test_optional_deepgram_inference_uses_gateway_model_names():
+    from libretto.integrations.livekit.models import create_models
+    from libretto.schema import SpeechEndpoint
+
+    config = Speech(
+        stt=SpeechEndpoint(provider="deepgram", model="nova-3"),
+        tts=SpeechEndpoint(provider="deepgram", model="aura-2"),
+    )
+    recognition, synthesis = create_models(
+        config, SessionCredentials(livekit_api_key="test-key", livekit_api_secret="test-secret")
+    )
+    try:
+        assert recognition.model == "deepgram/nova-3"
+        assert synthesis.model == "deepgram/aura-2"
+    finally:
+        await recognition.aclose()
+        await synthesis.aclose()

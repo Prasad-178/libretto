@@ -60,6 +60,10 @@ class ClientEvent(StrictModel):
     turn_id: str = Field(default="", max_length=100)
     openrouter_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
     deepgram_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
+    livekit_api_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
+    livekit_api_secret: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
+    assemblyai_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
+    cartesia_key: SecretStr = Field(default_factory=lambda: SecretStr(""), repr=False)
     transfer_outcome: Literal["connected", "unavailable", "failed", "timeout"] = "unavailable"
     playback_ms: float = Field(default=0, ge=0, le=CALL_LIMIT_SECONDS * 1000)
     drained: bool = False
@@ -68,6 +72,17 @@ class ClientEvent(StrictModel):
     speaker_model: str = Field(default="", max_length=100)
     evaluator_model: str = Field(default="", max_length=100)
     workflow_yaml: str = Field(default="", max_length=100_000)
+
+    def credential_overrides(self) -> dict[str, str]:
+        fields = {
+            "openrouter": "openrouter_key",
+            "deepgram": "deepgram_key",
+            "livekit_api_key": "livekit_api_key",
+            "livekit_api_secret": "livekit_api_secret",
+            "assemblyai": "assemblyai_key",
+            "cartesia": "cartesia_key",
+        }
+        return {name: getattr(self, field).get_secret_value() for name, field in fields.items()}
 
 
 class WorkflowSource(StrictModel):
@@ -89,8 +104,11 @@ def create_app(
     if load_environment:
         load_dotenv(root / ".env")
     selected_path = workflow_path or root / "examples/receptionist.yaml"
-    workspace = StudioWorkspace(selected_path, project_root or (selected_path.parent if workflow_path else root / "examples"),
-                                "local-project" if workflow_path else "hosted-demo")
+    workspace = StudioWorkspace(
+        selected_path,
+        project_root or (selected_path.parent if workflow_path else root / "examples"),
+        "local-project" if workflow_path else "hosted-demo",
+    )
     directory = json.loads((root / "examples/directory.json").read_text())
     make_tools = tool_factory or (lambda: ToolRegistry(directory))
     workspace.tools = make_tools().snapshot()
@@ -127,29 +145,42 @@ def create_app(
         if not hosted_enabled():
             return SessionCredentials()
         return SessionCredentials(
-            openrouter=os.getenv("OPENROUTER_API_KEY", ""), deepgram=os.getenv("DEEPGRAM_API_KEY", "")
+            openrouter=os.getenv("OPENROUTER_API_KEY", ""),
+            deepgram=os.getenv("DEEPGRAM_API_KEY", ""),
+            livekit_api_key=os.getenv("LIVEKIT_API_KEY", ""),
+            livekit_api_secret=os.getenv("LIVEKIT_API_SECRET", ""),
+            assemblyai=os.getenv("ASSEMBLYAI_API_KEY", ""),
+            cartesia=os.getenv("CARTESIA_API_KEY", ""),
         )
 
     @app.get("/api/studio/capabilities")
     async def studio_capabilities():
         local = workspace.mode == "local-project"
-        choices = []
-        for role, factories in [("stt", registry.stt), ("tts", registry.tts)]:
-            for provider, factory in factories.items():
-                for model in sorted(getattr(factory, "supported_models", []) or []):
-                    choices.append({"role": role, "provider": provider, "model": model})
-        return {"mode": workspace.mode, "localProjectAccess": local, "folderSelection": local,
-                "retrievalPreview": True, "tools": make_tools().manifest(),
-                "workflowFilename": workspace.workflow_path.name,
-                "modelChoices": [{"role": role, "id": model} for role, model in
-                                 [("response", workflow.models.speaker), ("evaluator", workflow.models.evaluator)]],
-                "speechChoices": choices,
-                "limitations": ["Built-in action tools are simulations with receptionist confirmation rules."]}
+        choices = registry.speech_choices()
+        return {
+            "mode": workspace.mode,
+            "localProjectAccess": local,
+            "folderSelection": local,
+            "retrievalPreview": True,
+            "tools": make_tools().manifest(),
+            "workflowFilename": workspace.workflow_path.name,
+            "modelChoices": [
+                {"role": role, "id": model}
+                for role, model in [
+                    ("response", workflow.models.speaker),
+                    ("evaluator", workflow.models.evaluator),
+                ]
+            ],
+            "speechChoices": choices,
+            "limitations": ["Built-in action tools are simulations with receptionist confirmation rules."],
+        }
 
     @app.get("/api/studio/source-folders")
     async def source_folders():
         if workspace.mode != "local-project":
-            raise HTTPException(403, "Run libretto serve workflow.yaml --project-root . to select local folders")
+            raise HTTPException(
+                403, "Run libretto serve workflow.yaml --project-root . to select local folders"
+            )
         return {"folders": workspace.list_source_folders()}
 
     @app.post("/api/studio/sources", response_model=SourceManifest)
@@ -197,8 +228,14 @@ def create_app(
             return {"workflow": definition.model_dump()}
         except (ValueError, TypeError, OSError) as exc:
             if isinstance(exc, WorkflowCompileError):
-                issues = [{"path": ".".join(map(str, issue.path)) or "source", "code": issue.code,
-                           "message": issue.message} for issue in exc.issues]
+                issues = [
+                    {
+                        "path": ".".join(map(str, issue.path)) or "source",
+                        "code": issue.code,
+                        "message": issue.message,
+                    }
+                    for issue in exc.issues
+                ]
             elif isinstance(exc, ValidationError):
                 issues = [{"path": ".".join(map(str, e["loc"])), "message": e["msg"]} for e in exc.errors()]
             else:
@@ -349,8 +386,10 @@ def create_app(
                         )
                         continue
                     try:
-                        session_compiled = compile_source(event.workflow_yaml or selected_path.read_text(),
-                                                          transfer_outcome=event.transfer_outcome)
+                        session_compiled = compile_source(
+                            event.workflow_yaml or selected_path.read_text(),
+                            transfer_outcome=event.transfer_outcome,
+                        )
                         session_workflow = session_compiled.workflow
                     except (ValueError, TypeError, OSError):
                         await control(
@@ -359,10 +398,7 @@ def create_app(
                             message="The YAML workflow is invalid. Validate your changes before testing.",
                         )
                         continue
-                    credentials = hosted().with_overrides(
-                        openrouter=event.openrouter_key.get_secret_value(),
-                        deepgram=event.deepgram_key.get_secret_value(),
-                    )
+                    credentials = hosted().with_overrides(**event.credential_overrides())
                     if not credentials.key("openrouter"):
                         await control(
                             "error",
@@ -379,8 +415,10 @@ def create_app(
                         if missing:
                             await control(
                                 "error",
-                                code=f"missing_{missing[0]}_key",
-                                message=f"Add a {missing[0]} key for the selected speech providers, or start text mode.",
+                                code=f"missing_{missing[0]}"
+                                if missing[0].startswith("livekit_")
+                                else f"missing_{missing[0]}_key",
+                                message=f"Add {missing[0].replace('_', ' ')} in Connection settings, or start text mode.",
                             )
                             continue
                     models = Models(
@@ -389,8 +427,12 @@ def create_app(
                         reasoning=session_workflow.models.reasoning,
                     )
                     adapter = model_factory(credentials, models, client=app.state.pool)
-                    runner = WorkflowRunner(session_compiled, responder=adapter, evaluator=adapter,
-                                            delivery_mode="external" if event.mode == "voice" else "text")
+                    runner = WorkflowRunner(
+                        session_compiled,
+                        responder=adapter,
+                        evaluator=adapter,
+                        delivery_mode="external" if event.mode == "voice" else "text",
+                    )
                     session = runner._session  # Speech coordinator adapts the same lifecycle owner.
                     if event.mode == "text":
                         # Studio already renders the literal welcome in its text transcript.
@@ -399,16 +441,17 @@ def create_app(
                     session.defer_actions = event.mode == "voice"
                     started_at = time.monotonic()
                     if event.mode == "voice":
-                        speech = registry.create(
-                            session_workflow.speech, credentials, session, audio, speech_control
-                        )
-                        session.cancel_output = lambda: speech.cancel_output(last_playback)
                         try:
+                            speech = registry.create(
+                                session_workflow.speech, credentials, session, audio, speech_control
+                            )
+                            session.cancel_output = lambda: speech.cancel_output(last_playback)
                             await speech.open()
                         except ProviderError as exc:
                             await control("error", code=exc.code, message=exc.public_message)
                             await session.close()
-                            await speech.close()
+                            if speech:
+                                await speech.close()
                             await adapter.close()
                             credentials.clear()
                             adapter = credentials = None
@@ -444,13 +487,13 @@ def create_app(
                             message_id=session._speech_messages.get(event.speech_id, ""),
                         )
                         if event.drained:
-                            session.playback_finished(event.speech_id, epoch=event.epoch)
+                            if speech:
+                                await speech.playback_finished(event.speech_id, epoch=event.epoch)
+                            else:
+                                session.playback_finished(event.speech_id, epoch=event.epoch)
                     elif event.type == "credentials":
                         await session.interrupt()
-                        replacement = credentials.with_overrides(
-                            openrouter=event.openrouter_key.get_secret_value(),
-                            deepgram=event.deepgram_key.get_secret_value(),
-                        )
+                        replacement = credentials.with_overrides(**event.credential_overrides())
                         credentials.clear()
                         credentials = replacement
                         adapter.credentials = replacement

@@ -116,6 +116,9 @@ class SpeechCoordinator:
     async def cancel_output(self, playback_ms: float = 0) -> None:
         await self.tts.cancel_output(playback_ms)
 
+    async def playback_finished(self, speech_id: str, *, epoch: int) -> None:
+        self.session.playback_finished(speech_id, epoch=epoch)
+
     async def close(self) -> None:
         await asyncio.gather(self.stt.close(), self.tts.close(), return_exceptions=True)
 
@@ -130,6 +133,14 @@ class SpeechRegistry:
 
     def __init__(self, *, stt: dict, tts: dict, credentials: dict[str, str]):
         self.stt, self.tts, self.credentials = dict(stt), dict(tts), dict(credentials)
+
+    def speech_choices(self) -> list[dict]:
+        return [
+            {"role": role, "provider": provider, "model": model, "engine": "direct"}
+            for role, factories in (("stt", self.stt), ("tts", self.tts))
+            for provider, factory in factories.items()
+            for model in sorted(getattr(factory, "supported_models", ()) or ())
+        ]
 
     def validate(self, config) -> None:
         for kind in ("stt", "tts"):
@@ -167,6 +178,16 @@ class SpeechRegistry:
 
 class DefaultSpeechRegistry(SpeechRegistry):
     """LiveKit is the default engine; the native Deepgram path is explicit legacy support."""
+
+    def speech_choices(self) -> list[dict]:
+        from libretto.integrations.livekit.config import MODELS
+
+        return super().speech_choices() + [
+            {"role": role, "provider": provider, "model": model, "engine": "livekit"}
+            for role, providers in MODELS.items()
+            for provider, models in providers.items()
+            for model in models
+        ]
 
     def validate(self, config) -> None:
         if config.engine == "livekit":

@@ -134,13 +134,13 @@ def test_unknown_speech_provider_and_incompatible_model_fail_validation():
     with TestClient(create_app(load_environment=False)) as client:
         unknown = client.post(
             "/api/workflow/validate",
-            json={"source": source.replace("provider: deepgram", "provider: unregistered", 1)},
+            json={"source": source.replace("provider: assemblyai", "provider: unregistered", 1)},
         )
         assert unknown.status_code == 422
         assert "Unsupported STT provider" in unknown.text
         incompatible = client.post(
             "/api/workflow/validate",
-            json={"source": source.replace("model: flux-general-en", "model: incompatible-model")},
+            json={"source": source.replace("model: universal-streaming", "model: incompatible-model")},
         )
         assert incompatible.status_code == 422, "Models must match the adapter's declared capabilities"
 

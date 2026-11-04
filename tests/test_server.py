@@ -254,7 +254,9 @@ def test_voice_start_plays_literal_welcome_without_waiting_for_a_user_or_model()
             await self.emit(TTSEvent("finished", speech_id="welcome", epoch=0))
 
     registry = SpeechRegistry(
-        stt={"deepgram": Recognition}, tts={"deepgram": Synthesis}, credentials={"deepgram": "openrouter"}
+        stt={"assemblyai": Recognition},
+        tts={"cartesia": Synthesis},
+        credentials={"assemblyai": "openrouter", "cartesia": "openrouter"},
     )
     with TestClient(
         create_app(load_environment=False, model_factory=lambda *a, **kw: NoModel(), speech_registry=registry)
@@ -313,27 +315,27 @@ def test_home_and_direct_studio_navigation_serve_frontend(tmp_path, monkeypatch)
     from libretto.server import ROOT, create_app
 
     monkeypatch.setattr("libretto.server.STUDIO_HTML", "")
-    shutil.copytree(ROOT / 'examples', tmp_path / 'examples')
-    (tmp_path / 'public').mkdir()
-    (tmp_path / 'public' / 'index.html').write_text('<html>Libretto frontend</html>')
+    shutil.copytree(ROOT / "examples", tmp_path / "examples")
+    (tmp_path / "public").mkdir()
+    (tmp_path / "public" / "index.html").write_text("<html>Libretto frontend</html>")
     with TestClient(create_app(load_environment=False, asset_root=Path(tmp_path))) as client:
-        for path in ['/', '/studio', '/studio/']:
+        for path in ["/", "/studio", "/studio/"]:
             response = client.get(path)
             assert response.status_code == 200
-            assert 'Libretto frontend' in response.text
-            assert response.headers['content-type'].startswith('text/html')
-        assert client.get('/api/health').json()['status'] == 'ok'
+            assert "Libretto frontend" in response.text
+            assert response.headers["content-type"].startswith("text/html")
+        assert client.get("/api/health").json()["status"] == "ok"
 
 
 def test_studio_can_use_bundled_html_without_static_files(monkeypatch):
     import libretto.server as server
 
-    monkeypatch.setattr(server, 'STUDIO_HTML', '<html>Bundled studio</html>')
+    monkeypatch.setattr(server, "STUDIO_HTML", "<html>Bundled studio</html>")
     with TestClient(server.create_app(load_environment=False)) as client:
-        for path in ['/studio', '/studio/']:
+        for path in ["/studio", "/studio/"]:
             response = client.get(path)
             assert response.status_code == 200
-            assert response.text == '<html>Bundled studio</html>'
+            assert response.text == "<html>Bundled studio</html>"
 
 
 def test_session_model_factory_receives_workflow_reasoning():
@@ -341,16 +343,21 @@ def test_session_model_factory_receives_workflow_reasoning():
     from libretto.state import Evaluation
 
     seen = []
+
     class Model:
         async def evaluate(self, context):
             return Evaluation()
+
         async def stream_reply(self, context):
             yield "Hello"
+
         async def close(self):
             pass
+
     def factory(credentials, models, **kwargs):
         seen.append(models.reasoning)
         return Model()
+
     with TestClient(create_app(load_environment=False, model_factory=factory)) as client:
         source = client.get("/api/workflow.yaml").text.replace("reasoning: minimal", "reasoning: high")
         assert "reasoning: high" in source
@@ -365,12 +372,22 @@ def test_policy_errors_have_paths_and_hosted_demo_rejects_unregistered_handlers(
     from pathlib import Path
 
     from libretto.server import create_app
+
     with TestClient(create_app(load_environment=False)) as client:
-        source=Path('examples/receptionist.yaml').read_text().replace('request: front_desk','request: missing',1)
-        result=client.post('/api/workflow/validate',json={'source':source})
-        assert result.status_code==422
-        assert result.json()['detail'][0]['path']=='confirmations.transfer_destination.request'
-        source=Path('examples/repair_visit/agent.yaml').read_text().replace('knowledge: {policies: knowledge}', 'knowledge: {}').replace('common_knowledge: [policies]', 'common_knowledge: []')
-        result=client.post('/api/workflow/validate',json={'source':source})
-        assert result.status_code==422
-        assert result.json()['detail'][0]['code']=='unregistered_tool'
+        source = (
+            Path("examples/receptionist.yaml")
+            .read_text()
+            .replace("request: front_desk", "request: missing", 1)
+        )
+        result = client.post("/api/workflow/validate", json={"source": source})
+        assert result.status_code == 422
+        assert result.json()["detail"][0]["path"] == "confirmations.transfer_destination.request"
+        source = (
+            Path("examples/repair_visit/agent.yaml")
+            .read_text()
+            .replace("knowledge: {policies: knowledge}", "knowledge: {}")
+            .replace("common_knowledge: [policies]", "common_knowledge: []")
+        )
+        result = client.post("/api/workflow/validate", json={"source": source})
+        assert result.status_code == 422
+        assert result.json()["detail"][0]["code"] == "unregistered_tool"

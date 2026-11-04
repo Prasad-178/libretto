@@ -43,7 +43,9 @@ def create_models(config: Speech, credentials: SessionCredentials):
             )
         else:
             synthesis = deepgram.TTS(
-                model=config.tts.model, api_key=credentials.key("deepgram"), sample_rate=24000
+                model=f"aura-2-{config.tts.voice or 'athena'}-en",
+                api_key=credentials.key("deepgram"),
+                sample_rate=24000,
             )
         return recognition, synthesis
     except ImportError as error:

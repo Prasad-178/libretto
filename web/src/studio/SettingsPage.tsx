@@ -1,6 +1,7 @@
+import { voiceEngine, voicePresets } from "../voice-config";
 import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
-import { readWorkflow } from "../workflow";
+import { readWorkflow, type Workflow } from "../workflow";
 import type { StudioDocument, DocumentTransaction } from "./types";
 import type { StudioCapabilities } from "./runtime-api";
 import { fieldReferences } from "./field-references";
@@ -33,6 +34,8 @@ export function SettingsPage({
         Fix the YAML syntax before editing settings.
       </p>
     );
+  const speech: NonNullable<Workflow["speech"]> =
+    workflow.speech || voicePresets.livekit;
   const change = (
     path: (string | number)[],
     value: unknown,
@@ -222,20 +225,76 @@ export function SettingsPage({
               </section>
               <section>
                 <h3>Speech</h3>
+                <label>
+                  Voice integration
+                  <Select
+                    value={voiceEngine(workflow.speech)}
+                    onChange={(event) => {
+                      const preset =
+                        voicePresets[
+                          event.target.value as "livekit" | "direct"
+                        ];
+                      onTransaction({
+                        label: "Change voice integration",
+                        operations: Object.entries(preset).map(
+                          ([key, value]) => ({
+                            op: "set" as const,
+                            path: ["speech", key],
+                            value,
+                          }),
+                        ),
+                      });
+                    }}
+                  >
+                    <option value="livekit">LiveKit Agents</option>
+                    <option value="direct">Direct Deepgram (legacy)</option>
+                  </Select>
+                </label>
+                {voiceEngine(workflow.speech) === "livekit" && (
+                  <label>
+                    Speech credentials
+                    <Select
+                      value={workflow.speech?.credential_mode || "inference"}
+                      onChange={(event) =>
+                        change(
+                          ["speech", "credential_mode"],
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="inference">
+                        LiveKit Inference · LiveKit credentials
+                      </option>
+                      <option value="providers">
+                        Direct plugins · individual provider keys
+                      </option>
+                    </Select>
+                  </label>
+                )}
                 {(["stt", "tts"] as const).map((role) => {
-                  const current = workflow.speech?.[role];
+                  const current = speech[role];
                   const choices =
                     capabilities?.speechChoices.filter(
-                      (s) => s.role === role,
+                      (s) =>
+                        s.role === role &&
+                        (!s.engine ||
+                          s.engine === voiceEngine(workflow.speech)),
                     ) || [];
                   return (
                     <label key={role}>
                       {role === "stt" ? "Speech recognition" : "Voice output"}
                       <Select
                         value={JSON.stringify(current || null)}
-                        onChange={(e) =>
-                          change(["speech", role], JSON.parse(e.target.value))
-                        }
+                        onChange={(e) => {
+                          const endpoint = JSON.parse(e.target.value);
+                          if (
+                            role === "tts" &&
+                            endpoint.provider === "cartesia"
+                          )
+                            endpoint.voice =
+                              current?.voice || voicePresets.livekit.tts.voice;
+                          change(["speech", role], endpoint);
+                        }}
                       >
                         {current && (
                           <option value={JSON.stringify(current)}>
@@ -263,6 +322,21 @@ export function SettingsPage({
                     </label>
                   );
                 })}
+                {speech.tts?.provider === "cartesia" && (
+                  <label>
+                    Voice ID
+                    <input
+                      value={speech.tts.voice || ""}
+                      onChange={(event) =>
+                        change(
+                          ["speech", "tts", "voice"],
+                          event.target.value,
+                          "settings:voice",
+                        )
+                      }
+                    />
+                  </label>
+                )}
                 <label>
                   Recognition hints · one per line
                   <LineList

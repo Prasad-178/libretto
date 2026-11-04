@@ -7,7 +7,12 @@ export type StudioCapabilities = {
   retrievalPreview: boolean;
   tools: ToolManifest[];
   modelChoices: { role: "response" | "evaluator"; id: string }[];
-  speechChoices: { role: "stt" | "tts"; provider: string; model: string }[];
+  speechChoices: {
+    role: "stt" | "tts";
+    provider: string;
+    model: string;
+    engine?: "livekit" | "direct";
+  }[];
   workflowFilename?: string;
   limitations?: string[];
 };

@@ -167,5 +167,5 @@ def test_voice_cannot_create_any_provider_without_selected_speech_credentials(mo
     with TestClient(create_app(load_environment=False, model_factory=factory)) as client:
         with client.websocket_connect("/api/ws") as ws:
             ws.send_json({"type": "start", "mode": "voice", "openrouter_key": "placeholder-only"})
-            assert ws.receive_json()["data"]["code"] == "missing_deepgram_key"
+            assert ws.receive_json()["data"]["code"] == "missing_livekit_api_key"
         assert not called
