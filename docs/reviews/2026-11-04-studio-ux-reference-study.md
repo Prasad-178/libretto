@@ -6,7 +6,7 @@ Status: research and proposed designs for discussion. Application behavior has n
 
 [Studio — UX v3 / November review](https://app.paper.design/file/01M6A0TRXN4CJ9WFK05YH6CX0W/p-5-0)
 
-Eight 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline:
+Eleven 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline:
 
 1. Agent: readable shared instructions, expandable editor, first message and model/voice summary.
 2. Model picker: searchable provider groups, current selection, custom ID path and OpenRouter input/output prices.
@@ -16,6 +16,9 @@ Eight 1440 × 900 screens use a fictional repair-visit workflow so the design re
 6. Tools: application-owned Python functions, inputs, outcomes and action-step references.
 7. Collected data: plain-language field descriptions, types and references before potentially breaking changes.
 8. Test & debug: current step, conversation, collected values and an explanation/recovery path for an interrupted readback.
+9. Edit connection: selected connector highlighted in place, destination, display label, and language/state execution rule in the existing inspector.
+10. Workflow issues: contextual validation messages, source paths and links to the relevant step/connection; knowledge remains visible behind the drawer.
+11. Reasoning effort: open select with an explicit Default option and explanatory copy. The Models & voice screen also shows this control closed.
 
 These are static design states. Example events, files and conversation values are illustrative; they are not observed test results. Added controls require implementation and acceptance checks before being described as available.
 
@@ -35,6 +38,8 @@ An unknown action outcome remains a required safety branch. Improving the Source
 ## Reference coverage and limits
 
 The open ElevenAgents agent screen and LLM drawer/model picker were read directly. Its sidebar exposed Agent, Knowledge Base, Analysis, Tools, Procedures, Workflow, Channels, Conversations and Agent settings. Navigation automation was unreliable: T3 returned `Preview automation snapshot timed out after 15000ms.` twice. Native accessibility could read the agent and model screens, but did not reliably navigate the other pages. Those pages were studied through official documentation; this is not a claim that every live screen was inspected.
+
+Follow-up observation on November 4: native accessibility navigation succeeded by focusing a sidebar link and pressing Return. Workflow, Knowledge Base, Analysis and Tools were then read directly in the existing Chrome tab. Workflow exposed named edges, prompt previews, Add connection, explicit zoom/Fit/Rearrange and Inspector controls. Knowledge showed a true empty state with search, source/retrieval tabs and add-document action. Analysis separated evaluation criteria from transcript extraction; this is post-call analysis, unlike Libretto's runtime collected fields. Tools showed system-tool controls, search and an explicit unknown-tool entry. The reference connection button did not open reliably; connection-form details continue to use official documentation plus Libretto's existing RouteInspector. No reference configuration was intentionally edited, no test was started and no agent was published. The T3 reference tab itself is signed out; it is distinct from the authenticated native Chrome tab.
 
 Useful references:
 
@@ -81,6 +86,20 @@ Use one shared select/combobox design with a fixed 16px SVG chevron, a fixed tra
 Name the two supported paths **LiveKit** and **Direct Deepgram**. Both are supported choices. Never describe Direct Deepgram as “legacy.” This owner preference also applies to future product copy and documentation.
 
 Direct Deepgram passes recognition terms as keyterms. The current LiveKit adapter does not pass custom vocabulary or patient tuning. On that engine, preserve the YAML values but mark these controls inactive with an explanation. A control must not look effective when the adapter ignores it. Switching engines must not silently discard configuration or credentials. Credentials remain ephemeral and outside YAML, drafts, sidecars and traces.
+
+## Explicit Default reasoning choice
+
+Prasad requested Default as an option, rather than forcing an explicit effort level. It means the request leaves `reasoning.effort` unset so the model/provider selects its behavior; it must not map silently to minimal, low or disabled reasoning. Other existing reasoning options, including suppression of reasoning content in user-visible output, remain independent.
+
+Current code is not ready for this UI value: `Models.reasoning` accepts minimal/low/medium/high with an omitted-value default of minimal, and the response adapter always sends that effort. Implementation needs an explicit default representation across schema, YAML edits, frontend and request serialization. Preserve existing explicit values and the behavior of older omitted settings unless a separately documented compatibility migration changes it. Selecting Default must round-trip distinctly and omit the effort field at the provider boundary. Test with captured requests, without paid inference.
+
+The menu illustrates the current explicit levels plus Default. Actual enabled levels need model-specific capability evidence; catalog support for a generic reasoning parameter does not establish support for every effort value. Unknown custom models need a clear capability fallback. Do not add temperature, backup-model routing, reasoning summaries, per-node overrides or other ElevenLabs controls as part of this request. [OpenRouter reasoning documentation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) is the implementation reference.
+
+## Scope restraint for this iteration
+
+Prasad explicitly asked to avoid unnecessary features. The three follow-up states refine existing routing, validation and reasoning controls. A proposed extra test-setup screen was dropped: use the existing Connection/Test controls. Do not add another setup wizard, platform page, general automation engine or competitor feature checklist. More detailed visual states do not authorize implementation of new runtime capabilities.
+
+Interaction review: the selected connector and its label share the cobalt highlight; editing does not move the graph. Display labels are explicitly separate from conditions. Validation links target the offending action/connection and do not auto-generate safety branches. Deleting a required outcome must retain existing validation/reference protections. The issues drawer is dismissible, preserves the library context and distinguishes an unfinished draft from a runnable workflow. Existing YAML/undo behavior must survive these presentation changes.
 
 ## Suggested implementation order
 
