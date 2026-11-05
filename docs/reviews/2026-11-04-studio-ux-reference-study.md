@@ -6,25 +6,26 @@ Status: research and proposed designs for discussion. Application behavior has n
 
 [Studio — UX v3 / November review](https://app.paper.design/file/01M6A0TRXN4CJ9WFK05YH6CX0W/p-5-0)
 
-Seventeen 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline. The November 5 completion pass arranges them in numbered rows of five for review:
+Eighteen 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline. The November 5 completion pass arranges them in numbered rows of five for review:
 
 1. Agent: readable shared instructions, expandable editor, first message and model/voice summary.
 2. Model picker: searchable provider groups, current selection, custom ID path and OpenRouter input/output prices.
 3. Knowledge: library and document preview remain readable when unrelated workflow issues prevent testing.
-4. Models & voice: separate response/evaluator roles, speech engine and token-based custom vocabulary.
+4. Speech: separate STT recognition vocabulary and TTS voice/pronunciation rules, within a shared voice integration.
 5. Workflow: connected branches, visible outcomes, stationary selection and a right-hand prompt inspector.
 6. Tools: application-owned Python functions, inputs, outcomes and action-step references.
 7. Collected data: plain-language field descriptions, types and references before potentially breaking changes.
 8. Test & debug: current step, conversation, collected values and an explanation/recovery path for an interrupted readback.
 9. Edit connection: selected connector highlighted in place, destination, display label, and language/state execution rule in the existing inspector.
 10. Workflow issues: contextual validation messages, source paths and links to the relevant step/connection; knowledge remains visible behind the drawer.
-11. Reasoning effort: open select with an explicit Default option and explanatory copy. The Models & voice screen also shows this control closed.
+11. Conversation model: stepped reasoning slider, selected effort, model-specific stops and a reset-to-default button.
 12. Expanded instructions: readable large editor with explicit scope, local-save status and a Done control.
 13. State check: all required values collected, compact rule rows and visible completion controls; maps to the existing predicate model.
 14. Action editor: registered Python tool, typed field mappings, prerequisites and booked/failed/unknown destinations; apply mappings/results atomically.
 15. Connection: session-only OpenRouter and LiveKit Inference credential inputs, alongside an honest inactive-vocabulary state for the current LiveKit adapter.
 16. YAML recovery: editable source, actionable validation issue, highlighted source location, last-valid graph explanation and a failed-import notice preserving the current draft.
 17. Export review: change summary, invalid-draft status, YAML/layout file choices and explicit copy/credential-exclusion behavior.
+18. Stage controller: model, editable workflow guidance, assembled-instruction preview entry and links to conditions/fields/action prerequisites.
 
 These are static design states. Example events, files and conversation values are illustrative; they are not observed test results. Added controls require implementation and acceptance checks before being described as available.
 
@@ -62,7 +63,7 @@ Do not copy ElevenLabs' prices or latency claims. Do not import its accounts, bi
 
 ## Navigation proposal
 
-Use one stable left navigation: **Agent, Workflow, Knowledge, Tools, Collected data, Test & debug**. Keep **YAML** and **Connection** available below. Models & voice is a focused Agent subpage/drawer.
+Use one stable left navigation: **Agent, Workflow, Knowledge, Tools, Collected data, Test & debug**. Keep **YAML** and **Connection** available below. Within Agent, use **Conversation, Stage controller, Speech**. Conversation holds shared instructions and response-model settings. Speech separates STT and TTS. The model catalog remains a focused picker.
 
 The graph inspector owns prompt and connection editing. The route index remains a secondary workflow utility, useful for auditing many transitions; it does not need a primary navigation tab. Selecting a node should open its inspector without recentering the canvas. Explicit Find/Fit commands may navigate.
 
@@ -99,7 +100,18 @@ Prasad requested Default as an option, rather than forcing an explicit effort le
 
 Current code is not ready for this UI value: `Models.reasoning` accepts minimal/low/medium/high with an omitted-value default of minimal, and the response adapter always sends that effort. Implementation needs an explicit default representation across schema, YAML edits, frontend and request serialization. Preserve existing explicit values and the behavior of older omitted settings unless a separately documented compatibility migration changes it. Selecting Default must round-trip distinctly and omit the effort field at the provider boundary. Test with captured requests, without paid inference.
 
-The menu illustrates the current explicit levels plus Default. Actual enabled levels need model-specific capability evidence; catalog support for a generic reasoning parameter does not establish support for every effort value. Unknown custom models need a clear capability fallback. Do not add temperature, backup-model routing, reasoning summaries, per-node overrides or other ElevenLabs controls as part of this request. [OpenRouter reasoning documentation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) is the implementation reference.
+The slider replaces the earlier select design. Use model-specific `reasoning.supported_efforts` from OpenRouter, ordered from least to most effort; `reasoning.default_effort` supplies the displayed effective default. The live catalog checked November 5 reported Medium for Gemini 3.5 Flash and GPT-6.1 Sol, High for Claude Sonnet 5.5. Respect mandatory reasoning and default-enabled metadata. A missing default is “Model default,” without a guessed thumb position; selecting an explicit stop is a distinct override. Reset follows the model default rather than serializing its currently reported level. Generic reasoning-parameter support alone is insufficient to infer all supported effort levels. Unknown custom models need a clear capability fallback. Do not add temperature, backup-model routing, reasoning summaries or per-node overrides. [OpenRouter reasoning documentation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#discovering-per-model-reasoning-options) is the implementation reference.
+
+## Approved feedback refinement — November 5
+
+Review **04, 11, 14, 18**, with **06** explaining the tool contract and **01** showing the Agent navigation. Screen 15 retains the session-only Connection drawer over the updated Speech layout and demonstrates an inactive recognition-vocabulary configuration. The updated screens were rendered and checked; the action inspector was tightened so Apply remains fully visible.
+
+- **Speech recognition:** provider/model and token-based recognition vocabulary for caller names, places and specialist terms. The default integration remains LiveKit; the screen's Deepgram recognition example is a provider choice within LiveKit, not Direct Deepgram. Connect terms through a supported adapter path before enabling the control. Preserve unsupported values with an explicit inactive state.
+- **Voice output:** provider/model, voice and editable Word / Say as rows. This is an owner-approved addition requiring a schema/adapter implementation; it is not shipped. Prefer bounded speech-only replacement rules for the first version, with matching behavior and streaming-token boundaries tested. Keep original transcript text, accepted facts, action arguments and readback identity intact. Both successful full synthesis and matching playback acknowledgement must still be required for guarded delivery. Validate against the pinned LiveKit SDK before choosing built-in transforms versus a custom TTS-node transform. Defer provider-native phonetic dictionaries and pronunciation-preview inference until needed. [LiveKit pronunciation guidance](https://docs.livekit.io/agents/multimodality/audio/customization/) provides the reference.
+- **Stage controller:** edit the existing `evaluation_prompt` through a large labelled editor; its model maps to `models.evaluator`. This is additional workflow interpretation guidance, not a replacement for built-in output/evidence/permission rules. The runtime still validates proposals and owns execution. The preview entry represents the assembled instruction structure; actual current-turn input preview needs a clear snapshot context and must not imply unseen conversation data exists. Controller reasoning currently remains minimal in the adapter; no new controller-effort control is silently promised by the response slider.
+- **Tool outcomes:** the Python tool registry declares result IDs. Tools shows that contract; the action inspector selects a destination per result. Adding a result ID requires an application-code contract change. Conversation connection conditions remain a separate editor. Keep atomic action updates and validation of required outcomes.
+
+These refinements are Paper designs and recorded requirements only. No application, schema, adapter, deployment or provider execution changed in this pass.
 
 ## Scope restraint for this iteration
 
