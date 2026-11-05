@@ -6,7 +6,7 @@ Status: research and proposed designs for discussion. Application behavior has n
 
 [Studio — UX v3 / November review](https://app.paper.design/file/01M6A0TRXN4CJ9WFK05YH6CX0W/p-5-0)
 
-Twenty-two 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline. The November 5 completion pass arranges them in numbered rows of five for review:
+Twenty-three 1440 × 900 screens use a fictional repair-visit workflow so the design remains independent of Northline. The November 5 completion pass arranges them in numbered rows of five for review:
 
 1. Agent: readable shared instructions, expandable editor, first message and model/voice summary.
 2. Model picker: searchable provider groups, current selection, custom ID path and OpenRouter input/output prices.
@@ -27,9 +27,10 @@ Twenty-two 1440 × 900 screens use a fictional repair-visit workflow so the desi
 17. Export review: change summary, invalid-draft status, YAML/layout file choices and explicit copy/credential-exclusion behavior.
 18. Stage controller: model, editable workflow guidance, assembled-instruction preview entry and links to conditions/fields/action prerequisites.
 19. Outcome route: editable YAML result binding, destination and canvas label, with a concrete source-value mapping.
-20. Voice catalog: searchable compatible suggestions, language filter and custom-ID fallback; source/connection limits are explicit.
-21. Workflow settings: identity/start/allowed capabilities, request scope and confirmation policy forms.
-22. Advanced step settings: kind/identity/entry/request/policy/readback and available context.
+20. Voice catalog: compact searchable dropdown anchored below the Voice field, with language filter and custom-ID fallback.
+21. Workflow settings: name/purpose/start step, a plain-language confirmation summary, and technical controls under Advanced.
+22. Step settings: step name, when it speaks, a readable readback with friendly detail tokens, a linked confirmation rule and More options.
+23. Confirmation rule: the caller-facing details to approve, the step that reads them back, playback requirement and a plain explanation of fresh approval per task.
 
 These are static design states. Example events, files and conversation values are illustrative; they are not observed test results. Added controls require implementation and acceptance checks before being described as available.
 

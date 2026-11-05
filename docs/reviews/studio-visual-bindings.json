@@ -20,31 +20,31 @@
     "timing": "09/19 Connection > Advanced > Transition timing; enum select; specified control"
   },
   "RequestSpec": {
-    "fields": "21 Workflow settings > Request-local fields; field multiselect"
+    "fields": "21 Advanced > Task memory / 23 Task settings > Fields kept for this task; typed multiselect"
   },
   "ConfirmationSpec": {
-    "request": "21 Workflow settings > Policy request",
-    "fields": "21 Workflow settings > Protected details; field multiselect",
-    "acceptance_field": "21 Workflow settings > Acceptance field; request-local boolean selector",
-    "consent_field": "21 Workflow settings > Consent field; optional request-local boolean selector",
-    "require_delivery": "21 Workflow settings > Require complete readback delivery"
+    "request": "23 Confirmation > Advanced > Task/request binding",
+    "fields": "23 Confirmation > Which details must the caller confirm?",
+    "acceptance_field": "23 Confirmation > Advanced > Approval boolean field",
+    "consent_field": "23 Confirmation > Advanced > Optional consent boolean field",
+    "require_delivery": "23 Confirmation > Wait until the full message has played"
   },
   "Node": {
-    "begin_request": "22 Step settings > Begin request",
-    "confirmation": "22 Step settings > Confirmation policy",
-    "kind": "22 Step settings > Kind; validated conversion of existing node",
-    "title": "22 Step settings > Title; graph card heading",
+    "begin_request": "22 More options > Start a new task here; request selector; specified advanced control",
+    "confirmation": "22 Linked confirmation rule / 23 Rule editor; stable policy binding in Advanced",
+    "kind": "22 More options > Step kind; validated conversion; specified advanced control",
+    "title": "22 Step name; graph card heading",
     "prompt": "05 Step inspector > Prompt; expanded editor",
     "text": "22 Step settings > Exact message for Say kind; specified kind variant",
-    "readback": "22 Step settings > Readback template",
-    "tools": "22 Step settings > Available tools in this step",
-    "knowledge": "22 Step settings > Step knowledge",
+    "readback": "22 Read these details back; friendly tokens map to stable field placeholders",
+    "tools": "22 More options > Available tools in this step; typed multiselect",
+    "knowledge": "22 More options > Step knowledge; typed multiselect",
     "tool": "14 Action > Registered Python tool",
     "requires": "14 Action > Before this action can run > Required fields multiselect; specified editable variant",
     "arguments": "14 Action > Inputs; typed field mappings",
     "edges": "05/09/13/19 Connections; Add/Edit/Remove; ordered routing rules",
-    "patient": "22 Step settings > Patient turn handling; capability explanation when ineffective",
-    "entry": "22 Step settings > On entry"
+    "patient": "22 More options > Patient turn handling; capability explanation when ineffective",
+    "entry": "22 When this step starts > Wait for caller / Speak first; readback steps require Speak first"
   },
   "Models": {
     "speaker": "11 Conversation > Response model",
@@ -64,22 +64,22 @@
     "hints": "04 Speech > Recognition vocabulary"
   },
   "Workflow": {
-    "version": "21 Workflow settings > Schema version; supported versions only",
-    "id": "21 Workflow settings > Workflow ID",
+    "version": "21 Advanced > Schema version; supported versions only",
+    "id": "21 Advanced > Workflow ID; reference-safe changes",
     "name": "01 Agent name / header rename / 21 Workflow settings > Name",
-    "description": "21 Workflow settings > Description",
-    "start": "21 Workflow settings > Start step; synthetic Start connector",
+    "description": "21 What does it help with?",
+    "start": "21 Conversation starts at; synthetic Start connector",
     "shared_prompt": "01/12 Conversation > Instructions",
     "welcome": "01 Conversation > First message",
     "fields": "07 Collected data; Add/Edit/Remove; reference-aware field ID rename",
-    "tools": "21 Workflow settings > Allowed registered tools",
+    "tools": "21 Advanced > Available registered tools; multiselect",
     "knowledge": "03 Knowledge > Collection definitions; local path/ID editor uses existing collection form pattern",
-    "common_knowledge": "21 Workflow settings > Shared knowledge",
+    "common_knowledge": "21 Advanced > Shared knowledge; multiselect",
     "models": "11 Conversation + 18 Stage controller",
     "speech": "04 Speech + 15 Connection configuration; credentials themselves are outside YAML",
     "nodes": "05 Workflow > Add/Remove/Convert steps; 22 Step settings; reference-aware node ID rename",
-    "requests": "21 Workflow settings > Requests; Add/Edit ID/Remove; compiler validates references",
-    "confirmations": "21 Workflow settings > Confirmation policies; Add/Edit ID/Remove; specified policy management variant",
+    "requests": "21 Advanced > Task memory / 23 Task settings; add/rename/remove with reference validation",
+    "confirmations": "21 Before actions run > Edit rule / 23 Confirmation; IDs and shared bindings in Advanced",
     "evaluation_prompt": "18 Stage controller > Controller instructions"
   }
 }
