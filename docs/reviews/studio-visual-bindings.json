@@ -1,0 +1,85 @@
+{
+  "FieldSpec": {
+    "type": "07 Collected data > Type; reference-aware type change",
+    "description": "07 Collected data > What should the agent collect?",
+    "choices": "07 Collected data > Advanced > Allowed choices token input; specified control"
+  },
+  "Predicate": {
+    "op": "13 State check > Check type / All / Any / Not",
+    "field": "13 State check > Collected field selector",
+    "value": "13 State check > Expected value; typed text/boolean control; specified variant",
+    "conditions": "13 State check > Nested checks; Add/Remove; recursive specified variant"
+  },
+  "Edge": {
+    "label": "09/19 Connection > Canvas label",
+    "id": "09/19 Connection > Advanced > Route ID; reference-safe rename; specified control",
+    "to": "09/19 Connection > Go to",
+    "condition": "09 Connection > Language condition",
+    "predicate": "13 Connection > State check",
+    "result": "19 Outcome route > When the tool returns; registered result selector",
+    "timing": "09/19 Connection > Advanced > Transition timing; enum select; specified control"
+  },
+  "RequestSpec": {
+    "fields": "21 Workflow settings > Request-local fields; field multiselect"
+  },
+  "ConfirmationSpec": {
+    "request": "21 Workflow settings > Policy request",
+    "fields": "21 Workflow settings > Protected details; field multiselect",
+    "acceptance_field": "21 Workflow settings > Acceptance field; request-local boolean selector",
+    "consent_field": "21 Workflow settings > Consent field; optional request-local boolean selector",
+    "require_delivery": "21 Workflow settings > Require complete readback delivery"
+  },
+  "Node": {
+    "begin_request": "22 Step settings > Begin request",
+    "confirmation": "22 Step settings > Confirmation policy",
+    "kind": "22 Step settings > Kind; validated conversion of existing node",
+    "title": "22 Step settings > Title; graph card heading",
+    "prompt": "05 Step inspector > Prompt; expanded editor",
+    "text": "22 Step settings > Exact message for Say kind; specified kind variant",
+    "readback": "22 Step settings > Readback template",
+    "tools": "22 Step settings > Available tools in this step",
+    "knowledge": "22 Step settings > Step knowledge",
+    "tool": "14 Action > Registered Python tool",
+    "requires": "14 Action > Before this action can run > Required fields multiselect; specified editable variant",
+    "arguments": "14 Action > Inputs; typed field mappings",
+    "edges": "05/09/13/19 Connections; Add/Edit/Remove; ordered routing rules",
+    "patient": "22 Step settings > Patient turn handling; capability explanation when ineffective",
+    "entry": "22 Step settings > On entry"
+  },
+  "Models": {
+    "speaker": "11 Conversation > Response model",
+    "evaluator": "18 Stage controller > Controller model",
+    "reasoning": "11 Conversation > Reasoning slider; default/max/etc require schema extension"
+  },
+  "SpeechEndpoint": {
+    "voice": "04/20 TTS > Voice picker or custom voice ID; unused STT voice preserved in Advanced endpoint fields",
+    "provider": "04 STT/TTS model picker > Provider; affects credential/capability options",
+    "model": "04 STT/TTS model picker > Model; unknown IDs editable through custom ID fallback"
+  },
+  "Speech": {
+    "engine": "04 Speech > Voice integration: LiveKit / Direct Deepgram",
+    "credential_mode": "15 Connection > Credential source: Inference / Provider keys; specified selector variant",
+    "stt": "04 Speech > Speech recognition section",
+    "tts": "04 Speech > Voice output section",
+    "hints": "04 Speech > Recognition vocabulary"
+  },
+  "Workflow": {
+    "version": "21 Workflow settings > Schema version; supported versions only",
+    "id": "21 Workflow settings > Workflow ID",
+    "name": "01 Agent name / header rename / 21 Workflow settings > Name",
+    "description": "21 Workflow settings > Description",
+    "start": "21 Workflow settings > Start step; synthetic Start connector",
+    "shared_prompt": "01/12 Conversation > Instructions",
+    "welcome": "01 Conversation > First message",
+    "fields": "07 Collected data; Add/Edit/Remove; reference-aware field ID rename",
+    "tools": "21 Workflow settings > Allowed registered tools",
+    "knowledge": "03 Knowledge > Collection definitions; local path/ID editor uses existing collection form pattern",
+    "common_knowledge": "21 Workflow settings > Shared knowledge",
+    "models": "11 Conversation + 18 Stage controller",
+    "speech": "04 Speech + 15 Connection configuration; credentials themselves are outside YAML",
+    "nodes": "05 Workflow > Add/Remove/Convert steps; 22 Step settings; reference-aware node ID rename",
+    "requests": "21 Workflow settings > Requests; Add/Edit ID/Remove; compiler validates references",
+    "confirmations": "21 Workflow settings > Confirmation policies; Add/Edit ID/Remove; specified policy management variant",
+    "evaluation_prompt": "18 Stage controller > Controller instructions"
+  }
+}
