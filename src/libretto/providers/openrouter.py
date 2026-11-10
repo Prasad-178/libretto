@@ -68,8 +68,10 @@ class OpenRouterAdapter:
             "messages": [{"role": "system", "content": context.system}, *history(context)],
             "stream": True,
             "max_tokens": 220,
-            "reasoning": {"effort": self.models.reasoning, "exclude": True},
+            "reasoning": {"exclude": True},
         }
+        if self.models.reasoning != "default":
+            body["reasoning"]["effort"] = self.models.reasoning
         try:
             async with self.client.stream("POST", URL, headers=self.headers(), json=body) as response:
                 check_status(response.status_code)

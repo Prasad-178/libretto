@@ -113,7 +113,11 @@ class Node(StrictModel):
 class Models(StrictModel):
     speaker: str = "google/gemini-3.5-flash"
     evaluator: str = "google/gemini-3.5-flash"
-    reasoning: Literal["minimal", "low", "medium", "high"] = "minimal"
+    # Omission preserves pre-default workflow behavior. Explicit "default" leaves
+    # effort to the selected provider without forcing reasoning on or off.
+    reasoning: Literal["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"] = (
+        "minimal"
+    )
 
 
 class SpeechEndpoint(StrictModel):

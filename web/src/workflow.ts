@@ -48,7 +48,7 @@ export type Workflow = {
   models: {
     speaker: string;
     evaluator: string;
-    reasoning?: "minimal" | "low" | "medium" | "high";
+    reasoning?: "default" | "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
   };
   speech?: {
     engine?: "livekit" | "direct";

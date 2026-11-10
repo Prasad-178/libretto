@@ -33,6 +33,42 @@ async def test_streams_fragmented_sse_and_ignores_comments():
         assert "".join([part async for part in adapter.stream_reply(context())]) == "Hello Sam."
 
 
+@pytest.mark.parametrize("effort", ["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"])
+async def test_response_reasoning_preserves_explicit_efforts_and_default_omits_override(effort):
+    from libretto.providers.base import SessionCredentials
+    from libretto.providers.openrouter import OpenRouterAdapter
+    from libretto.schema import Models
+
+    def handler(request):
+        body = json.loads(request.content)
+        assert body["reasoning"].get("exclude") is True
+        if effort == "default":
+            assert "effort" not in body["reasoning"]
+            assert "enabled" not in body["reasoning"]
+        else:
+            assert body["reasoning"]["effort"] == effort
+        return httpx.Response(200, stream=Fragments())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = OpenRouterAdapter(
+            SessionCredentials(openrouter="test"), Models(reasoning=effort), client=client
+        )
+        assert "".join([part async for part in adapter.stream_reply(context())]) == "Hello Sam."
+
+
+async def test_omitted_reasoning_keeps_existing_minimal_request_behavior():
+    from libretto.providers.base import SessionCredentials
+    from libretto.providers.openrouter import OpenRouterAdapter
+
+    def handler(request):
+        assert json.loads(request.content)["reasoning"]["effort"] == "minimal"
+        return httpx.Response(200, stream=Fragments())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = OpenRouterAdapter(SessionCredentials(openrouter="test"), client=client)
+        assert "".join([part async for part in adapter.stream_reply(context())]) == "Hello Sam."
+
+
 @pytest.mark.parametrize(
     "status,code", [(401, "invalid_key"), (402, "budget_exhausted"), (429, "rate_limited")]
 )
