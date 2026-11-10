@@ -93,3 +93,9 @@ Status: implementation started 2026-11-11. A listed design control is not verifi
 - Cache: one hour fresh, one-minute failure backoff, unavailable after one day; bounded five-second upstream requests; no credential or inference request. Returned values are detached from the cache.
 - Deterministic checks cover missing/malformed metadata, free versus unknown rates, stale recovery/expiry, concurrent discovery and the HTTP endpoint. A public metadata-only request also normalized 469 text-capable models successfully; that count is an observation, not a fixed catalog.
 - No model selection or voice setting has been silently changed. The new catalog is not yet connected to the visual picker.
+
+## Verification and remaining blocker
+
+Latest checks: 256 backend tests, 121 frontend tests, 31 browser tests (one worker), production build and focused Ruff checks passed. The first default-concurrency browser run had one startup-recovery failure; the isolated rerun and six repeats passed. This transient remains recorded rather than being hidden by the later green run.
+
+Paper lists Libretto as open/active but direct structure queries and JSX export return “This file no longer exists. It may have been deleted.” Layout implementation remains pending reconnection. Existing screenshots verify the narrow fixes only, not parity with the new designs. The remaining rollout and final independent review are pending; no remote CI/deployment claim is made.
