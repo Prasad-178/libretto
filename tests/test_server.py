@@ -338,6 +338,38 @@ def test_studio_can_use_bundled_html_without_static_files(monkeypatch):
             assert response.text == "<html>Bundled studio</html>"
 
 
+def test_direct_studio_navigation_declares_a_resolvable_svg_icon(tmp_path):
+    import shutil
+    from html.parser import HTMLParser
+
+    from libretto.server import ROOT, create_app
+
+    class Icons(HTMLParser):
+        hrefs = []
+
+        def handle_starttag(self, tag, attrs):
+            attributes = dict(attrs)
+            if tag == "link" and attributes.get("rel") == "icon":
+                self.hrefs.append(attributes.get("href"))
+
+    public = tmp_path / "public"
+    public.mkdir()
+    shutil.copytree(ROOT / "examples", tmp_path / "examples")
+    (public / "favicon.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+    app = create_app(
+        workflow_path=ROOT / "examples/receptionist.yaml",
+        load_environment=False,
+        asset_root=tmp_path,
+    )
+    with TestClient(app) as client:
+        icons = Icons()
+        icons.feed(client.get("/studio").text)
+        assert icons.hrefs, "Direct Studio navigation must advertise its favicon"
+        icon = client.get(icons.hrefs[0])
+        assert icon.status_code == 200
+        assert icon.headers["content-type"].startswith("image/svg+xml")
+
+
 def test_session_model_factory_receives_workflow_reasoning():
     from libretto.server import create_app
     from libretto.state import Evaluation

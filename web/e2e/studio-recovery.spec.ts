@@ -1,6 +1,23 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
 const fixture = path.resolve("src/studio/fixtures/intake.yaml");
+test("failed imports stay visible in the editor and preserve the open document", async ({ page }) => {
+  await page.goto("/studio");
+  await page.getByLabel("Open workflow files").setInputFiles(fixture);
+  const card = page.getByRole("button", { name: "Open Collect request step", exact: true });
+  await expect(card).toBeVisible();
+  await page.getByLabel("Open workflow files").setInputFiles({
+    name: "broken.yaml", mimeType: "application/yaml", buffer: Buffer.from([0xff, 0xfe, 0xff]),
+  });
+  const error = page.getByRole("alert").filter({ hasText: /UTF-8/ });
+  await expect(error).toBeVisible();
+  await expect(card).toBeVisible();
+  await error.getByRole("button", { name: "Dismiss" }).click();
+  await expect(error).toBeHidden();
+  await page.getByLabel("Open workflow files").setInputFiles(fixture);
+  await expect(card).toBeVisible();
+});
+
 test("failed startup releases the snapshot and connecting can be cancelled", async ({
   page,
 }) => {

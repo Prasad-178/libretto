@@ -77,3 +77,11 @@ Status: implementation started 2026-11-11. A listed design control is not verifi
 - Shared policies, route ordering, nested typed predicates, inactive retained values.
 - Actual rendered/keyboard/scroll evidence, including error/empty/loading states.
 - No inference or credentials required by deterministic checks.
+
+## Foundation checkpoint — 2026-11-11
+
+- Editor-shell import errors preserve the open document and offer dismissal; invalid UTF-8 gives actionable guidance. Browser regression failed before the fix and passed afterward.
+- Shared instructions use the full form width; screenshot inspected. Dropdown chevrons remain centered in visible Settings controls.
+- `/studio` advertises a stable SVG favicon shared with the Vite entrypoint; production build emits the asset.
+- Purpose helper explains description is reference-only.
+- Empty/malformed draft recovery and 1440/1280/1024 canvas/inspector checks passed. This is not new-layout completion: Paper currently reports its listed Libretto file unavailable.

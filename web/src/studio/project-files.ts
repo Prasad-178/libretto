@@ -121,10 +121,15 @@ export async function openProjectFiles(
     );
   if (yaml[0].size > 400_003)
     throw new Error("Workflow exceeds 100,000 characters.");
-  const document = createDocument(
-    yaml[0].name,
-    new Uint8Array(await yaml[0].arrayBuffer()),
-  );
+  const bytes = new Uint8Array(await yaml[0].arrayBuffer());
+  let document: StudioDocument;
+  try {
+    document = createDocument(yaml[0].name, bytes);
+  } catch {
+    throw new Error(
+      `Could not open ${yaml[0].name}. Save the YAML file as UTF-8 and try again.`,
+    );
+  }
   if ([...document.source].length > 100_000)
     throw new Error("Workflow exceeds 100,000 characters.");
   const notices: string[] = [];

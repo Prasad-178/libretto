@@ -1,5 +1,26 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+test("instructions use the settings width and select arrows remain centered", async ({ page }, info) => {
+  await page.goto("/studio");
+  await page.getByLabel("Open workflow files").setInputFiles(path.resolve("src/studio/fixtures/intake.yaml"));
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  const instructions = page.getByLabel("Shared instructions", { exact: true });
+  await expect(instructions).toBeVisible();
+  const editor = await instructions.boundingBox();
+  const section = await instructions.locator("..").boundingBox();
+  expect(editor!.width).toBeGreaterThan(section!.width - 3);
+  await page.screenshot({ path: info.outputPath("shared-instructions.png") });
+  await page.getByRole("button", { name: "Models & speech", exact: true }).click();
+  const selects = page.locator(".settings-content .studio-select-trigger");
+  for (const select of await selects.all()) {
+    if (!(await select.isVisible())) continue;
+    const box = (await select.boundingBox())!;
+    const arrow = (await select.locator(".studio-select-chevron").boundingBox())!;
+    expect(Math.abs(arrow.y + arrow.height / 2 - box.y - box.height / 2)).toBeLessThanOrEqual(1);
+  }
+  await page.screenshot({ path: info.outputPath("settings-controls.png") });
+});
+
 test("selecting cards keeps the viewport still", async ({ page }) => {
   await page.goto("/studio");
   await page

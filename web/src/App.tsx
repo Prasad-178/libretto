@@ -103,6 +103,7 @@ const pretty = (text: string) =>
 export default function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [error, setError] = useState("");
+  const [documentError, setDocumentError] = useState("");
   const [settings, setSettings] = useState(false);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -775,12 +776,13 @@ export default function App() {
     try {
       const result = await openProjectFiles(Array.from(files));
       replaceDocument(result.document);
+      setDocumentError("");
       setFileNotices(result.notices);
       const workflow = readWorkflow(result.document.source);
       setSelected("");
       setView("workflow");
     } catch (error) {
-      setError(
+      setDocumentError(
         error instanceof Error ? error.message : "Could not open files.",
       );
     } finally {
@@ -819,6 +821,12 @@ export default function App() {
       }
       testOpen={showTest}
     >
+      {documentError && (
+        <div className="document-error" role="alert" aria-label="File error">
+          <span>{documentError}</span>
+          <button onClick={() => setDocumentError("")}>Dismiss</button>
+        </div>
+      )}
       <input
         ref={openInput}
         type="file"

@@ -110,7 +110,7 @@ export function SettingsPage({
                   />
                 </label>
                 <label>
-                  Description
+                  What does it help with?
                   <textarea
                     value={workflow.description || ""}
                     onChange={(e) =>
@@ -121,6 +121,9 @@ export function SettingsPage({
                       )
                     }
                   />
+                  <span className="settings-helper">
+                    For your reference; doesn’t affect agent behaviour.
+                  </span>
                 </label>
               </section>
               <section>

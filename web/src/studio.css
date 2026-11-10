@@ -2050,7 +2050,7 @@
   margin: 16px 0;
 }
 .settings-content label > input,
-.settings-content label > textarea,
+.settings-content textarea,
 .settings-content label > :is(select, .studio-select-trigger) {
   display: block;
   width: 100%;
@@ -2065,6 +2065,36 @@
 }
 .settings-content textarea {
   resize: vertical;
+}
+.settings-helper {
+  display: block;
+  margin-top: 6px;
+  color: #526477;
+  font-size: 12px;
+  line-height: 19px;
+  font-weight: 400;
+}
+
+.document-error {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  background: #fff1f0;
+  color: #a12323;
+  font-size: 13px;
+  line-height: 20px;
+}
+.document-error button {
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 10px;
+  cursor: pointer;
 }
 .settings-field {
   border: 1px solid #dee4ea;
