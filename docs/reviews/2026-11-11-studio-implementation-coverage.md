@@ -85,3 +85,11 @@ Status: implementation started 2026-11-11. A listed design control is not verifi
 - `/studio` advertises a stable SVG favicon shared with the Vite entrypoint; production build emits the asset.
 - Purpose helper explains description is reference-only.
 - Empty/malformed draft recovery and 1440/1280/1024 canvas/inspector checks passed. This is not new-layout completion: Paper currently reports its listed Libretto file unavailable.
+
+## Model backend checkpoint — 2026-11-11
+
+- Explicit Default reasoning and expanded effort values are implemented in schema/request serialization, with omission preserving minimal. See [compatibility notes](../migrations/reasoning-defaults.md). Slider and picker UI remain planned.
+- `GET /api/studio/models` provides credential-free OpenRouter metadata, USD base input/output prices per million tokens, request charges when supplied, effort capabilities, fetched time and fresh/stale/unavailable state.
+- Cache: one hour fresh, one-minute failure backoff, unavailable after one day; bounded five-second upstream requests; no credential or inference request. Returned values are detached from the cache.
+- Deterministic checks cover missing/malformed metadata, free versus unknown rates, stale recovery/expiry, concurrent discovery and the HTTP endpoint. A public metadata-only request also normalized 469 text-capable models successfully; that count is an observation, not a fixed catalog.
+- No model selection or voice setting has been silently changed. The new catalog is not yet connected to the visual picker.

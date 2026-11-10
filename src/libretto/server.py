@@ -17,6 +17,7 @@ from pydantic import Field, SecretStr, ValidationError
 from libretto.api import WorkflowRunner
 from libretto.compiler import WorkflowCompileError
 from libretto.demo_tools import DemoToolRegistry as ToolRegistry
+from libretto.model_catalog import OpenRouterCatalog
 from libretto.providers.base import ProviderError, SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.runtime import CALL_LIMIT_SECONDS
@@ -152,6 +153,12 @@ def create_app(
             assemblyai=os.getenv("ASSEMBLYAI_API_KEY", ""),
             cartesia=os.getenv("CARTESIA_API_KEY", ""),
         )
+
+    model_catalog = OpenRouterCatalog()
+
+    @app.get("/api/studio/models")
+    async def studio_models():
+        return await model_catalog.get()
 
     @app.get("/api/studio/capabilities")
     async def studio_capabilities():
