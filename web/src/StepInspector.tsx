@@ -1,3 +1,5 @@
+import { StepSettingsDialog } from "./studio/StepSettingsDialog";
+import { voiceEngine } from "./voice-config";
 import { Select } from "./ui/Select";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Code2, Expand, Undo2, X } from "lucide-react";
@@ -10,7 +12,7 @@ import { ActionInspector } from "./studio/ActionInspector";
 import { RouteInspector } from "./studio/RouteInspector";
 import { StepComposer } from "./studio/StepComposer";
 import { predicateFields } from "./studio/PredicateEditor";
-import type { DocumentTransaction } from "./studio/types";
+import type { StudioMetadata, DocumentTransaction } from "./studio/types";
 import type { ToolManifest } from "./studio/tool-manifest";
 export type Selection =
   { kind: "step"; id: string } | ({ kind: "edge" | "insert" } & EdgeSelection);
@@ -29,7 +31,9 @@ export default function StepInspector({
   onTransaction,
   onHistoryEnd,
   onSources,
+  metadata,
 }: {
+  metadata: StudioMetadata;
   source: string;
   workflow: Workflow;
   selection: Selection;
@@ -45,6 +49,7 @@ export default function StepInspector({
   onHistoryEnd?: () => void;
   onSources?: (id: string) => void;
 }) {
+  const [stepSettings, setStepSettings] = useState(false);
   const [error, setError] = useState(""),
     [tab, setTab] = useState("exits"),
     [wide, setWide] = useState(false),
@@ -124,7 +129,7 @@ export default function StepInspector({
             : "Insert step"
       }
       onKeyDown={(e) => {
-        if (e.key === "Escape" && !wide) {
+        if (e.key === "Escape" && !wide && !stepSettings) {
           e.stopPropagation();
           onClose();
         }
@@ -163,10 +168,28 @@ export default function StepInspector({
           </h2>
         )}
         {selection.kind !== "step" && <p>From {node.title || id}</p>}
+        {selection.kind === "step" && (
+          <button
+            className="inspector-link"
+            disabled={readOnly}
+            onClick={() => setStepSettings(true)}
+          >
+            Step settings
+          </button>
+        )}
       </header>
       <div className="studio-inspector-scroll">
-        {node.begin_request && <p className="inspector-notice">Begins request: <code>{node.begin_request}</code></p>}
-        {node.confirmation && <p className="inspector-notice">Confirmation policy: <code>{node.confirmation}</code>. Edit this policy in YAML.</p>}
+        {node.begin_request && (
+          <p className="inspector-notice">
+            Begins request: <code>{node.begin_request}</code>
+          </p>
+        )}
+        {node.confirmation && (
+          <p className="inspector-notice">
+            Caller confirmation required · <code>{node.confirmation}</code>.
+            Review this rule in Step settings.
+          </p>
+        )}
         {readOnly && (
           <p className="inspector-notice">
             Showing the running snapshot. Stop the test to edit.
@@ -419,13 +442,24 @@ export default function StepInspector({
                       />
                       Allow more time for the caller
                     </label>
+                    {voiceEngine(workflow.speech) === "livekit" && (
+                      <p className="inspector-help">
+                        Patient turn tuning is inactive for LiveKit; its YAML
+                        value is retained.
+                      </p>
+                    )}
                     <label>
                       On entering this step
                       <Select
                         value={node.entry || "wait"}
                         onChange={(e) => change("entry", e.target.value)}
                       >
-                        <option value="wait">Wait for the caller</option>
+                        <option
+                          value="wait"
+                          disabled={!!node.readback || !!node.confirmation}
+                        >
+                          Wait for the caller
+                        </option>
                         <option value="respond">Respond immediately</option>
                       </Select>
                     </label>
@@ -449,7 +483,7 @@ export default function StepInspector({
                   </>
                 )}
                 <button className="inspector-link" onClick={onYaml}>
-                  Edit all properties in YAML ↗
+                  Open YAML definition ↗
                 </button>
               </details>
             </>
@@ -471,6 +505,22 @@ export default function StepInspector({
           YAML
         </button>
       </footer>
+      {stepSettings && (
+        <StepSettingsDialog
+          source={source}
+          metadata={metadata}
+          nodeId={id}
+          onClose={() => setStepSettings(false)}
+          onSave={(transaction, nextId) => {
+            if (readOnly)
+              throw new Error("Stop the test before editing settings.");
+            if (onTransaction) onTransaction(transaction);
+            else onChange(applyTransaction(source, transaction).source);
+            onHistoryEnd?.();
+            onSelect({ kind: "step", id: nextId });
+          }}
+        />
+      )}
       <dialog
         className="wide-prompt-dialog"
         ref={wideDialog}

@@ -120,7 +120,7 @@ test("repair request policies survive prompt editing and export", async ({ page 
   await page.goto("/studio");
   await page.getByLabel("Open workflow files").setInputFiles(repair);
   await page.getByRole("button", { name: "Open Confirm visit step", exact: true }).click();
-  await expect(page.getByText("Confirmation policy:", { exact: false })).toBeVisible();
+  await expect(page.getByText("Caller confirmation required", { exact: false })).toBeVisible();
   await page.getByLabel("Step prompt", { exact: true }).fill("Review all visit details and ask for approval.");
   await page.screenshot({ path: info.outputPath("repair-policy-inspector.png") });
   await page.getByRole("button", { name: "Export YAML", exact: true }).click();

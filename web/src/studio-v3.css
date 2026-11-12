@@ -501,3 +501,328 @@
     padding: 24px;
   }
 }
+
+/* Source-backed workflow and step dialogs (Paper screens 21–23). */
+.settings-dialog {
+  width: min(840px, calc(100vw - 48px));
+  height: min(660px, calc(100dvh - 48px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid #d5dbe3;
+  border-radius: 10px;
+  background: #fff;
+  color: #15191f;
+  box-shadow: 0 16px 48px #15191f20;
+}
+.settings-dialog[data-settings-kind="step"] {
+  width: min(760px, calc(100vw - 48px));
+  height: min(700px, calc(100dvh - 48px));
+}
+.settings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.settings-dialog::backdrop {
+  background: #15191f26;
+}
+.settings-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 28px;
+  border-bottom: 1px solid #e3e6eb;
+}
+.settings-dialog > header h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+}
+.settings-dialog p {
+  margin: 0;
+  color: #5e6876;
+  font-size: 13px;
+  line-height: 21px;
+}
+.settings-dialog > header p {
+  margin-top: 6px;
+}
+.settings-dialog > form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.settings-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 28px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  flex: 1;
+}
+.settings-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.settings-dialog input:not([type="checkbox"]):not([type="radio"]),
+.settings-dialog textarea,
+.settings-dialog .studio-select-trigger {
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  min-height: 42px;
+  border: 1px solid #ccd2da;
+  border-radius: 6px;
+  background: #fff;
+  color: #15191f;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+}
+.settings-dialog textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+.settings-dialog textarea:focus-visible,
+.settings-dialog input:focus-visible {
+  outline: 2px solid #2d5bdb;
+  outline-offset: 1px;
+}
+.settings-dialog > form > footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #e3e6eb;
+  padding: 16px 28px;
+  flex-shrink: 0;
+}
+.settings-dialog footer > span {
+  flex: 1;
+  font-size: 12px;
+  line-height: 19px;
+  color: #5e6876;
+}
+.settings-dialog
+  button[type="button"]:not(.button):not(.studio-select-trigger) {
+  color: #2d5bdb;
+  font-size: 13px;
+  line-height: 20px;
+}
+.settings-dialog section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid #e3e6eb;
+}
+.settings-dialog h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 500;
+}
+.settings-dialog h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.settings-dialog details {
+  border-top: 1px solid #e3e6eb;
+  padding-top: 16px;
+}
+.settings-dialog summary {
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 20px;
+  color: #5e6876;
+}
+.settings-dialog details[open] > :not(summary) {
+  margin-top: 14px;
+}
+.settings-dialog .settings-rule-summary {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #f6f7f9;
+  padding: 14px 16px;
+  border-radius: 6px;
+  border: 0;
+}
+.settings-rule-summary strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.settings-rule-summary p {
+  margin-top: 6px;
+}
+.settings-rule-summary button {
+  flex-shrink: 0;
+}
+.settings-dialog .settings-dialog-error {
+  color: #a12323;
+  background: #fff1f0;
+  border-radius: 6px;
+  padding: 12px;
+}
+.settings-dialog .settings-choices {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-dialog .settings-choices legend {
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.settings-dialog .settings-choices label,
+.settings-dialog .settings-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-weight: 400;
+}
+.settings-dialog input[type="checkbox"],
+.settings-dialog input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #2d5bdb;
+}
+.settings-choices small {
+  margin-left: 8px;
+  color: #5e6876;
+  font:
+    12px/18px "IBM Plex Mono",
+    monospace;
+}
+.settings-dialog .settings-shared-rule {
+  padding: 10px 12px;
+  border-left: 2px solid #2d5bdb;
+  background: #f3f6ff;
+}
+.settings-dialog .definition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.definition-actions label {
+  flex: 1;
+  min-width: 160px;
+}
+.definition-actions p {
+  flex-basis: 100%;
+}
+.settings-add-definition {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.settings-add-definition label {
+  flex: 1;
+}
+.settings-new-rule {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.settings-dialog .entry-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.entry-options legend {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.settings-dialog .entry-options label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  border: 1px solid #ccd2da;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 400;
+}
+.entry-options label:has(input:checked) {
+  border-color: #2d5bdb;
+  background: #f3f6ff;
+}
+.entry-options label:has(input:disabled) {
+  opacity: 0.5;
+}
+.entry-options p {
+  flex-basis: 100%;
+}
+.insert-detail {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.insert-detail label {
+  flex: 1;
+}
+.readback-field-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.readback-field-preview span {
+  background: #eef3ff;
+  border-radius: 4px;
+  padding: 2px 7px;
+  color: #2d5bdb;
+  font-size: 13px;
+  line-height: 25px;
+}
+.settings-field .definition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+.settings-field .definition-actions label {
+  flex: 1;
+  min-width: 160px;
+}
+.settings-field .definition-actions p {
+  flex-basis: 100%;
+}
+.settings-dialog[data-settings-kind="workflow"] .settings-dialog-body {
+  gap: 8px;
+}
+.settings-dialog[data-settings-kind="workflow"]
+  .settings-dialog-body
+  > label
+  > textarea {
+  height: 42px;
+  min-height: 42px;
+  padding: 9px 12px;
+}

@@ -1,3 +1,4 @@
+import { applyTransaction } from "./studio/yaml-edits";
 import { Select } from "./ui/Select";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -37,6 +38,7 @@ import {
 import { readWorkflow, type Workflow } from "./workflow";
 import "@xyflow/react/dist/style.css";
 import "./workflow-graph.css";
+import { WorkflowSettingsDialog } from "./studio/WorkflowSettingsDialog";
 import StepInspector, { type Selection } from "./StepInspector";
 import { describeRoutes, presentRoutes } from "./studio/graph-model";
 import type { ToolManifest } from "./studio/tool-manifest";
@@ -312,6 +314,7 @@ export default function WorkflowGraph({
   readOnly = false,
 }: Props) {
   const [selection, updateSelection] = useState<Selection | null>(null);
+  const [workflowSettings, setWorkflowSettings] = useState(false);
   function setSelection(next: Selection | null) {
     if (next) onInspect?.();
     updateSelection(next);
@@ -622,12 +625,33 @@ export default function WorkflowGraph({
               </div>
             </details>
           )}
+          <button
+            disabled={connected || readOnly || !definition}
+            onClick={() => setWorkflowSettings(true)}
+          >
+            Workflow settings
+          </button>
           <button title="Open YAML definition" onClick={onYaml}>
             <Code2 size={14} />
             <span>YAML</span>
           </button>
         </div>
       </div>
+      {workflowSettings && definition && (
+        <WorkflowSettingsDialog
+          source={source}
+          metadata={metadata}
+          tools={tools || []}
+          onClose={() => setWorkflowSettings(false)}
+          onSave={(transaction) => {
+            if (connected || readOnly)
+              throw new Error("Stop the test before editing settings.");
+            if (onTransaction) onTransaction(transaction);
+            else onChange(applyTransaction(source, transaction).source);
+            onHistoryEnd?.();
+          }}
+        />
+      )}
       {connected && source && (
         <div className="flow-session-note">
           <ShieldCheck size={12} />
@@ -763,6 +787,7 @@ export default function WorkflowGraph({
                   : selection.source + selection.edgeId)
               }
               tools={tools}
+              metadata={metadata}
               onTransaction={onTransaction}
               onHistoryEnd={onHistoryEnd}
               onSources={onSources}

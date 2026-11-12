@@ -1,3 +1,5 @@
+import { DefinitionActions } from "./ConfirmationFields";
+import { definitionUses } from "./settings-edits";
 import { ConversationEditor } from "./ConversationEditor";
 import { voiceEngine, voicePresets } from "../voice-config";
 import { Select } from "../ui/Select";
@@ -356,12 +358,13 @@ export function SettingsPage({
                   <h3>Information fields</h3>
                   {Object.entries(workflow.fields || {}).map(([id, field]) => {
                     const refs = fieldReferences(workflow, id);
+                    const uses = definitionUses(workflow, "fields", id);
                     return (
                       <details className="settings-field" key={id}>
                         <summary>
                           <strong>{id}</strong>
                           <span>
-                            {field.type} · {refs.length} references
+                            {field.type || "string"} · {uses.length} references
                           </span>
                         </summary>
                         <label>
@@ -380,10 +383,10 @@ export function SettingsPage({
                         <label>
                           Type
                           <Select
-                            value={field.type}
-                            disabled={refs.length > 0}
+                            value={field.type || "string"}
+                            disabled={uses.length > 0}
                             title={
-                              refs.length
+                              uses.length
                                 ? "Update or remove the references below before changing this field type."
                                 : undefined
                             }
@@ -395,13 +398,13 @@ export function SettingsPage({
                             <option>boolean</option>
                           </Select>
                         </label>
-                        {refs.length > 0 && (
+                        {uses.length > 0 && (
                           <p>
                             Update or remove the references below before
                             changing this field type.
                           </p>
                         )}
-                        {field.type === "string" && (
+                        {(field.type || "string") === "string" && (
                           <label>
                             Allowed choices · one per line
                             <LineList
@@ -431,19 +434,25 @@ export function SettingsPage({
                         ) : (
                           <p>No structured references.</p>
                         )}
-                        <button
-                          disabled={!!refs.length}
-                          onClick={() =>
-                            onTransaction({
-                              label: "Remove unused field",
-                              operations: [
-                                { op: "delete", path: ["fields", id] },
-                              ],
-                            })
-                          }
-                        >
-                          Remove unused field
-                        </button>
+                        <p>
+                          {uses.length
+                            ? `Structured uses: ${uses.join(", ")}`
+                            : "No task or rule references."}
+                        </p>
+                        <DefinitionActions
+                          kind="fields"
+                          id={id}
+                          draft={{
+                            source: document.source,
+                            metadata: document.metadata,
+                            workflow,
+                            setError,
+                            apply: (transaction) => {
+                              onTransaction(transaction);
+                              return true;
+                            },
+                          }}
+                        />
                       </details>
                     );
                   })}

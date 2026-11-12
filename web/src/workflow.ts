@@ -10,8 +10,8 @@ export type FlowEdge = {
   timing?: string;
 };
 export type FlowNode = {
-  begin_request?: string;
-  confirmation?: string;
+  begin_request?: string | null;
+  confirmation?: string | null;
   kind: string;
   title: string;
   prompt: string;
@@ -27,6 +27,7 @@ export type FlowNode = {
   edges: FlowEdge[];
 };
 export type Workflow = {
+  version?: number;
   evaluation_prompt?: string;
   requests?: Record<string, { fields: string[] }>;
   confirmations?: Record<
@@ -48,7 +49,15 @@ export type Workflow = {
   models: {
     speaker: string;
     evaluator: string;
-    reasoning?: "default" | "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+    reasoning?:
+      | "default"
+      | "none"
+      | "minimal"
+      | "low"
+      | "medium"
+      | "high"
+      | "xhigh"
+      | "max";
   };
   speech?: {
     engine?: "livekit" | "direct";
@@ -85,6 +94,10 @@ export function readWorkflow(source: string): Workflow | null {
       keys.every(
         (key) => object[key] === undefined || typeof object[key] === "string",
       );
+    const nullableText = (object: Record<string, unknown>, keys: string[]) =>
+      keys.every(
+        (key) => object[key] == null || typeof object[key] === "string",
+      );
     const stringLists = (object: Record<string, unknown>, keys: string[]) =>
       keys.every(
         (key) =>
@@ -92,9 +105,33 @@ export function readWorkflow(source: string): Workflow | null {
           (Array.isArray(object[key]) &&
             object[key].every((item: unknown) => typeof item === "string")),
       );
-    if (!stringLists(value, ["common_knowledge"])) return null;
+    if (!stringLists(value, ["common_knowledge", "tools"])) return null;
     const record = (v: unknown): v is Record<string, any> =>
       !!v && typeof v === "object" && !Array.isArray(v);
+    if (
+      value.requests !== undefined &&
+      (!record(value.requests) ||
+        !Object.values(value.requests).every(
+          (request) => record(request) && stringLists(request, ["fields"]),
+        ))
+    )
+      return null;
+    if (
+      value.confirmations !== undefined &&
+      (!record(value.confirmations) ||
+        !Object.values(value.confirmations).every(
+          (rule) =>
+            record(rule) &&
+            typeof rule.request === "string" &&
+            typeof rule.acceptance_field === "string" &&
+            Array.isArray(rule.fields) &&
+            rule.fields.every((field: unknown) => typeof field === "string") &&
+            nullableText(rule, ["consent_field"]) &&
+            (rule.require_delivery === undefined ||
+              typeof rule.require_delivery === "boolean"),
+        ))
+    )
+      return null;
     if (!optionalText(value, ["description", "welcome", "evaluation_prompt"]))
       return null;
     if (
@@ -160,14 +197,8 @@ export function readWorkflow(source: string): Workflow | null {
           node &&
           typeof node === "object" &&
           typeof node.kind === "string" &&
-          optionalText(node, [
-            "title",
-            "prompt",
-            "text",
-            "readback",
-            "begin_request",
-            "confirmation",
-          ]) &&
+          optionalText(node, ["title", "prompt", "text", "readback"]) &&
+          nullableText(node, ["begin_request", "confirmation"]) &&
           (node.tool === undefined ||
             node.tool === null ||
             typeof node.tool === "string") &&

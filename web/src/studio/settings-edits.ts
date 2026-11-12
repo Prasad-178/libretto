@@ -279,3 +279,161 @@ export function confirmationEdit(
     operations: [{ op: "set", path: ["confirmations", id], value: rule }],
   };
 }
+
+export function requestEdit(
+  source: string,
+  id: string,
+  fields: string[],
+): DocumentTransaction {
+  const w = workflowFrom(source);
+  for (const field of fields) {
+    if (!Object.hasOwn(w.fields || {}, field))
+      throw new Error(`Unknown field ${field}.`);
+    for (const [other, request] of Object.entries(w.requests || {})) {
+      if (other !== id && (request.fields || []).includes(field))
+        throw new Error(`${field} already belongs to task ${other}.`);
+    }
+  }
+  for (const [key, rule] of Object.entries(w.confirmations || {})) {
+    if (rule.request !== id) continue;
+    const missing = [
+      ...rule.fields,
+      rule.acceptance_field,
+      ...(rule.consent_field ? [rule.consent_field] : []),
+    ].filter((field) => !fields.includes(field));
+    if (missing.length)
+      throw new Error(
+        `Rule ${key} still requires ${missing.join(", ")}. Update that rule first.`,
+      );
+    for (const [nodeId, node] of Object.entries(w.nodes)) {
+      if (
+        node.confirmation === key &&
+        node.kind === "action" &&
+        [...(node.requires || []), ...Object.values(node.arguments || {})].some(
+          (field) => !fields.includes(field),
+        )
+      )
+        throw new Error(
+          `${nodeId} still uses fields in this task. Update that action first.`,
+        );
+    }
+  }
+  return {
+    label: `Edit task ${id}`,
+    operations: [
+      {
+        op: "set",
+        path: ["requests", id, "fields"],
+        value: [...new Set(fields)],
+      },
+    ],
+  };
+}
+
+export function validateStep(w: Workflow, id: string): void {
+  const node = Object.hasOwn(w.nodes, id) ? w.nodes[id] : undefined;
+  if (!node) throw new Error("This step no longer exists.");
+  if ([...(node.readback || "")].length > 4000)
+    throw new Error("Keep readbacks within 4,000 characters.");
+  const rule =
+    node.confirmation && Object.hasOwn(w.confirmations || {}, node.confirmation)
+      ? w.confirmations![node.confirmation]
+      : undefined;
+  if (node.confirmation && !rule)
+    throw new Error("Choose an existing confirmation rule.");
+  if (node.readback || (node.confirmation && node.kind !== "action")) {
+    if (node.kind !== "conversation")
+      throw new Error(
+        "A readback requires a Conversation step. Clear it explicitly before changing kind.",
+      );
+    if (node.entry !== "respond")
+      throw new Error("Choose Speak first for this readback step.");
+    if (!node.readback)
+      throw new Error(
+        "Enter the message that reads the protected details back.",
+      );
+    validateReadback(
+      node.readback,
+      Object.keys(w.fields || {}),
+      rule?.fields || [],
+    );
+  }
+  if (node.begin_request) {
+    if (node.kind !== "conversation")
+      throw new Error(
+        "Only a Conversation step can begin a task. Clear that binding explicitly before converting.",
+      );
+    if (!Object.hasOwn(w.requests || {}, node.begin_request))
+      throw new Error("Choose an existing task.");
+    if (rule && node.begin_request !== rule.request)
+      throw new Error(
+        "The step and its confirmation rule must use the same task.",
+      );
+  }
+  if (node.kind === "say" && !node.text)
+    throw new Error("Enter the exact message for a Say step.");
+  if (node.kind === "action" && !node.tool)
+    throw new Error("Choose an action tool before converting to Action.");
+  if (node.kind !== "end" && !node.edges?.length)
+    throw new Error(
+      "Add an outgoing connection before converting this terminal step.",
+    );
+  for (const tool of [...(node.tools || []), ...(node.tool ? [node.tool] : [])])
+    if (!w.tools?.includes(tool))
+      throw new Error(`Tool ${tool} is not enabled for this workflow.`);
+  for (const source of node.knowledge || [])
+    if (!Object.hasOwn(w.knowledge || {}, source))
+      throw new Error(`Unknown knowledge collection ${source}.`);
+}
+
+/** Validate the complete staged transaction, allowing temporary form inconsistencies. */
+export function validateSettingsChanges(
+  originalSource: string,
+  source: string,
+  operations: readonly EditOperation[],
+): void {
+  const w = workflowFrom(source),
+    original = workflowFrom(originalSource);
+  if (w.version !== 1)
+    throw new Error("Choose the supported schema version 1.");
+  if (!Object.hasOwn(w.nodes, w.start))
+    throw new Error("Choose an existing starting step.");
+  for (const [id, request] of Object.entries(w.requests || {}))
+    requestEdit(source, id, request.fields || []);
+  for (const [id, rule] of Object.entries(w.confirmations || {}))
+    confirmationEdit(source, id, rule);
+  for (const id of Object.keys(w.nodes)) {
+    try {
+      validateStep(w, id);
+    } catch (error) {
+      throw new Error(`${id}: ${(error as Error).message}`);
+    }
+  }
+  const renamed = (kind: DefinitionKind, initial: string) => {
+    let id = initial;
+    for (const op of operations)
+      if (op.op === "rename" && op.path[0] === kind && op.path[1] === id)
+        id = op.value;
+    return id;
+  };
+  for (const [oldId, oldRule] of Object.entries(original.confirmations || {})) {
+    const id = renamed("confirmations", oldId),
+      next = Object.hasOwn(w.confirmations || {}, id)
+        ? w.confirmations![id]
+        : undefined;
+    if (!next) continue;
+    for (const key of ["acceptance_field", "consent_field"] as const) {
+      const oldFlag = oldRule[key] && renamed("fields", oldRule[key]!);
+      if (!oldFlag || oldFlag === next[key]) continue;
+      const uses = fieldReferences(w, oldFlag).filter(
+        (ref) =>
+          w.nodes[ref.nodeId].confirmation === id ||
+          w.nodes[ref.nodeId].begin_request === next.request,
+      );
+      if (uses.length)
+        throw new Error(
+          `Field ${oldFlag} is still used by ${[...new Set(uses.map((ref) => ref.nodeId))].join(", ")}. Update those predicates/arguments before rebinding this rule’s flag.`,
+        );
+    }
+  }
+}

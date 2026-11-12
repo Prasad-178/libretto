@@ -585,7 +585,10 @@ export default function App() {
     }
     const attempt = ++connectionAttempt.current;
     try {
-      if (!(await validateSource()) || attempt !== connectionAttempt.current) {
+      if (
+        !(await validateSource(true)) ||
+        attempt !== connectionAttempt.current
+      ) {
         setSettings(false);
         return;
       }
@@ -686,7 +689,7 @@ export default function App() {
     link.click();
     URL.revokeObjectURL(url);
   }
-  async function validateSource(): Promise<boolean> {
+  async function validateSource(revealIssues = false): Promise<boolean> {
     window.clearTimeout(autoValidationTimer.current);
     const draft = documentRef.current;
     const requestId = ++validationRequest.current;
@@ -706,6 +709,7 @@ export default function App() {
           workflow: null,
           issues: syntax,
         });
+        if (revealIssues) setView("yaml");
         return false;
       }
       const response = await fetch("/api/workflow/validate", {
@@ -750,7 +754,7 @@ export default function App() {
         current.validation.requestId !== requestId
       )
         return false;
-      if (!response.ok) setView("yaml");
+      if (!response.ok && revealIssues) setView("yaml");
       return current.validation.state === "valid";
     } catch {
       dispatchDocument({
@@ -815,7 +819,7 @@ export default function App() {
       onOpen={() => openInput.current?.click()}
       onExport={() => setExportOpen(true)}
       onTest={() => setShowTest(!showTest)}
-      onValidate={() => void validateSource()}
+      onValidate={() => void validateSource(true)}
       onUndo={undoSource}
       onRedo={() => dispatchDocument({ type: "redo" })}
       onConnection={() => setSettings(true)}
@@ -923,7 +927,7 @@ export default function App() {
               onHistoryEnd={() =>
                 dispatchDocument({ type: "end-history-group" })
               }
-              onValidate={() => void validateSource()}
+              onValidate={() => void validateSource(true)}
             />
           ) : view === "knowledge" && source ? (
             <SourcesPage

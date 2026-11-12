@@ -2,6 +2,22 @@ import { describe, it, expect } from "vitest";
 import { readWorkflow, setYamlValue } from "./workflow";
 const source =
   "# keep this\nversion: 1\nid: test\nname: Test\nstart: hello\nshared_prompt: Be helpful\nnodes:\n  hello:\n    kind: conversation\n    prompt: Hello\n    edges: []\n";
+
+it("rejects malformed task/rule forms but accepts schema-supported nullable bindings", () => {
+  expect(readWorkflow(source + "requests: {broken: null}\n")).toBeNull();
+  expect(readWorkflow(source + "tools: not-a-list\n")).toBeNull();
+  expect(
+    readWorkflow(source + "confirmations: {broken: {fields: null}}\n"),
+  ).toBeNull();
+  expect(
+    readWorkflow(
+      source.replace(
+        "prompt: Hello",
+        "prompt: Hello\n    begin_request: null\n    confirmation: null",
+      ),
+    ),
+  ).not.toBeNull();
+});
 describe("YAML configuration edits", () => {
   it("updates the same document and preserves comments", () => {
     const edited = setYamlValue(
@@ -59,6 +75,9 @@ it("accepts an explicitly null optional tool as the server schema does", () => {
 });
 
 it("rejects schema-invalid predicate containers before exposing forms", () => {
-  const malformed=source.replace("edges: []", 'edges: [{id: retry, to: hello, predicate: {op: all, conditions: broken}}]');
+  const malformed = source.replace(
+    "edges: []",
+    "edges: [{id: retry, to: hello, predicate: {op: all, conditions: broken}}]",
+  );
   expect(readWorkflow(malformed)).toBeNull();
 });

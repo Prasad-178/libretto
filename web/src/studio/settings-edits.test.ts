@@ -7,6 +7,9 @@ import {
   removeDefinition,
   validateReadback,
   confirmationEdit,
+  requestEdit,
+  validateStep,
+  validateSettingsChanges,
 } from "./settings-edits";
 import { createDocument, documentReducer } from "./document-store";
 
@@ -160,4 +163,89 @@ it("checks every shared readback when editing a confirmation and preserves actio
   expect(next.confirmations.booking.require_delivery).toBe(false);
   expect(next.nodes.book.confirmation).toBe("booking");
   expect(next.nodes.confirm.confirmation).toBe("booking");
+});
+
+it("keeps request memory disjoint and prevents dropping confirmation authority fields", () => {
+  expect(() => requestEdit(repair, "other", ["address"])).toThrow(/visit/);
+  expect(() =>
+    requestEdit(repair, "visit", [
+      "customer_name",
+      "address",
+      "issue",
+      "window",
+      "consent",
+    ]),
+  ).toThrow(/accepted/);
+  const next = parse(
+    applyTransaction(repair, requestEdit(repair, "other", [])).source,
+  );
+  expect(next.requests.other.fields).toEqual([]);
+  expect(next.requests.visit.fields).toContain("accepted");
+});
+
+it("blocks invalid kind/entry changes instead of discarding readback settings", () => {
+  const w = parse(repair);
+  w.nodes.confirm.entry = "wait";
+  expect(() => validateStep(w, "confirm")).toThrow(/Speak first/);
+  w.nodes.confirm.kind = "say";
+  expect(() => validateStep(w, "confirm")).toThrow(/readback|Readback/);
+  expect(w.nodes.confirm.readback).toContain("{address}");
+});
+
+it("blocks flag rebinding that strands existing predicates but permits a complete field rename", () => {
+  const operations = [
+    {
+      op: "set" as const,
+      path: ["confirmations", "booking", "acceptance_field"],
+      value: "consent",
+    },
+    {
+      op: "set" as const,
+      path: ["confirmations", "booking", "consent_field"],
+      value: null,
+    },
+  ];
+  const next = applyTransaction(repair, {
+    label: "Change approval",
+    operations,
+  }).source;
+  expect(() => validateSettingsChanges(repair, next, operations)).toThrow(
+    /accepted.*confirm|confirm.*accepted/,
+  );
+  const rename = renameDefinition(repair, "fields", "accepted", "approved");
+  expect(() =>
+    validateSettingsChanges(
+      repair,
+      applyTransaction(repair, rename).source,
+      rename.operations,
+    ),
+  ).not.toThrow();
+});
+
+it("does not mistake inherited object names for declared confirmation rules", () => {
+  const w = parse(repair);
+  w.nodes.confirm.confirmation = "constructor";
+  expect(() => validateStep(w, "confirm")).toThrow(/existing confirmation/);
+  const tx = renameDefinition(
+    repair,
+    "confirmations",
+    "booking",
+    "constructor",
+  );
+  expect(() =>
+    validateSettingsChanges(
+      repair,
+      applyTransaction(repair, tx).source,
+      tx.operations,
+    ),
+  ).not.toThrow();
+});
+
+it("counts readback limits in Unicode characters like the backend", () => {
+  const w = parse(repair);
+  delete w.nodes.confirm.confirmation;
+  w.nodes.confirm.readback = "😀".repeat(4000);
+  expect(() => validateStep(w, "confirm")).not.toThrow();
+  w.nodes.confirm.readback += "😀";
+  expect(() => validateStep(w, "confirm")).toThrow(/4,000/);
 });
