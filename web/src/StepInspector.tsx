@@ -88,6 +88,11 @@ export default function StepInspector({
   useEffect(() => {
     if (requestedSection) setSection(requestedSection);
   }, [requestedSection]);
+  const selectedRoute = selection.kind === "step" ? "" : selection.edgeId;
+  useEffect(() => {
+    const scroller = panel.current?.querySelector(".studio-inspector-scroll");
+    if (scroller) scroller.scrollTop = 0;
+  }, [section, id, selection.kind, selectedRoute]);
   if (!node || (selection.kind !== "step" && !edge)) return null;
   function commit(tx: DocumentTransaction): boolean {
     if (readOnly) return false;

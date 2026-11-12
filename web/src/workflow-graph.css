@@ -580,35 +580,6 @@
   padding: 1px 6px;
   color: #526477;
 }
-.flow-bundle {
-  position: relative;
-  pointer-events: all;
-}
-.flow-bundle summary {
-  position: relative;
-  cursor: pointer;
-  white-space: nowrap;
-  padding-top: 6px;
-}
-.flow-bundle > div {
-  position: absolute;
-  top: 34px;
-  left: 0;
-  z-index: 100;
-  background: white;
-  box-shadow: 0 4px 18px #172b4020;
-  border: 1px solid #dee4ea;
-  border-radius: 6px;
-  min-width: 170px;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-}
-.flow-bundle > div button {
-  padding: 8px;
-  text-align: left;
-  font-size: 12px;
-}
 .workflow-toolbar :is(select, .studio-select-trigger) {
   font: inherit;
   padding: 5px 8px;

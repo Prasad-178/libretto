@@ -1,3 +1,4 @@
+import { RouteBundleMenu } from "./studio/RouteBundleMenu";
 import { applyTransaction } from "./studio/yaml-edits";
 import { Select } from "./ui/Select";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +21,10 @@ import {
   AudioLines,
   AlertTriangle,
   BookOpen,
+  BookmarkPlus,
+  ChevronDown,
+  ListTree,
+  Settings2,
   CircleMinus,
   Code2,
   Flag,
@@ -240,30 +245,7 @@ const Branch = memo(function Branch({
             }}
           >
             {data.members && data.members.length > 1 ? (
-              <details className="flow-bundle nodrag nopan">
-                <summary className="flow-condition">
-                  {data.members.length} results →
-                </summary>
-                <div>
-                  {data.members.map((member, index) => (
-                    <button
-                      key={index}
-                      className={
-                        member.tone === "unknown" ? "unknown-result" : undefined
-                      }
-                      onClick={member.inspect}
-                    >
-                      {member.tone === "unknown" && (
-                        <AlertTriangle
-                          size={12}
-                          aria-label="Unknown outcome recovery"
-                        />
-                      )}
-                      {member.label}
-                    </button>
-                  ))}
-                </div>
-              </details>
+              <RouteBundleMenu members={data.members} />
             ) : (
               <button
                 className={`flow-condition nodrag nopan ${data.highlighted ? "highlighted" : ""} ${data.selected ? "selected" : ""} ${uncertain ? "unknown-result" : ""}`}
@@ -618,11 +600,16 @@ export default function WorkflowGraph({
             {connected ? "Live session" : "Click a step to edit"}
           </span>
           <button onClick={() => setShowRoutes(!showRoutes)}>
+            <ListTree size={14} aria-hidden="true" />
             {showRoutes ? "Canvas" : "Routes index"}
           </button>
           {onMetadata && !connected && (
             <details className="view-editor">
-              <summary>Save view</summary>
+              <summary>
+                <BookmarkPlus size={14} aria-hidden="true" />
+                <span>Save view</span>
+                <ChevronDown size={12} aria-hidden="true" />
+              </summary>
               <div>
                 <label>
                   View name
@@ -692,6 +679,7 @@ export default function WorkflowGraph({
             disabled={connected || readOnly || !definition}
             onClick={() => setWorkflowSettings(true)}
           >
+            <Settings2 size={14} aria-hidden="true" />
             Workflow settings
           </button>
           <button title="Open YAML definition" onClick={onYaml}>

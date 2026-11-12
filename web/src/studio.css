@@ -1081,7 +1081,17 @@
   margin: 0;
 }
 .studio-v2 .inspector-transition {
-  padding: 8px 0;
+  padding: 14px 16px;
+  background: #fff;
+}
+.studio-v2 .inspector-transition:hover {
+  border-color: #b9c9df;
+}
+.studio-v2 .inspector-transition .transition-chevron {
+  color: #8993a1;
+}
+.studio-v2 .inspector-transition > button:first-child:focus-visible {
+  outline-offset: 5px;
 }
 .studio-v2 .inspector-transition > button:first-child {
   min-width: 0;

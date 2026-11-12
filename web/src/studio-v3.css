@@ -1226,8 +1226,25 @@
 
 /* Paper 05/14/19: each inspector view owns one editing responsibility. */
 @media (min-width: 1400px) { .studio-v3 .studio-inspector { width: 408px; } }
-.inspector-main-tabs { display: flex; gap: 22px; padding: 0 24px; border-bottom: 1px solid #e3e6eb; flex-shrink: 0; }
-.inspector-main-tabs button { padding: 0 0 12px; font-size: 14px; line-height: 18px; color: #5e6876; border-bottom: 2px solid transparent; }
+.inspector-main-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 22px;
+  padding: 0 24px;
+  min-height: 48px;
+  border-bottom: 1px solid #e3e6eb;
+  flex-shrink: 0;
+  background: #fff;
+}
+.inspector-main-tabs button {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: #5e6876;
+  border-bottom: 2px solid transparent;
+}
 .inspector-main-tabs button.selected { color: #2d5bdb; border-color: #2d5bdb; font-weight: 500; }
 .inspector-back { text-align: left; color: #5e6876; font-size: 13px; }
 .studio-inspector .step-prompt-editor .step-prompt { min-height: 196px; font-size: 15px; line-height: 25px; padding: 16px; }
@@ -1262,8 +1279,8 @@
 .connection-order button { display: flex; gap: 6px; align-items: center; }
 .new-connection { padding-top: 18px; }
 .new-connection > label { margin: 12px 0; }
-.flow-condition.unknown-result:not(.selected),.flow-bundle button.unknown-result,.flow-destination-chips button.unknown-result { color: #815c12; border-color: #e2ca92; background: #fff7e3; }
-.flow-condition.unknown-result,.flow-bundle button.unknown-result { display: inline-flex; align-items: center; gap: 5px; }
+.flow-condition.unknown-result:not(.selected),.flow-destination-chips button.unknown-result { color: #815c12; border-color: #e2ca92; background: #fff7e3; }
+.flow-condition.unknown-result { display: inline-flex; align-items: center; gap: 5px; }
 .flow-condition.highlighted:not(.selected) { color: #815c12; background: #fff7e3; border-color: #c7952c; }
 .definition-legend { position: absolute; top: 18px; right: 18px; width: 330px; max-width: calc(100% - 36px); padding: 12px 14px; border: 1px solid #e3e6eb; border-radius: 6px; background: #fff; color: #5e6876; z-index: 4; pointer-events: none; }
 .definition-legend > div { display: flex; gap: 14px; }
@@ -1274,7 +1291,15 @@
 .definition-legend p { font-size: 11px; line-height: 17px; margin: 9px 0 0; }
 @media(max-width:1100px) { .workflow-surface:has(.studio-inspector) .definition-legend { display: none; } }
 
-.connection-footer{border-top:1px solid var(--border,#e1e5ea);padding-top:18px;display:grid;gap:10px}.connection-footer .danger{color:#b42318;justify-self:start}
+.connection-footer {
+  border-top: 1px solid #e3e6eb;
+  padding: 20px 24px;
+  display: grid;
+  gap: 12px;
+}
+.connection-footer .danger { color: #b42318; justify-self: start; }
+.connection-footer .danger:hover:not(:disabled) { background: #fff5f4; border-color: #edb9b3; }
+.connection-footer .inspector-help { margin: 0; }
 
 /* Test & debug is a dedicated workspace; the immutable snapshot owns both panes. */
 .studio-v3.with-test .editor-layout>.definition-panel{display:none}
@@ -1356,3 +1381,240 @@
 .definition-browser-page .definition-list,.definition-browser-page .definition-detail{min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:24px;scrollbar-gutter:stable}
 .definition-browser-page .definition-detail .field-reference{display:block;text-align:left;justify-self:start}
 .definition-browser-page .definition-detail section{padding-bottom:0;margin-bottom:0;border-bottom:0}
+
+/* Compact, accessible checklist rows; keep the native input semantics. */
+.action-required .inspector-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.action-required .inspector-check:hover {
+  background: #f6f7f9;
+}
+.action-required .inspector-check span {
+  flex: 1;
+}
+.action-required .inspector-check small {
+  font-size: 10px;
+  color: #5e6876;
+}
+.action-required .inspector-check input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1.5px solid #b8c2cf;
+  border-radius: 4px;
+  background: #fff;
+}
+.action-required .inspector-check input:checked {
+  background: #2d5bdb;
+  border-color: #2d5bdb;
+}
+.action-required .inspector-check input:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  width: 7px;
+  height: 4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+}
+.action-required .inspector-check input:disabled {
+  opacity: 0.75;
+}
+.action-required .inspector-help {
+  margin: 10px 0 8px;
+}
+.source-workflow-issues {
+  border: 1px solid #edddb6;
+  border-radius: 6px;
+  margin: 16px 0 24px;
+}
+.source-workflow-issues > strong {
+  display: block;
+}
+.source-workflow-issues > p {
+  margin: 4px 0 12px;
+}
+.source-workflow-issues ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.source-workflow-issues li > button {
+  width: 100%;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #eadfbe;
+  border-radius: 5px;
+  background: #fffdf7;
+  color: #654b17;
+  text-align: left;
+}
+.source-workflow-issues li > button:hover {
+  border-color: #cdb778;
+  background: #fff;
+}
+.source-workflow-issues li > button > span:first-child {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.source-workflow-issues li strong {
+  font-size: 13px;
+}
+.source-workflow-issues li span {
+  overflow-wrap: anywhere;
+}
+.source-local-help {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e3e6eb;
+  font-size: 12px;
+  line-height: 19px;
+  color: #5e6876;
+}
+.source-local-help summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #414a57;
+}
+.source-local-help p {
+  margin: 12px 0;
+}
+.source-local-help pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  padding: 12px;
+  background: #f6f7f9;
+  border: 1px solid #e3e6eb;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* Centre the label on its route; the optional insert control must not shift it. */
+.studio-v3 .flow-edge-actions {
+  display: block;
+}
+.studio-v3 .flow-edge-actions > .flow-condition {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: auto;
+  min-height: 28px;
+  padding: 4px 8px;
+  line-height: 18px;
+  box-shadow: none;
+}
+.studio-v3 .flow-edge-actions > .flow-insert {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 7px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.studio-v3 .flow-edge-actions:hover > .flow-insert,
+.studio-v3 .flow-edge-actions:focus-within > .flow-insert {
+  pointer-events: auto;
+}
+.route-bundle-popover {
+  z-index: 2000;
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  max-height: min(320px, var(--radix-popover-content-available-height));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  border: 1px solid #dce2eb;
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 8px 24px #172b401c;
+}
+.route-bundle-popover > p {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #5e6876;
+  border-bottom: 1px solid #edf0f4;
+}
+.route-bundle-popover > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  text-align: left;
+  color: #303b49;
+}
+.route-bundle-popover > button > span:nth-child(2) {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.route-bundle-popover > button:hover {
+  background: #f1f5fb;
+}
+.route-bundle-popover > button.unknown-result {
+  color: #815c12;
+}
+.route-result-icon {
+  display: inline-flex;
+  width: 14px;
+  flex-shrink: 0;
+}
+.studio-v3 .workflow-toolbar > div:last-child {
+  gap: 4px;
+}
+.studio-v3 .workflow-toolbar > div:last-child > button,
+.studio-v3 .view-editor > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #414a57;
+}
+.studio-v3 .workflow-toolbar > div:last-child > button:hover,
+.studio-v3 .view-editor > summary:hover {
+  background: #e9eef5;
+  color: #172b40;
+}
+.studio-v3 .view-editor > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.studio-v3 .view-editor > summary::-webkit-details-marker {
+  display: none;
+}
+.studio-v3 .view-editor[open] > summary {
+  border-color: #ccd6e0;
+  background: #fff;
+}
+.studio-v3 .workflow-toolbar .flow-source-label {
+  padding-right: 8px;
+  font-size: 11px;
+  color: #64748b;
+}

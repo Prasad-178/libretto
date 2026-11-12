@@ -230,14 +230,22 @@ export function ActionInspector({
       <details className="action-required">
         <summary>Required information · {requires.length}</summary>
         <p className="inspector-help">
-          The action waits until these values are collected. Every mapped input
-          must be required.
+          Mapped inputs are required. Select any extra information the action
+          needs before it runs.
         </p>
         {Object.keys(workflow.fields || {}).map((field) => (
           <label className="inspector-check" key={field}>
             <input
               type="checkbox"
               checked={requires.includes(field)}
+              disabled={
+                Object.values(args).includes(field) && requires.includes(field)
+              }
+              title={
+                Object.values(args).includes(field)
+                  ? "Required by an input mapping"
+                  : undefined
+              }
               onChange={(e) =>
                 setRequires(
                   e.target.checked
@@ -246,7 +254,10 @@ export function ActionInspector({
                 )
               }
             />
-            {humanizeId(field)}
+            <span>{humanizeId(field)}</span>
+            {Object.values(args).includes(field) && (
+              <small aria-hidden="true">Mapped input</small>
+            )}
           </label>
         ))}
       </details>

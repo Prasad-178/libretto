@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import type { FlowEdge, Workflow } from "../workflow";
 import type { Selection } from "../StepInspector";
 import { Select } from "../ui/Select";
@@ -38,6 +38,11 @@ export function ConnectionRows({
               <ArrowRight size={14} />
               {workflow.nodes[edge.to]?.title || edge.to}
             </strong>
+            <ChevronRight
+              className="transition-chevron"
+              size={15}
+              aria-hidden="true"
+            />
           </button>
           {allowInsert && edge.timing !== "before_action" && (
             <button
@@ -282,7 +287,7 @@ export function StepConnections({
                   onSelect({ kind: "edge", source: id, edgeId: edge.id })
                 }
               >
-                <span>{workflow.nodes[id].title || id}</span>
+                <span>From {workflow.nodes[id].title || id}</span>
                 <strong>{routeLabel(edge)}</strong>
               </button>
             </div>

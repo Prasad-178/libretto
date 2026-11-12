@@ -3,10 +3,7 @@ import { documentStatus } from "./project-files";
 export function DocumentStatus({ document }: { document: StudioDocument }) {
   return (
     <details className="document-status-menu">
-      <summary className="document-status">
-        {document.validation.state === "valid" ? "Valid · " : "Draft · "}
-        {documentStatus(document)}
-      </summary>
+      <summary className="document-status">{documentStatus(document)}</summary>
       <div>
         <strong>{document.filename}</strong>
         <p>Draft revision {document.revision}</p>

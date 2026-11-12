@@ -214,11 +214,22 @@ export function SourcesPage({
             </button>
           ))}
         </nav>
-        <p className="workspace-help">
-          {capabilities?.folderSelection
-            ? "Local project folders are available through the runtime."
-            : "To attach local Markdown folders, run libretto serve workflow.yaml --project-root . locally."}
-        </p>
+        {capabilities?.folderSelection ? (
+          <p className="workspace-help">
+            Markdown folders are loaded from your local project.
+          </p>
+        ) : (
+          <details className="source-local-help">
+            <summary>Use your own Markdown files</summary>
+            <p>Start Studio from your project folder:</p>
+            <pre>
+              <code>libretto serve workflow.yaml --project-root .</code>
+            </pre>
+            <p>
+              Local folders are available when Studio runs with your project.
+            </p>
+          </details>
+        )}
       </aside>
       <div className="source-content">
         <header>
@@ -263,25 +274,34 @@ export function SourcesPage({
           </p>
         )}
         {!stale && !!document.validation.issues.length && (
-          <div className="source-warning">
-            <strong>
-              Knowledge preview only · Resolve workflow issues before testing.
-            </strong>
-            {document.validation.issues.map((issue, index) => (
-              <button
-                key={index}
-                className="inspector-link"
-                onClick={() =>
-                  onIssue(
-                    issue.path[0] === "nodes"
-                      ? String(issue.path[1])
-                      : undefined,
-                  )
-                }
-              >
-                {issue.path.join(".")}: {issue.message}
-              </button>
-            ))}
+          <div className="source-warning source-workflow-issues">
+            <strong>Workflow needs attention</strong>
+            <p>Fix these workflow issues before starting a test.</p>
+            <ul aria-label="Workflow issues">
+              {document.validation.issues.map((issue, index) => {
+                const stepId =
+                  issue.path[0] === "nodes" && typeof issue.path[1] === "string"
+                    ? issue.path[1]
+                    : undefined;
+                const title = stepId
+                  ? visibleWorkflow?.nodes[stepId]?.title || humanizeId(stepId)
+                  : "Workflow definition";
+                return (
+                  <li key={index}>
+                    <button
+                      onClick={() => onIssue(stepId)}
+                      title={issue.path.join(".")}
+                    >
+                      <span>
+                        <strong>{title}</strong>
+                        <span>{issue.message}</span>
+                      </span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
         {!busy && manifest?.collections.length === 0 && (
