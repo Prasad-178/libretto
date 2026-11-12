@@ -19,7 +19,7 @@ uv run libretto serve
 uv run python -m examples.livekit_repair
 ```
 
-Open `/studio`. Models & speech separates voice integration, credential route, speech recognition, synthesis and voice ID. The built Studio/examples are checkout resources, not part of a core wheel. For a consuming Python application, install the Git/source package with `[livekit]`; `[studio]` includes that extra and the web-server dependencies. Core/text imports and execution still need neither SDK nor Studio.
+Open `/studio`. Agent settings separate models from Speech, where STT and TTS have their own panes and integration/credential configuration. The built Studio/examples are checkout resources, not part of a core wheel. For a consuming Python application, install the Git/source package with `[livekit]`; `[studio]` includes that extra and the web-server dependencies. Core/text imports and execution still need neither SDK nor Studio.
 
 ## Credentials and usage
 
@@ -60,7 +60,7 @@ speech:
   tts: {provider: deepgram, model: flux-haley-en}
 ```
 
-Old YAML containing this known Flux model pair without engine/credential_mode is recognized as legacy. New workflows/defaults use LiveKit. Choose “Direct Deepgram (legacy)” in Settings to migrate back intentionally; selecting it changes the relevant configuration atomically and is undoable. Unsupported model/provider combinations fail validation, never execute arbitrary imports or choose network endpoints.
+Old YAML containing this known Flux model pair without engine/credential_mode is recognized as Direct Deepgram for compatibility. New workflows/defaults use LiveKit. Choose “Direct Deepgram” in Settings to migrate back intentionally; selecting it changes the relevant configuration atomically and is undoable. Unsupported model/provider combinations fail validation, never execute arbitrary imports or choose network endpoints.
 
 ## Delivery and cancellation contract
 
@@ -78,6 +78,8 @@ The application pumps runner `text_delta`/`response_done` events to `speak_text`
 
 ## Evidence and limits
 
-Real SDK tests with synthetic STT/TTS nodes cover final input, suppressed automatic replies, explicit playback acknowledgement, wrong epoch, interruption, fresh-readback booking, duplicate final turns, speech-start invalidation, late interruption and shutdown. API/browser tests verify credential routing, explicit legacy behavior, settings, private exports/drafts and failed-start recovery. These tests make no paid provider calls.
+Real SDK tests with synthetic STT/TTS nodes cover final input, suppressed automatic replies, explicit playback acknowledgement, wrong epoch, interruption, fresh-readback booking, duplicate final turns, speech-start invalidation, late interruption and shutdown. API/browser tests verify credential routing, explicit Direct Deepgram behavior, settings, private exports/drafts and failed-start recovery. These tests make no paid provider calls.
 
 Live AssemblyAI/Cartesia recognition, voice quality and acoustic latency are **not yet verified**; they require a deliberate run with developer-owned credentials and usage permission. SDK/plugin constructor tests establish configuration wiring, not successful service authentication. Recognition hints/patient profiles are not claimed by the LiveKit adapter in this slice; use its published speech_capabilities. Existing M1 session/action durability limits remain. No Libretto hosted product, account system or package-registry publication is introduced.
+
+Use the [live voice acceptance checklist](milestones/2026-11-13-live-voice-acceptance.md) to record the remaining manual gate. Preparing this checklist does not imply that it has run.

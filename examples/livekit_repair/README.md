@@ -18,3 +18,5 @@ The example reuses the [repair workflow](../repair_visit/agent.yaml), its Markdo
 Try: ask to arrange an oven repair for Taylor at an invented address in the morning. Hear the complete details and explicitly approve them. Repeat with a corrected address, refusal, and interruption halfway through the readback. No booking should occur until the latest complete readback is delivered and approved on a subsequent turn. Verify actual receipts in State/Trace rather than trusting generated wording.
 
 For direct provider keys or optional Deepgram, set explicit speech configuration; see docs/livekit.md for supported model choices and migration limits.
+
+For the remaining manual M2 gate, follow the [live voice acceptance checklist](../../docs/milestones/2026-11-13-live-voice-acceptance.md). Use a separate local port when another demo is running, and record spoken observations separately from deterministic tests.

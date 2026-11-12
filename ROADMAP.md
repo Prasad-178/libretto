@@ -1,6 +1,6 @@
 # Libretto roadmap
 
-Updated 2026-11-12. Direction approved by Prasad; M1 and the LiveKit migration are implemented locally. The Studio UX rollout is locally reviewed and verified; real-provider M2 acceptance remains a separate gate. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
+Updated 2026-11-13. Direction approved by Prasad; M1 and the LiveKit migration are implemented locally. The Studio UX rollout is locally reviewed and verified; real-provider M2 acceptance remains a separate gate. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -180,6 +180,6 @@ For every task record: milestone, outcome, dependencies, files/interfaces, accep
 ## Immediate next work
 
 1. Review the locally completed [Studio UX rollout](docs/reviews/2026-11-12-studio-ux-final-review.md). Its independent review/fix pass and deterministic checks are complete. Remote CI and deployment must be verified separately if a push/deployment is requested.
-2. Complete the separately gated M2 live-provider acceptance with explicit credential/budget arrangements: recognition, synthesis, interruption, playback and authorized action in the repair example. Mocked browser tests do not establish this.
+2. Complete the separately gated M2 live-provider acceptance using the [prepared six-case checklist](docs/milestones/2026-11-13-live-voice-acceptance.md), with explicit credential/budget arrangements: recognition, synthesis, interruption, playback and authorized action in the repair example. Mocked browser tests do not establish this.
 3. Start M3 with a small local scenario contract and CLI assertions for facts, transitions, blocked reasons and receipts. Reuse WorkflowRunner and the same events Studio observes; do not build a second runtime or a hosted platform.
 4. Improve the source-install quickstart and examples using those verified paths. Source/GitHub distribution stays the plan; no registry publication is implied.
