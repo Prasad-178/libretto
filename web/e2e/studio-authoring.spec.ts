@@ -192,15 +192,13 @@ test("a terminal-only workflow can gain a first conversation through Add step", 
   page,
 }) => {
   await page.goto("/studio");
-  await page
-    .getByLabel("Open workflow files")
-    .setInputFiles({
-      name: "empty.yaml",
-      mimeType: "application/yaml",
-      buffer: Buffer.from(
-        "version: 1\nid: empty\nname: Empty\nstart: end\nshared_prompt: Help.\nnodes:\n  end: {kind: end, title: Finish}\n",
-      ),
-    });
+  await page.getByLabel("Open workflow files").setInputFiles({
+    name: "empty.yaml",
+    mimeType: "application/yaml",
+    buffer: Buffer.from(
+      "version: 1\nid: empty\nname: Empty\nstart: end\nshared_prompt: Help.\nnodes:\n  end: {kind: end, title: Finish}\n",
+    ),
+  });
   await page.getByRole("button", { name: "Add step", exact: true }).click();
   const panel = page.getByRole("complementary", {
     name: "Add step",
@@ -228,4 +226,28 @@ test("a terminal-only workflow can gain a first conversation through Add step", 
   expect(workflow.nodes.ask.edges[0].to).toBe("end");
   await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
   expect(parse(await exportYaml(page, "empty.yaml")).nodes.ask).toBeUndefined();
+});
+
+test("the independent repair workflow has editable imported action bindings", async ({
+  page,
+}, info) => {
+  await page.goto("/studio");
+  await page
+    .getByLabel("Open workflow files")
+    .setInputFiles(".." + "/examples/repair_visit/agent.yaml");
+  await page
+    .getByRole("combobox", { name: "Jump to step", exact: true })
+    .click();
+  await page.getByRole("option", { name: "Book visit", exact: true }).click();
+  const panel = page.getByRole("complementary", {
+    name: "Edit step",
+    exact: true,
+  });
+  await expect(
+    panel.getByRole("heading", { name: "Outcome destinations", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText(/no Python contract/i).first(),
+  ).toBeVisible();
+  await page.screenshot({ path: info.outputPath("repair-action-1440.png") });
 });

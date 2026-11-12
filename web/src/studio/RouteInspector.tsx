@@ -186,7 +186,11 @@ export function RouteInspector({
           </label>
         ) : (
           <p className="inspector-help">
-            Say follows its first continuation after speaking the exact message.
+            {node.kind === "end"
+              ? "Inactive connection: End finishes the conversation and does not follow its retained connections."
+              : index > 0
+                ? "Inactive continuation: Say follows only its first connection. Move this connection first to use it."
+                : "Say follows its first continuation after speaking the exact message."}
           </p>
         )}
       </section>
