@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
+import { parse, stringify } from "yaml";
 test("Sources previews real retrieval and opens complete passage evidence", async ({
   page,
 }, info) => {
@@ -133,4 +134,104 @@ test("local project folders attach as references and Undo removes the attachment
   await expect(page.locator(".passages-list>button")).toHaveCount(0);
   await page.getByRole("tab", { name: "YAML", exact: true }).click();
   await expect(page.locator(".cm-content")).not.toContainText("policies");
+});
+
+test("a failed refresh labels the last inspected collections and disables draft-sensitive actions", async ({
+  page,
+}, info) => {
+  await page.goto("/studio");
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
+  await expect(page.locator(".passages-list>button").first()).toBeVisible();
+  await page.getByRole("tab", { name: "YAML", exact: true }).click();
+  await page.locator(".cm-content").fill("name: [broken\n");
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
+  await expect(
+    page.getByText(/Last valid knowledge configuration/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit usage", exact: true }),
+  ).toBeDisabled();
+  await expect(page.locator(".sources-library")).not.toContainText(
+    "0 collections",
+  );
+  await page.screenshot({ path: info.outputPath("knowledge-stale.png") });
+});
+
+test("selecting another collection discards in-flight retrieval", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const pending = new Promise<void>((r) => (release = r));
+  let ready!: () => void;
+  const fetched = new Promise<void>((r) => (ready = r));
+  let done!: () => void;
+  const finished = new Promise<void>((r) => (done = r));
+  await page.route("**/api/studio/retrieval", async (route) => {
+    const response = await route.fetch();
+    ready();
+    await pending;
+    await route.fulfill({ response }).catch(() => {});
+    done();
+  });
+  await page.goto("/studio");
+  await page.getByRole("tab", { name: "YAML", exact: true }).click();
+  const source = await (await page.request.get("/api/workflow.yaml")).text();
+  const draft = parse(source);
+  draft.knowledge.duplicate = "knowledge";
+  await page.locator(".cm-content").fill(stringify(draft));
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
+  await expect(page.locator(".passages-list>button").first()).toBeVisible();
+  await page.getByLabel("Test retrieval", { exact: true }).fill("Dock room");
+  await page
+    .getByRole("button", { name: "Search passages", exact: true })
+    .click();
+  await fetched;
+  await page
+    .locator(".sources-library nav")
+    .getByRole("button", { name: /^Duplicate/ })
+    .click();
+  release();
+  await finished;
+  await expect(page.locator(".retrieval-summary")).toBeHidden();
+});
+
+test("collection names stay consistent and ID edits update scope and Undo", async ({
+  page,
+}) => {
+  await page.goto("/studio");
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
+  await expect(page.locator(".passages-list>button").first()).toBeVisible();
+  await page.getByText("Collection details", { exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Collection name", exact: true })
+    .fill("Help library");
+  await page
+    .getByRole("button", { name: "Edit folder and ID", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Collection settings",
+    exact: true,
+  });
+  await dialog.getByText("Advanced · Collection ID", { exact: true }).click();
+  await dialog
+    .getByRole("textbox", { name: "Collection ID", exact: true })
+    .fill("help_docs");
+  await dialog
+    .getByRole("button", { name: "Save collection", exact: true })
+    .click();
+  await expect(
+    page.locator(".sources-library nav button").first(),
+  ).toContainText("Help library");
+  await expect(
+    page.getByRole("heading", { name: "Help library", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Edit usage", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Collection usage" }),
+  ).toContainText("Help library");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
+  await page.getByRole("tab", { name: "YAML", exact: true }).click();
+  await expect(page.locator(".cm-content")).toContainText("company: knowledge");
+  await expect(page.locator(".cm-content")).not.toContainText("help_docs");
 });

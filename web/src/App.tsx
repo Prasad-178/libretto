@@ -935,6 +935,15 @@ export default function App() {
               document={studioDocument}
               capabilities={capabilities}
               selectedStep={selected}
+              onTransaction={(transaction) =>
+                dispatchDocument({ type: "transaction", transaction })
+              }
+              onIssue={(id) => {
+                if (id) {
+                  setSelected(id);
+                  setView("workflow");
+                } else setView("yaml");
+              }}
               onChange={changeSource}
               onMetadata={(metadata) =>
                 dispatchDocument({

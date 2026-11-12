@@ -58,3 +58,27 @@ it("detaches every reference together while preserving untouched prompt values",
     }),
   ).toThrow(/step/i);
 });
+
+it("renames a collection and changes its directory without losing scope or presentation name", async () => {
+  const { editCollection } = await import("./source-usage");
+  const { emptyMetadata, createDocument, documentReducer } =
+    await import("./document-store");
+  const input = minimal.replace(
+    "nodes:",
+    "knowledge: {guide: knowledge}\ncommon_knowledge: [guide]\nnodes:",
+  );
+  const doc = createDocument("agent.yaml", new TextEncoder().encode(input));
+  doc.metadata = { ...emptyMetadata(), sourceNames: { guide: "Help docs" } };
+  const next = documentReducer(doc, {
+    type: "transaction",
+    transaction: editCollection(input, "guide", "manual", "docs", doc.metadata),
+  });
+  const w = readWorkflow(next.source)!;
+  expect(w.knowledge).toEqual({ manual: "docs" });
+  expect(w.common_knowledge).toEqual(["manual"]);
+  expect(next.metadata.sourceNames).toEqual({ manual: "Help docs" });
+  expect(documentReducer(next, { type: "undo" }).source).toBe(input);
+  expect(() =>
+    editCollection(input, "guide", "manual", "../outside", doc.metadata),
+  ).toThrow(/project|relative/);
+});

@@ -1,11 +1,13 @@
 import type { PassageEvidence, SourceManifest } from "./runtime-api";
 export function SourceDetails({
   collection,
+  name,
   passage,
   onClose,
 }: {
   collection: SourceManifest["collections"][number];
   passage: PassageEvidence | null;
+  name: string;
   onClose: () => void;
 }) {
   return (
@@ -13,7 +15,7 @@ export function SourceDetails({
       <header>
         <div>
           <small>
-            {collection.id} · {passage?.document || "Passage"}
+            {name} · {passage?.document || "Passage"}
           </small>
           <h2>{passage?.heading || "Select a passage"}</h2>
         </div>

@@ -24,7 +24,7 @@ def fingerprint(source: str) -> str:
 
 
 def inspect_sources(workspace, source: str) -> dict:
-    workflow, index = workspace.compile(source)
+    workflow, index = workspace.inspect_knowledge(source)
     collections, warnings = [], []
     for source_id, relative in workflow.knowledge.items():
         directory = workspace.resolve_collection(relative)
@@ -47,7 +47,7 @@ def inspect_sources(workspace, source: str) -> dict:
 
 
 def preview_retrieval(workspace, source: str, step_id: str, query: str, limit: int) -> dict:
-    workflow, index = workspace.compile(source)
+    workflow, index = workspace.inspect_knowledge(source)
     if step_id not in workflow.nodes:
         raise ValueError(f'Unknown step {step_id}')
     effective = list(dict.fromkeys(workflow.common_knowledge + workflow.nodes[step_id].knowledge))

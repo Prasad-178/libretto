@@ -62,3 +62,65 @@ export function removeCollection(source: string, sourceId: string): string {
     operations: [{ op: "delete", path: ["knowledge", sourceId] }],
   }).source;
 }
+
+/** ID/path edits and all executable/display references form one Undo entry. */
+export function editCollection(
+  source: string,
+  currentId: string,
+  id: string,
+  path: string,
+  metadata: import("./types").StudioMetadata,
+): import("./types").DocumentTransaction {
+  const workflow = readWorkflow(source);
+  if (!workflow || !Object.hasOwn(workflow.knowledge || {}, currentId))
+    throw new Error("Choose an existing collection.");
+  if (!id.trim()) throw new Error("Enter a collection ID.");
+  if (id !== currentId && Object.hasOwn(workflow.knowledge || {}, id))
+    throw new Error("This collection ID already exists.");
+  if (
+    !path.trim() ||
+    path.startsWith("/") ||
+    path.split(/[\\/]/).includes("..")
+  )
+    throw new Error("Use a relative folder inside the project.");
+  const operations: EditOperation[] = [];
+  if (id !== currentId) {
+    operations.push({
+      op: "rename",
+      path: ["knowledge", currentId],
+      value: id,
+    });
+    const references = [
+      ["common_knowledge"],
+      ...Object.keys(workflow.nodes).map((node) => [
+        "nodes",
+        node,
+        "knowledge",
+      ]),
+    ];
+    for (const ref of references) {
+      const items =
+        ref.length === 1
+          ? workflow.common_knowledge
+          : workflow.nodes[ref[1]].knowledge;
+      items?.forEach((value, index) => {
+        if (value === currentId)
+          operations.push({ op: "set", path: [...ref, index], value: id });
+      });
+    }
+  }
+  operations.push({ op: "set", path: ["knowledge", id], value: path });
+  const names: Record<string, string> = Object.assign(
+    Object.create(null),
+    metadata.sourceNames,
+  );
+  if (id !== currentId && Object.hasOwn(names, currentId)) {
+    names[id] = names[currentId];
+    delete names[currentId];
+  }
+  return {
+    label: "Edit collection",
+    operations,
+    metadata: { ...metadata, sourceNames: names },
+  };
+}

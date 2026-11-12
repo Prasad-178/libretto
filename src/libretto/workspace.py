@@ -6,6 +6,7 @@ from typing import Literal
 
 from libretto.compiler import CompiledWorkflow, compile_workflow
 from libretto.project_paths import resolve_source_directory
+from libretto.retrieval import build_index
 from libretto.schema import load_workflow, parse_workflow
 from libretto.tools import ToolRegistry
 
@@ -57,11 +58,26 @@ class StudioWorkspace:
                 break
         return folders
 
-    def compile_compiled(self, source: str, *, tools: ToolRegistry | None = None) -> CompiledWorkflow:
+    def _checked_workflow(self, source: str):
         workflow = parse_workflow(source)
         for relative in workflow.knowledge.values():
             if self.mode == "hosted-demo" and relative not in self.bundled_paths:
                 raise ValueError("Knowledge must use a bundled document directory")
+            self.resolve_collection(relative)
+        return workflow
+
+    def inspect_knowledge(self, source: str):
+        """Inspect current, schema-valid sources without granting execution authority.
+
+        Tool registration/result errors are unrelated to read-only retrieval.
+        Schema, source scope, bundled-path and filesystem boundaries still apply;
+        this never falls back to a previous draft or starts a runtime session.
+        """
+        workflow = self._checked_workflow(source)
+        return workflow, build_index(workflow, self.project_root)
+
+    def compile_compiled(self, source: str, *, tools: ToolRegistry | None = None) -> CompiledWorkflow:
+        self._checked_workflow(source)
         return compile_workflow(
             source, tools=tools if tools is not None else self.tools, project_root=self.project_root
         )

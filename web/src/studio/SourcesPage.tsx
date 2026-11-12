@@ -1,7 +1,12 @@
+import { CollectionSettingsDialog } from "./CollectionSettingsDialog";
 import { Select } from "../ui/Select";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { readWorkflow } from "../workflow";
-import type { StudioDocument, StudioMetadata } from "./types";
+import type {
+  StudioDocument,
+  StudioMetadata,
+  DocumentTransaction,
+} from "./types";
 import {
   createStudioApi,
   type StudioCapabilities,
@@ -20,12 +25,16 @@ export function SourcesPage({
   onChange,
   onMetadata,
   selectedStep,
+  onIssue,
+  onTransaction,
 }: {
   document: StudioDocument;
   capabilities: StudioCapabilities | null;
   onChange: (source: string) => void;
   onMetadata: (metadata: StudioMetadata) => void;
   selectedStep: string;
+  onIssue: (stepId?: string) => void;
+  onTransaction: (tx: DocumentTransaction) => void;
 }) {
   const api = useMemo(() => createStudioApi(""), []),
     workflow = readWorkflow(document.source);
@@ -39,53 +48,84 @@ export function SourcesPage({
     [preview, setPreview] = useState<RetrievalPreview | null>(null),
     [passage, setPassage] = useState<PassageEvidence | null>(null),
     [usage, setUsage] = useState(false);
+  const [manifestSource, setManifestSource] = useState(""),
+    [refresh, setRefresh] = useState(0);
+  const stale = !!manifest && manifestSource !== document.source;
+  const locked = !!document.running || stale || busy;
+  const visibleWorkflow = stale ? readWorkflow(manifestSource) : workflow;
   useEffect(() => {
     const controller = new AbortController();
-    setManifest(null);
     setPreview(null);
     setPassage(null);
     setBusy(true);
     setError("");
     api
       .sources(document.source, controller.signal)
-      .then(setManifest)
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setManifest(result);
+          setManifestSource(document.source);
+        }
+      })
+      .catch(async (e) => {
+        if (controller.signal.aborted) return;
+        setError(e.message);
+        const previous = document.lastValid?.source;
+        if (!manifest && previous && previous !== document.source) {
+          try {
+            const result = await api.sources(previous, controller.signal);
+            if (!controller.signal.aborted) {
+              setManifest(result);
+              setManifestSource(previous);
+            }
+          } catch {
+            /* The current error remains visible; no unsafe draft fallback. */
+          }
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [document.source, api]);
+  }, [document.source, api, refresh]);
   useEffect(() => {
     setPreview(null);
     setPassage(null);
   }, [query, step]);
   useEffect(() => {
-    if (workflow && !workflow.nodes[step]) setStep(workflow.start);
-  }, [workflow?.start, step]);
+    if (visibleWorkflow && !Object.hasOwn(visibleWorkflow.nodes, step))
+      setStep(visibleWorkflow.start);
+  }, [visibleWorkflow?.start, step, manifestSource]);
   const retrievalController = useRef<AbortController | null>(null);
   const currentRequest = useRef("");
-  currentRequest.current = JSON.stringify([document.source, step, query]);
+  currentRequest.current = JSON.stringify([
+    document.source,
+    step,
+    query,
+    selected,
+  ]);
   const [searching, setSearching] = useState(false);
   useEffect(() => {
     retrievalController.current?.abort();
     setSearching(false);
     return () => retrievalController.current?.abort();
-  }, [document.source, step, query]);
-  const [adding, setAdding] = useState(false);
+  }, [document.source, step, query, selected]);
+  const [adding, setAdding] = useState(false),
+    [editing, setEditing] = useState(false);
   const collection =
     manifest?.collections.find((c) => c.id === selected) ||
     manifest?.collections[0];
   const label = (id: string) =>
-    document.metadata.sourceNames[id] || humanizeId(id);
+    Object.hasOwn(document.metadata.sourceNames, id)
+      ? document.metadata.sourceNames[id]
+      : humanizeId(id);
   const documents =
     collection?.documents.filter((d) =>
       d.name.toLowerCase().includes(filter.toLowerCase()),
     ) || [];
   const passages = preview?.passages || documents.flatMap((d) => d.passages);
   async function retrieve() {
-    if (!step || !query.trim()) return;
+    if (!step || !query.trim() || locked) return;
     const source = document.source;
     retrievalController.current?.abort();
     const controller = new AbortController();
@@ -123,8 +163,11 @@ export function SourcesPage({
         <header>
           <h2>Sources</h2>
           <span>
-            {manifest?.collections.length || 0}{" "}
-            {manifest?.collections.length === 1 ? "collection" : "collections"}
+            {busy
+              ? "Loading…"
+              : !manifest
+                ? "Unavailable"
+                : `${manifest.collections.length} ${manifest.collections.length === 1 ? "collection" : "collections"}`}
           </span>
         </header>
         <Select
@@ -145,7 +188,7 @@ export function SourcesPage({
         {capabilities?.folderSelection && (
           <button
             className="button"
-            disabled={!!document.running}
+            disabled={locked}
             onClick={() => setAdding(true)}
           >
             + Add collection
@@ -189,7 +232,7 @@ export function SourcesPage({
           {collection && (
             <button
               className="button"
-              disabled={!!document.running}
+              disabled={locked}
               onClick={() => setUsage(true)}
             >
               Edit usage
@@ -201,14 +244,61 @@ export function SourcesPage({
             {error}
           </p>
         )}
+        {error && (
+          <button
+            className="button"
+            onClick={() => setRefresh((value) => value + 1)}
+          >
+            Retry sources
+          </button>
+        )}
         {busy && <p role="status">Loading sources…</p>}
+        {stale && (
+          <p className="source-warning" role="status">
+            Last valid knowledge configuration · The current draft could not be
+            inspected. Editing and retrieval are paused until it is fixed.
+            <button className="inspector-link" onClick={() => onIssue()}>
+              Open YAML to fix the draft
+            </button>
+          </p>
+        )}
+        {!stale && !!document.validation.issues.length && (
+          <div className="source-warning">
+            <strong>
+              Knowledge preview only · Resolve workflow issues before testing.
+            </strong>
+            {document.validation.issues.map((issue, index) => (
+              <button
+                key={index}
+                className="inspector-link"
+                onClick={() =>
+                  onIssue(
+                    issue.path[0] === "nodes"
+                      ? String(issue.path[1])
+                      : undefined,
+                  )
+                }
+              >
+                {issue.path.join(".")}: {issue.message}
+              </button>
+            ))}
+          </div>
+        )}
+        {!busy && manifest?.collections.length === 0 && (
+          <p className="workspace-help">
+            No knowledge collections attached.{" "}
+            {capabilities?.folderSelection
+              ? "Add a project Markdown folder to get started."
+              : "Open a workflow with bundled knowledge, or run Studio locally to attach your own folders."}
+          </p>
+        )}
         {collection && (
           <>
             <p className="source-scope">
               {collection.scope.allSteps
                 ? "Available to all steps"
                 : collection.scope.stepIds.length
-                  ? `Used by ${collection.scope.stepIds.map((id) => workflow?.nodes[id]?.title || id).join(", ")}`
+                  ? `Used by ${collection.scope.stepIds.map((id) => visibleWorkflow?.nodes[id]?.title || id).join(", ")}`
                   : "Not attached to any steps"}
             </p>
             <details className="collection-settings">
@@ -220,7 +310,7 @@ export function SourcesPage({
                 Collection name
                 <input
                   value={label(collection.id)}
-                  disabled={!!document.running}
+                  disabled={locked}
                   onChange={(e) =>
                     onMetadata({
                       ...document.metadata,
@@ -233,7 +323,14 @@ export function SourcesPage({
                 />
               </label>
               <button
-                disabled={!!document.running}
+                className="button"
+                disabled={locked}
+                onClick={() => setEditing(true)}
+              >
+                Edit folder and ID
+              </button>
+              <button
+                disabled={locked}
                 onClick={() =>
                   onChange(removeCollection(document.source, collection.id))
                 }
@@ -263,11 +360,13 @@ export function SourcesPage({
               <label>
                 Preview for step
                 <Select value={step} onChange={(e) => setStep(e.target.value)}>
-                  {Object.entries(workflow?.nodes || {}).map(([id, n]) => (
-                    <option value={id} key={id}>
-                      {n.title || id}
-                    </option>
-                  ))}
+                  {Object.entries(visibleWorkflow?.nodes || {}).map(
+                    ([id, n]) => (
+                      <option value={id} key={id}>
+                        {n.title || id}
+                      </option>
+                    ),
+                  )}
                 </Select>
               </label>
             </div>
@@ -289,7 +388,7 @@ export function SourcesPage({
               </label>
               <button
                 className="button"
-                disabled={busy || searching || !query.trim()}
+                disabled={locked || searching || !query.trim()}
               >
                 Search passages
               </button>
@@ -352,8 +451,19 @@ export function SourcesPage({
       {passage && collection && (
         <SourceDetails
           collection={collection}
+          name={label(collection.id)}
           passage={passage}
           onClose={() => setPassage(null)}
+        />
+      )}
+      {editing && !locked && collection && (
+        <CollectionSettingsDialog
+          source={document.source}
+          id={collection.id}
+          path={collection.path}
+          metadata={document.metadata}
+          onSave={onTransaction}
+          onClose={() => setEditing(false)}
         />
       )}
       {adding && (
@@ -363,11 +473,12 @@ export function SourcesPage({
           onClose={() => setAdding(false)}
         />
       )}
-      {usage && workflow && collection && (
+      {usage && !locked && workflow && collection && (
         <SourceUsageDialog
           source={document.source}
           workflow={workflow}
           sourceId={collection.id}
+          name={label(collection.id)}
           onChange={onChange}
           onClose={() => setUsage(false)}
         />

@@ -206,7 +206,6 @@ def create_app(
     @app.post("/api/studio/sources", response_model=SourceManifest)
     async def studio_sources(body: SourceRequest):
         try:
-            compile_source(body.source)
             return inspect_sources(workspace, body.source)
         except (ValueError, TypeError, OSError) as exc:
             raise HTTPException(422, str(exc)[:500]) from None
@@ -214,7 +213,6 @@ def create_app(
     @app.post("/api/studio/retrieval", response_model=RetrievalPreview)
     async def studio_retrieval(body: RetrievalRequest):
         try:
-            compile_source(body.source)
             return preview_retrieval(workspace, body.source, body.stepId, body.query, body.limit)
         except (ValueError, TypeError, OSError) as exc:
             raise HTTPException(422, str(exc)[:500]) from None

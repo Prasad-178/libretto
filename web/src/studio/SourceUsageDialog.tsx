@@ -5,12 +5,14 @@ export function SourceUsageDialog({
   source,
   workflow,
   sourceId,
+  name,
   onChange,
   onClose,
 }: {
   source: string;
   workflow: Workflow;
   sourceId: string;
+  name: string;
   onChange: (source: string) => void;
   onClose: () => void;
 }) {
@@ -41,7 +43,7 @@ export function SourceUsageDialog({
           ×
         </button>
       </header>
-      <p>Choose where {sourceId} is available to retrieval.</p>
+      <p>Choose where {name} is available to retrieval.</p>
       <label>
         <input
           type="radio"
