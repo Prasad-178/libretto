@@ -115,15 +115,24 @@ class Models(StrictModel):
     evaluator: str = "google/gemini-3.5-flash"
     # Omission preserves pre-default workflow behavior. Explicit "default" leaves
     # effort to the selected provider without forcing reasoning on or off.
-    reasoning: Literal["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"] = (
-        "minimal"
-    )
+    reasoning: Literal["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"] = "minimal"
 
 
 class SpeechEndpoint(StrictModel):
     voice: str | None = Field(default=None, max_length=100)
     provider: str = Field(default="deepgram", min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
     model: str = Field(min_length=1, max_length=100)
+
+
+class Pronunciation(StrictModel):
+    word: str = Field(min_length=1, max_length=100)
+    say_as: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def nonblank(self) -> Self:
+        if not self.word.strip() or not self.say_as.strip():
+            raise ValueError("Pronunciation word and say_as must not be blank")
+        return self
 
 
 class Speech(StrictModel):
@@ -153,6 +162,18 @@ class Speech(StrictModel):
         return value
 
     hints: list[str] = Field(default_factory=list, max_length=64)
+    pronunciations: list[Pronunciation] = Field(default_factory=list, max_length=64)
+
+    @model_validator(mode="after")
+    def unique_pronunciations(self) -> Self:
+        seen = set()
+        for index, rule in enumerate(self.pronunciations):
+            if rule.word in seen:
+                raise ValueError(
+                    f"pronunciations[{index}].word duplicates {rule.word!r}; keep one rule per word"
+                )
+            seen.add(rule.word)
+        return self
 
     @model_validator(mode="after")
     def bounded_hints(self) -> Self:

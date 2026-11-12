@@ -4,14 +4,20 @@ import asyncio
 from dataclasses import asdict
 
 from libretto.events import pack_audio
+from libretto.pronunciations import PronunciationStream
 from libretto.providers.base import ProviderError, STTEvent, STTProvider, TTSEvent, TTSProvider
 
 
 class SpeechCoordinator:
-    def __init__(self, session, stt: STTProvider, tts: TTSProvider, send_audio, send_control):
+    def __init__(
+        self, session, stt: STTProvider, tts: TTSProvider, send_audio, send_control, *, pronunciations=()
+    ):
         self.session, self.stt, self.tts = session, stt, tts
         self.send_audio, self.send_control = send_audio, send_control
         self._first_audio = set()
+        self._pronunciations = tuple(rule.model_copy(deep=True) for rule in pronunciations)
+        self._writing: tuple[int, str] | None = None
+        self._pronunciation_streams: dict[tuple[int, str], PronunciationStream] = {}
 
     async def open(self, *, playback_ms: float = 0) -> None:
         if not (self.tts.capabilities.streaming_text and self.tts.capabilities.cancellation):
@@ -81,6 +87,9 @@ class SpeechCoordinator:
             )
         elif event.kind == "interrupted":
             spoken = event.text_spoken if self.tts.capabilities.spoken_prefix else ""
+            if self._pronunciations:
+                stream = self._pronunciation_streams.get((event.epoch, event.message_id))
+                spoken = stream.original_prefix(spoken) if stream else ""
             self.session.reconcile_speech(event.speech_id, spoken, interrupted=True)
             await self.send_control(
                 {
@@ -105,15 +114,35 @@ class SpeechCoordinator:
         await self.stt.send_input(pcm)
 
     async def speak_text(self, text: str, epoch: int, message_id: str = "") -> None:
-        await self.tts.speak_text(text, epoch, message_id)
+        if not self._pronunciations:
+            await self.tts.speak_text(text, epoch, message_id)
+            return
+        key = epoch, message_id
+        if self._writing != key:
+            self._writing = key
+            self._pronunciation_streams[key] = PronunciationStream(self._pronunciations)
+            # Retain recent mappings for delayed interruption callbacks, bounded per session.
+            while len(self._pronunciation_streams) > 128:
+                self._pronunciation_streams.pop(next(iter(self._pronunciation_streams)))
+        transformed = self._pronunciation_streams[key].feed(text)
+        if transformed:
+            await self.tts.speak_text(transformed, epoch, message_id)
 
     async def finish_response(self) -> None:
+        if self._writing is not None:
+            epoch, message_id = self._writing
+            remaining = self._pronunciation_streams[self._writing].finish()
+            self._writing = None
+            if remaining:
+                await self.tts.speak_text(remaining, epoch, message_id)
         await self.tts.finish_response()
 
     async def interrupt(self, playback_ms: float | None = None) -> None:
+        self._writing = None
         await self.tts.interrupt(playback_ms)
 
     async def cancel_output(self, playback_ms: float = 0) -> None:
+        self._writing = None
         await self.tts.cancel_output(playback_ms)
 
     async def playback_finished(self, speech_id: str, *, epoch: int) -> None:
@@ -172,12 +201,14 @@ class SpeechRegistry:
 
         stt = self.stt[config.stt.provider](credentials, config.stt, stt_sink, hints=config.hints)
         tts = self.tts[config.tts.provider](credentials, config.tts, tts_sink, hints=config.hints)
-        coordinator = SpeechCoordinator(session, stt, tts, send_audio, send_control)
+        coordinator = SpeechCoordinator(
+            session, stt, tts, send_audio, send_control, pronunciations=config.pronunciations
+        )
         return coordinator
 
 
 class DefaultSpeechRegistry(SpeechRegistry):
-    """LiveKit is the default engine; the native Deepgram path is explicit legacy support."""
+    """LiveKit is the default engine; Direct Deepgram remains an explicit option."""
 
     def speech_choices(self) -> list[dict]:
         from libretto.integrations.livekit.config import MODELS

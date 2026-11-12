@@ -297,3 +297,46 @@ async def test_final_only_transcript_uses_the_committed_epoch():
     transcript = next(e for e in controls if e["type"] == "transcript")
     assert transcript["epoch"] == session.epoch == 1
     await session.close()
+
+
+async def test_pronunciations_transform_synthesis_only_and_reconcile_original_prefix():
+    from libretto.providers.base import TTSEvent
+    from libretto.schema import Speech
+    from libretto.speech import SpeechCoordinator
+
+    speech, session, controls, audio = adapter()
+    config = Speech(pronunciations=[{"word": "SQL", "say_as": "sequel"}])
+    speech = SpeechCoordinator(
+        session,
+        speech.stt,
+        speech.tts,
+        speech.send_audio,
+        speech.send_control,
+        pronunciations=config.pronunciations,
+    )
+    session.manual_delivery = True  # Match the externally acknowledged Studio voice session.
+    session.workflow.welcome = "Use SQL today."
+    await session.welcome()
+    message = session.state.history[-1]
+    await speech.speak_text("Use SQ", session.epoch, message.id)
+    await speech.speak_text("L today.", session.epoch, message.id)
+    await speech.finish_response()
+    packets = [json.loads(packet) for packet in speech.tts.tts.sent]
+    assert "".join(packet.get("text", "") for packet in packets) == "Use sequel today."
+    assert message.generated_content == "Use SQL today."
+    await speech.handle_tts(
+        TTSEvent("started", speech_id="pronounced", message_id=message.id, epoch=session.epoch)
+    )
+    await speech.handle_tts(
+        TTSEvent(
+            "interrupted",
+            speech_id="pronounced",
+            message_id=message.id,
+            epoch=session.epoch,
+            text_spoken="Use sequel to",
+        )
+    )
+    assert message.content == "Use SQL to"
+    assert message.interrupted and not message.delivered
+    assert not session.state.facts
+    await session.close()

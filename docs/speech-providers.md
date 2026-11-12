@@ -40,3 +40,20 @@ Implement only the appropriate STT or TTS protocol, translate that service's eve
 `SessionCredentials` and the browser expose OpenRouter, LiveKit API key/secret, Deepgram, AssemblyAI and Cartesia credential slots. An adapter using either can reuse it; a service with a new credential type also needs a credential/input binding in those application settings. Provider keys remain outside YAML, traces and exports. Hosts remain fixed inside adapters.
 
 The native Deepgram adapter remains the legacy option; LiveKit SDK inference/plugin integration is the default, with bounded model choices documented in the LiveKit guide. Test adapters prove mixed selection, WebSocket streaming, capability fallback and credential replacement; they are not offered as a live fallback or a claim of real-provider interoperability. For bounded live checks and current timing limitations, see [verification evidence](evidence.md). Browser timing estimates do not establish a controlled acoustic latency benchmark.
+
+## Pronunciation rules
+
+Optional `speech.pronunciations` applies literal, case-sensitive substitutions only to synthesis input:
+
+```yaml
+speech:
+  pronunciations:
+    - word: Libretto
+      say_as: lih-BRET-oh
+```
+
+Each term is matched at word boundaries, including across streamed text chunks. Longer overlapping terms win; replacement text is never processed again. Up to 64 unique terms are allowed (100 characters per word, 200 per replacement). Blank or duplicate rules are rejected. This is plain synthesis text, not a provider-specific phoneme dictionary.
+
+The runtime's generated text, facts, action arguments and confirmation identity retain the original wording. Direct Deepgram interrupted speech prefixes map back to original text conservatively: a partially heard replacement does not claim the whole original term, and an unrecognized provider-normalized prefix is treated as unknown. Complete delivery still requires the existing message/epoch acknowledgement; pronunciation never bypasses failed/truncated-synthesis safeguards.
+
+The schema and both synthesis boundaries support these rules. The new Studio pronunciation editor is still part of the ongoing UI rollout.

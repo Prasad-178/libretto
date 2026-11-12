@@ -7,6 +7,7 @@ from dataclasses import asdict
 from livekit.agents import AgentSession, TurnHandlingOptions
 
 from libretto.api import WorkflowRunner
+from libretto.pronunciations import PronunciationStream
 from libretto.providers.base import ProviderError, STTCapabilities, TTSCapabilities
 
 from .agent import WorkflowAgent
@@ -111,7 +112,9 @@ class LiveKitCoordinator:
         if self.closed or epoch != self.core.epoch:
             return
         if self.writing is None or self.writing.message_id != message_id:
-            self.writing = SpeechBinding(message_id, epoch)
+            self.writing = SpeechBinding(
+                message_id, epoch, pronunciation=PronunciationStream(self.config.pronunciations)
+            )
             binding = self.writing
             self.core.bind_speech(binding.speech_id, message_id)
             handle = self.sdk.say(binding.chunks(), add_to_chat_ctx=False)
@@ -119,12 +122,16 @@ class LiveKitCoordinator:
             self.handles[handle.id] = binding
             self.bindings[binding.speech_id] = binding
         binding = self.writing
-        if not await binding.put(text) or binding.epoch != self.core.epoch:
+        transformed = binding.pronunciation.feed(text)
+        if (transformed and not await binding.put(transformed)) or binding.epoch != self.core.epoch:
             binding.abort()
 
     async def finish_response(self) -> None:
         if self.writing:
             binding, self.writing = self.writing, None
+            remaining = binding.pronunciation.finish()
+            if remaining and not await binding.put(remaining):
+                return
             await binding.put(None)
 
     async def playback_finished(self, speech_id: str, *, epoch: int) -> None:

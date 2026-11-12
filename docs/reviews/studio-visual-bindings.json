@@ -61,7 +61,8 @@
     "credential_mode": "15 Connection > Credential source: Inference / Provider keys; specified selector variant",
     "stt": "04 Speech > Speech recognition section",
     "tts": "04 Speech > Voice output section",
-    "hints": "04 Speech > Recognition vocabulary"
+    "hints": "04 Speech > Recognition vocabulary",
+    "pronunciations": "04 Voice output > Pronunciations; Add/Edit/Remove literal word → say_as rows"
   },
   "Workflow": {
     "version": "21 Advanced > Schema version; supported versions only",
@@ -81,5 +82,9 @@
     "requests": "21 Advanced > Task memory / 23 Task settings; add/rename/remove with reference validation",
     "confirmations": "21 Before actions run > Edit rule / 23 Confirmation; IDs and shared bindings in Advanced",
     "evaluation_prompt": "18 Stage controller > Controller instructions"
+  },
+  "Pronunciation": {
+    "word": "04 Pronunciations > Word; case-sensitive literal term",
+    "say_as": "04 Pronunciations > Say as; synthesis text only"
   }
 }

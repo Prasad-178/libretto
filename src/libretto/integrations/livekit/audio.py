@@ -8,6 +8,7 @@ from livekit import rtc
 from livekit.agents.voice import io
 
 from libretto.events import pack_audio
+from libretto.pronunciations import PronunciationStream
 from libretto.providers.base import ProviderError
 
 
@@ -15,6 +16,7 @@ from libretto.providers.base import ProviderError
 class SpeechBinding:
     message_id: str
     epoch: int
+    pronunciation: PronunciationStream | None = None
     speech_id: str = field(default_factory=lambda: "lk-" + uuid4().hex)
     text: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=64))
     handle: object | None = None

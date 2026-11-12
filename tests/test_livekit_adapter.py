@@ -288,3 +288,40 @@ async def test_late_speech_interruption_cannot_remove_a_new_readback_permit():
         assert session.state.confirmations["booking"].message_id == fresh.message_id
     finally:
         await session.close()
+
+
+async def test_pronunciations_reach_sdk_synthesis_without_rewriting_core_output():
+    from livekit import rtc
+
+    voice, runner, _, _, _, finished = make_voice()
+    spoken = []
+
+    class CapturingAgent(voice.agent_type):
+        async def tts_node(self, text, model_settings):
+            async for chunk in text:
+                spoken.append(chunk)
+                yield rtc.AudioFrame(b"\0\0" * 240, 24000, 1, 240)
+
+    voice.agent_type = CapturingAgent
+    voice.config = Speech(pronunciations=[{"word": "SQL", "say_as": "sequel"}])
+    await voice.open()
+    await runner.start()
+    try:
+        runner._session.workflow.welcome = "Use SQL."
+        await runner._session.welcome()
+        message = runner.snapshot().history[-1]
+        await voice.speak_text("Use SQ", message.epoch, message.id)
+        await voice.speak_text("L.", message.epoch, message.id)
+        await voice.finish_response()
+        await asyncio.wait_for(finished.wait(), 3)
+        assert "".join(spoken) == "Use sequel."
+        current = runner.snapshot().history[-1]
+        assert current.generated_content == "Use SQL."
+        assert not current.delivered
+        binding = next(item for item in voice.bindings.values() if item.message_id == message.id)
+        await voice.playback_finished(binding.speech_id, epoch=binding.epoch)
+        assert runner.snapshot().history[-1].content == "Use SQL."
+        assert runner.snapshot().history[-1].delivered
+    finally:
+        await voice.close()
+        await runner.close()

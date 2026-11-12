@@ -48,7 +48,8 @@ class BrokenTTS(tts.TTS):
         return BrokenStream(tts=self, conn_options=conn_options)
 
 
-async def test_partial_default_sdk_tts_failure_cannot_deliver_full_readback():
+@pytest.mark.parametrize("pronunciations", [[], [{"word": "Taylor", "say_as": "TAY-lor"}]])
+async def test_partial_default_sdk_tts_failure_cannot_deliver_full_readback(pronunciations):
     from libretto.integrations.livekit.agent import WorkflowAgent
 
     compiled = compile_workflow((ROOT / "agent.yaml").read_text(), tools=tools(), project_root=ROOT)
@@ -80,7 +81,7 @@ async def test_partial_default_sdk_tts_failure_cannot_deliver_full_readback():
         broken.partial_captured.set()
 
     voice = LiveKitCoordinator(
-        Speech(),
+        Speech(pronunciations=pronunciations),
         SessionCredentials(),
         runner,
         send_audio,
