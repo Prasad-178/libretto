@@ -74,6 +74,7 @@ export function configureAction(
   args: Record<string, string>,
   requires: string[],
   destinations: Record<string, string>,
+  replaceConnections = false,
 ): DocumentTransaction {
   const workflow = workflowFrom(source),
     node = workflow.nodes[nodeId];
@@ -85,14 +86,14 @@ export function configureAction(
     );
   validateAction(workflow, tool, args, requires, destinations);
   for (const result of tool.results)
-    if (node.edges.filter((e) => e.result === result).length > 1)
+    if ((node.edges || []).filter((e) => e.result === result).length > 1)
       throw new Error(
         `Duplicate result ${result}; remove the extra connection before applying.`,
       );
-  const obsolete = node.edges
+  const obsolete = (node.edges || [])
     .map((edge, index) => ({ edge, index }))
     .filter(({ edge }) => !tool.results.includes(edge.result || ""));
-  if (node.tool === tool.name && obsolete.length)
+  if (node.tool === tool.name && obsolete.length && !replaceConnections)
     throw new Error(
       "Remove unrecognized result connections before applying this action contract.",
     );
@@ -111,7 +112,7 @@ export function configureAction(
       path: ["nodes", nodeId, "edges", index],
     })),
   ];
-  const retained = node.edges.filter((e) =>
+  const retained = (node.edges || []).filter((e) =>
     tool.results.includes(e.result || ""),
   );
   retained.forEach((edge, index) =>

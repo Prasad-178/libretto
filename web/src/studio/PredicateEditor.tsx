@@ -114,6 +114,7 @@ export function PredicateEditor({
               />
               {value.op !== "not" && value.conditions!.length > 1 && (
                 <button
+                  type="button"
                   className="inspector-link"
                   onClick={() =>
                     onChange({
@@ -129,6 +130,7 @@ export function PredicateEditor({
           ))}
           {value.op !== "not" && (
             <button
+              type="button"
               className="inspector-link"
               disabled={!first}
               onClick={() =>

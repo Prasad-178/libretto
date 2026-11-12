@@ -419,6 +419,7 @@ export default function StepInspector({
       </footer>
       {stepSettings && (
         <StepSettingsDialog
+          tools={tools}
           source={source}
           metadata={metadata}
           nodeId={id}

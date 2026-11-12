@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { readWorkflow } from "../workflow";
 import { applyTransaction } from "./yaml-edits";
@@ -16,6 +16,7 @@ export function useSettingsDraft(source: string, metadata: StudioMetadata) {
   });
   const [draft, setDraft] = useState(current.current);
   const [error, setError] = useState("");
+  const workflow = useMemo(() => readWorkflow(draft.source)!, [draft.source]);
   const apply = (transaction: DocumentTransaction) => {
     try {
       const nextSource = applyTransaction(
@@ -46,6 +47,8 @@ export function useSettingsDraft(source: string, metadata: StudioMetadata) {
     label: string,
     commit: (transaction: DocumentTransaction) => void,
   ) => {
+    if (pending.current.has("action-configuration"))
+      throw new Error("Apply action configuration before saving the step.");
     if (pending.current.size)
       throw new Error("Apply or cancel the pending ID rename before saving.");
     if (source !== base.current.source || metadata !== base.current.metadata)
@@ -69,7 +72,7 @@ export function useSettingsDraft(source: string, metadata: StudioMetadata) {
   };
   return {
     ...draft,
-    workflow: readWorkflow(draft.source)!,
+    workflow,
     apply,
     set,
     save,

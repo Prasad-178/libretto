@@ -1,7 +1,7 @@
 import { readWorkflow, type FlowEdge, type Workflow } from "../workflow";
 import { edgeIndex } from "../studio-editing";
 import { applyTransaction } from "./yaml-edits";
-import type { RouteRef } from "./types";
+import type { RouteRef, DocumentTransaction } from "./types";
 import type { ToolManifest } from "./tool-manifest";
 export type NewStepSpec =
   | {
@@ -254,6 +254,16 @@ export function createRoute(
   sourceId: string,
   edge: FlowEdge,
 ): string {
+  return applyTransaction(
+    source,
+    createRouteTransaction(source, sourceId, edge),
+  ).source;
+}
+export function createRouteTransaction(
+  source: string,
+  sourceId: string,
+  edge: FlowEdge,
+): DocumentTransaction {
   const workflow = workflowFrom(source),
     node = workflow.nodes[sourceId];
   if (!node) throw new Error("Choose an existing source step.");
@@ -285,7 +295,7 @@ export function createRoute(
     ) >= 256
   )
     throw new Error("A workflow supports up to 256 transitions.");
-  return applyTransaction(source, {
+  return {
     label: "Create route",
     operations: [
       {
@@ -294,5 +304,5 @@ export function createRoute(
         value: [...(node.edges || []), edge],
       },
     ],
-  }).source;
+  };
 }

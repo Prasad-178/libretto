@@ -1,3 +1,10 @@
+import { ActionInspector } from "./ActionInspector";
+import { StepConnections } from "./StepConnections";
+import { RouteInspector } from "./RouteInspector";
+import { RetainedActionSettings } from "./RetainedActionSettings";
+import type { ToolManifest } from "./tool-manifest";
+import type { RouteRef } from "./types";
+import { readWorkflow } from "../workflow";
 import { useRef, useState } from "react";
 import { Select } from "../ui/Select";
 import { voiceEngine } from "../voice-config";
@@ -17,10 +24,12 @@ export function StepSettingsDialog({
   nodeId: initialId,
   onSave,
   onClose,
+  tools = [],
 }: {
   source: string;
   metadata: StudioMetadata;
   nodeId: string;
+  tools?: ToolManifest[];
   onSave: (transaction: DocumentTransaction, nodeId: string | null) => void;
   onClose: () => void;
 }) {
@@ -28,7 +37,8 @@ export function StepSettingsDialog({
     w = draft.workflow;
   const [nodeId, setNodeId] = useState(initialId),
     [editRule, setEditRule] = useState(false),
-    [detail, setDetail] = useState("");
+    [detail, setDetail] = useState(""),
+    [connection, setConnection] = useState<RouteRef | null>(null);
   const readback = useRef<HTMLTextAreaElement>(null);
   const node =
     w && Object.hasOwn(w.nodes, nodeId) ? w.nodes[nodeId] : undefined;
@@ -90,7 +100,7 @@ export function StepSettingsDialog({
           : node.title || nodeId
       }
       label="Step settings"
-      viewKey={editRule ? "rule" : "step"}
+      viewKey={editRule ? "rule" : connection ? "connection" : "step"}
       description={
         node.confirmation && node.kind === "conversation"
           ? "Read the current details back and wait for the caller’s approval."
@@ -111,7 +121,23 @@ export function StepSettingsDialog({
         }
       }}
     >
-      {editRule && node.confirmation ? (
+      {connection ? (
+        <>
+          <button type="button" onClick={() => setConnection(null)}>
+            ← Back to step settings
+          </button>
+          <RouteInspector
+            source={draft.source}
+            workflow={w}
+            route={connection}
+            tools={tools}
+            metadata={draft.metadata}
+            onTransaction={draft.apply}
+            onRenamed={(edgeId) => setConnection({ ...connection, edgeId })}
+            onRemoved={() => setConnection(null)}
+          />
+        </>
+      ) : editRule && node.confirmation ? (
         <>
           <button type="button" onClick={() => setEditRule(false)}>
             ← Back to step settings
@@ -252,6 +278,58 @@ export function StepSettingsDialog({
               </button>
             </section>
           )}
+          {node.kind === "action" ? (
+            <section aria-label="Action configuration">
+              <h3>Action configuration</h3>
+              <p>
+                Apply the input and outcome configuration here, then Save step
+                to commit the whole conversion.
+              </p>
+              <ActionInspector
+                source={draft.source}
+                workflow={w}
+                nodeId={nodeId}
+                tools={tools}
+                replaceConnections={
+                  readWorkflow(source)?.nodes[initialId]?.kind !== "action"
+                }
+                onPendingChange={(pending) =>
+                  draft.markPending("action-configuration", pending)
+                }
+                onTransaction={draft.apply}
+              />
+            </section>
+          ) : (
+            <section aria-label="Step connections">
+              <h3>
+                {node.kind === "end"
+                  ? "Retained connections · inactive"
+                  : "Connections"}
+              </h3>
+              <StepConnections
+                source={draft.source}
+                workflow={w}
+                nodeId={nodeId}
+                tools={tools}
+                allowInsert={false}
+                onSelect={(selection) => {
+                  if (selection.kind === "edge")
+                    setConnection({
+                      source: selection.source,
+                      edgeId: selection.edgeId,
+                    });
+                }}
+                onTransaction={draft.apply}
+              />
+            </section>
+          )}
+          {node.kind !== "action" && (
+            <RetainedActionSettings
+              key={nodeId}
+              draft={draft}
+              nodeId={nodeId}
+            />
+          )}
           <details>
             <summary>
               More options · Knowledge, tools and advanced settings
@@ -277,7 +355,27 @@ export function StepSettingsDialog({
               Step kind
               <Select
                 value={node.kind}
-                onChange={(event) => change("kind", event.target.value)}
+                onChange={(event) =>
+                  draft.apply({
+                    label: "Change step kind",
+                    operations: [
+                      {
+                        op: "set",
+                        path: ["nodes", nodeId, "kind"],
+                        value: event.target.value,
+                      },
+                      ...(!node.edges && event.target.value !== "end"
+                        ? [
+                            {
+                              op: "set" as const,
+                              path: ["nodes", nodeId, "edges"],
+                              value: [],
+                            },
+                          ]
+                        : []),
+                    ],
+                  })
+                }
               >
                 {["conversation", "action", "say", "end"].map((kind) => (
                   <option key={kind}>{kind}</option>

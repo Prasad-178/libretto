@@ -3,7 +3,9 @@ import { ArrowRight } from "lucide-react";
 import type { FlowEdge, Workflow } from "../workflow";
 import type { Selection } from "../StepInspector";
 import { Select } from "../ui/Select";
-import { createRoute } from "./editor-commands";
+import { applyTransaction } from "./yaml-edits";
+import type { DocumentTransaction } from "./types";
+import { createRouteTransaction } from "./editor-commands";
 import { PredicateEditor, type Predicate } from "./PredicateEditor";
 import { routeLabel } from "./workflow-model";
 import type { ToolManifest } from "./tool-manifest";
@@ -13,17 +15,20 @@ export function ConnectionRows({
   workflow,
   nodeId,
   onSelect,
+  allowInsert = true,
 }: {
   edges: FlowEdge[];
   workflow: Workflow;
   nodeId: string;
   onSelect: (selection: Selection) => void;
+  allowInsert?: boolean;
 }) {
   return (
     <>
       {edges.map((edge) => (
         <div key={edge.id} className="inspector-transition">
           <button
+            type="button"
             onClick={() =>
               onSelect({ kind: "edge", source: nodeId, edgeId: edge.id })
             }
@@ -34,8 +39,9 @@ export function ConnectionRows({
               {workflow.nodes[edge.to]?.title || edge.to}
             </strong>
           </button>
-          {edge.timing !== "before_action" && (
+          {allowInsert && edge.timing !== "before_action" && (
             <button
+              type="button"
               className="inspector-link"
               onClick={() =>
                 onSelect({ kind: "insert", source: nodeId, edgeId: edge.id })
@@ -56,13 +62,17 @@ export function StepConnections({
   tools,
   onSelect,
   onChange,
+  onTransaction,
+  allowInsert = true,
 }: {
   source: string;
   workflow: Workflow;
   nodeId: string;
   tools: ToolManifest[];
   onSelect: (selection: Selection) => void;
-  onChange: (source: string) => void;
+  onChange?: (source: string) => void;
+  onTransaction?: (tx: DocumentTransaction) => void;
+  allowInsert?: boolean;
 }) {
   const node = workflow.nodes[nodeId],
     edges = node.edges || [],
@@ -98,6 +108,7 @@ export function StepConnections({
           workflow={workflow}
           nodeId={nodeId}
           onSelect={onSelect}
+          allowInsert={allowInsert}
         />
         {!edges.length && (
           <p className="inspector-help">
@@ -106,6 +117,7 @@ export function StepConnections({
         )}
         {canAdd && (
           <button
+            type="button"
             className="inspector-link"
             onClick={() => {
               setAdding(!adding);
@@ -204,6 +216,7 @@ export function StepConnections({
               Advanced after creation.
             </p>
             <button
+              type="button"
               className="button black"
               onClick={() => {
                 try {
@@ -217,18 +230,18 @@ export function StepConnections({
                     n = 2;
                   while (edges.some((edge) => edge.id === id))
                     id = `${base}_${n++}`;
-                  onChange(
-                    createRoute(source, nodeId, {
-                      id,
-                      to: target,
-                      ...(name.trim() ? { label: name.trim() } : {}),
-                      ...(node.kind === "action"
-                        ? { result: condition }
-                        : ruleType === "state"
-                          ? { predicate }
-                          : { condition }),
-                    }),
-                  );
+                  const transaction = createRouteTransaction(source, nodeId, {
+                    id,
+                    to: target,
+                    ...(name.trim() ? { label: name.trim() } : {}),
+                    ...(node.kind === "action"
+                      ? { result: condition }
+                      : ruleType === "state"
+                        ? { predicate }
+                        : { condition }),
+                  });
+                  if (onTransaction) onTransaction(transaction);
+                  else onChange?.(applyTransaction(source, transaction).source);
                   setAdding(false);
                   setName("");
                   setCondition("");
@@ -240,7 +253,11 @@ export function StepConnections({
             >
               Create connection
             </button>
-            <button className="inspector-link" onClick={() => setAdding(false)}>
+            <button
+              type="button"
+              className="inspector-link"
+              onClick={() => setAdding(false)}
+            >
               Cancel
             </button>
           </div>
@@ -260,6 +277,7 @@ export function StepConnections({
               key={JSON.stringify([id, edge.id])}
             >
               <button
+                type="button"
                 onClick={() =>
                   onSelect({ kind: "edge", source: id, edgeId: edge.id })
                 }

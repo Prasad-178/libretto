@@ -219,6 +219,7 @@ export function RouteInspector({
           <input value={nextId} onChange={(e) => setNextId(e.target.value)} />
         </label>
         <button
+          type="button"
           className="button"
           onClick={() => {
             try {
@@ -248,6 +249,7 @@ export function RouteInspector({
           </strong>
           <div>
             <button
+              type="button"
               className="button"
               aria-label="Move connection earlier"
               disabled={index === 0}
@@ -264,6 +266,7 @@ export function RouteInspector({
               Earlier
             </button>
             <button
+              type="button"
               className="button"
               aria-label="Move connection later"
               disabled={index === node.edges.length - 1}
@@ -301,6 +304,7 @@ export function RouteInspector({
       </details>
       <footer className="connection-footer">
         <button
+          type="button"
           className="button danger"
           disabled={!!removalReason}
           onClick={() => {

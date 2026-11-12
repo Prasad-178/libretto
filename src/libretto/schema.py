@@ -298,7 +298,10 @@ class Workflow(StrictModel):
                 if node.kind != "conversation" or node.entry != "respond":
                     raise ValueError("Readback requires a conversation node with entry: respond")
                 for _, field, spec, conversion in Formatter().parse(node.readback):
-                    if field is not None and (field not in self.fields or spec or conversion or field.isdecimal() or any(c in field for c in ".[]")):
+                    if field is not None and (
+                        field not in self.fields or spec or conversion
+                        or field.isdecimal() or any(c in field for c in ".[]")
+                    ):
                         raise ValueError("Readback placeholders must be plain configured field names")
             for tool in node.tools + ([node.tool] if node.tool else []):
                 if tool not in self.tools:

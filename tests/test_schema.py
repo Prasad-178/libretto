@@ -134,8 +134,10 @@ def test_workflow_limit_counts_characters_and_bounds_transitions(tmp_path):
 
 @pytest.mark.parametrize('field_id', ['customer.name', 'customer[0]', '0', '１２'])
 def test_readback_rejects_format_expressions_even_when_they_are_configured_field_ids(field_id):
-    import yaml
     from pathlib import Path
+
+    import yaml
+
     from libretto.schema import parse_workflow
 
     source = yaml.safe_load(Path('examples/repair_visit/agent.yaml').read_text())

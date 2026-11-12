@@ -150,6 +150,7 @@ async def test_withheld_approval_emits_authoritative_reason_without_dispatch():
 @pytest.mark.parametrize('field_id', ['customer_name', 'customer-name', 'customer name', '顧客'])
 async def test_plain_readback_ids_compile_and_execute_literal_lookup(field_id):
     import yaml
+
     from libretto.tools import ToolRegistry
 
     source = yaml.safe_dump({

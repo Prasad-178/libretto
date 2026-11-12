@@ -14,13 +14,17 @@ export function ActionInspector({
   tools,
   onTransaction,
   onSettings,
+  replaceConnections = false,
+  onPendingChange,
 }: {
   source: string;
   workflow: Workflow;
   nodeId: string;
   tools: ToolManifest[];
   onTransaction: (tx: DocumentTransaction) => void;
-  onSettings: () => void;
+  onSettings?: () => void;
+  replaceConnections?: boolean;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const node = workflow.nodes[nodeId];
   const [toolName, setToolName] = useState(node.tool || ""),
@@ -37,12 +41,31 @@ export function ActionInspector({
     setRequires(node.requires || []);
     setResults(
       Object.fromEntries(
-        node.edges.filter((e) => e.result).map((e) => [e.result!, e.to]),
+        (node.edges || [])
+          .filter((e) => e.result)
+          .map((e) => [e.result!, e.to]),
       ),
     );
-    setRoutes(Object.fromEntries(node.edges.map((e) => [e.id, e.to])));
+    setRoutes(Object.fromEntries((node.edges || []).map((e) => [e.id, e.to])));
     setError("");
   }, [node]);
+  const baseline = JSON.stringify([
+    node.tool || "",
+    node.arguments || {},
+    node.requires || [],
+    Object.fromEntries(
+      (node.edges || [])
+        .filter((edge) => edge.result)
+        .map((edge) => [edge.result!, edge.to]),
+    ),
+    Object.fromEntries((node.edges || []).map((edge) => [edge.id, edge.to])),
+  ]);
+  const pending =
+    JSON.stringify([toolName, args, requires, results, routes]) !== baseline;
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
   const tool = tools.find((t) => t.name === toolName);
   const parameters =
     tool?.parameters ||
@@ -143,6 +166,7 @@ export function ActionInspector({
               </Select>
               {!tool && (
                 <button
+                  type="button"
                   aria-label={`Remove mapping ${parameter.name}`}
                   onClick={() => bind(parameter.name, "")}
                 >
@@ -179,6 +203,7 @@ export function ActionInspector({
               </Select>
             </label>
             <button
+              type="button"
               className="button"
               onClick={() => {
                 if (!newParameter.trim() || !newField) {
@@ -234,9 +259,13 @@ export function ActionInspector({
               : "Requires the mapped values and caller approval under the configured confirmation rule."
             : "Requires its collected values. No caller confirmation rule is configured."}
         </p>
-        <button className="inspector-link" onClick={onSettings}>
-          {rule ? "Review confirmation rule" : "Step settings and confirmation"}
-        </button>
+        {onSettings && (
+          <button type="button" className="inspector-link" onClick={onSettings}>
+            {rule
+              ? "Review confirmation rule"
+              : "Step settings and confirmation"}
+          </button>
+        )}
       </div>
       <section>
         <h3>Outcome destinations</h3>
@@ -256,7 +285,7 @@ export function ActionInspector({
               result,
               value: results[result] || "",
             }))
-          : node.edges.map((edge) => ({
+          : (node.edges || []).map((edge) => ({
               key: edge.id,
               result: edge.result || "Unconfigured result",
               value: routes[edge.id] || edge.to,
@@ -295,7 +324,7 @@ export function ActionInspector({
           </div>
         ))}
         {(tool?.results.includes("unknown") ||
-          node.edges.some((e) => e.result === "unknown")) && (
+          (node.edges || []).some((e) => e.result === "unknown")) && (
           <p className="inspector-help">
             Unknown handles an uncertain outcome. Inspect the actual receipt
             before attempting the action again.
@@ -310,6 +339,7 @@ export function ActionInspector({
       <div className="action-apply">
         <span>Mappings and destinations apply together.</span>
         <button
+          type="button"
           className="button black"
           aria-label="Apply action configuration"
           onClick={() => {
@@ -323,6 +353,7 @@ export function ActionInspector({
                       args,
                       requires,
                       results,
+                      replaceConnections,
                     )
                   : editActionBindings(source, nodeId, args, requires, routes),
               );

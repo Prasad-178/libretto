@@ -69,3 +69,27 @@ test("Tools keeps Python contracts read-only and links to actual action steps", 
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.screenshot({ path: info.outputPath("tools-1024.png") });
 });
+
+test("an omitted task field list keeps Collected data and raw YAML recovery available", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/studio");
+  await page
+    .getByLabel("Open workflow files")
+    .setInputFiles({
+      name: "empty-task.yaml",
+      mimeType: "application/yaml",
+      buffer: Buffer.from(
+        "version: 1\nid: task\nname: Task\nstart: end\nshared_prompt: Help.\nfields: {name: {type: string}}\nrequests: {empty: {}}\nnodes: {end: {kind: end}}\n",
+      ),
+    });
+  await page.getByRole("tab", { name: "Collected data", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit Name field", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "YAML", exact: true }).click();
+  await expect(page.locator(".cm-content")).toBeVisible();
+  expect(errors).toEqual([]);
+});
