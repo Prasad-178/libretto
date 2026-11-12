@@ -78,6 +78,59 @@ function operationPatch(
   const path = [...operation.path];
   if (!path.length) throw new Error("Choose a YAML property to edit." + remedy);
   const current = doc.getIn(path, true);
+  if (operation.op === "move") {
+    if (
+      !isSeq(current) ||
+      !current.range ||
+      !Number.isInteger(operation.from) ||
+      !Number.isInteger(operation.to) ||
+      operation.from < 0 ||
+      operation.to < 0 ||
+      operation.from >= current.items.length ||
+      operation.to >= current.items.length
+    )
+      throw new Error("Choose existing list items to reorder.");
+    if (operation.from === operation.to) return null;
+    const expected = doc.clone();
+    const list = expected.getIn(path, true);
+    if (!isSeq(list)) throw new Error("Choose a YAML list to reorder.");
+    const [moved] = list.items.splice(operation.from, 1);
+    list.items.splice(operation.to, 0, moved);
+    let from = current.range[0],
+      to = current.range[1],
+      insert: string;
+    if (current.srcToken?.type === "block-seq") {
+      const starts = current.srcToken.items.map((item) => {
+        const token = item.start[0];
+        if (!token)
+          throw new Error("Cannot locate this list item safely." + remedy);
+        return source.lastIndexOf("\n", token.offset - 1) + 1;
+      });
+      from = starts[0];
+      const chunks = starts.map((start, i) =>
+        source.slice(start, starts[i + 1] ?? to),
+      );
+      const [text] = chunks.splice(operation.from, 1);
+      chunks.splice(operation.to, 0, text);
+      const newline = source.includes("\r\n") ? "\r\n" : "\n";
+      const finalNewline = source.slice(from, to).endsWith("\n");
+      insert = chunks
+        .map((chunk, i) => {
+          if (i < chunks.length - 1 && !chunk.endsWith("\n"))
+            return chunk + newline;
+          if (i === chunks.length - 1 && !finalNewline)
+            return chunk.replace(/\r?\n$/, "");
+          return chunk;
+        })
+        .join("");
+    } else {
+      insert = render(list, source, from, to, false);
+    }
+    const next = source.slice(0, from) + insert + source.slice(to);
+    if (JSON.stringify(parse(next).toJS()) !== JSON.stringify(expected.toJS()))
+      throw new Error("Cannot reorder this YAML list safely." + remedy);
+    return { from, to, insert };
+  }
   if (operation.op === "rename") {
     const parent = doc.getIn(path.slice(0, -1), true);
     const oldKey = path.at(-1);

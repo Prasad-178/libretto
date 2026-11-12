@@ -10,6 +10,7 @@ export type RouteKind =
 export type YamlPath = readonly (string | number)[];
 export type TextPatch = { from: number; to: number; insert: string };
 export type EditOperation =
+  | { op: "move"; path: YamlPath; from: number; to: number }
   | { op: "set"; path: YamlPath; value: unknown }
   | { op: "rename"; path: YamlPath; value: string }
   | { op: "delete"; path: YamlPath };

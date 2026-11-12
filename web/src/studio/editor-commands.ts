@@ -81,7 +81,7 @@ export function validateAction(
     }
     if (
       !Object.hasOwn(workflow.fields || {}, field) ||
-      workflow.fields![field].type !== p.type
+      (workflow.fields![field].type || "string") !== p.type
     )
       throw new Error(`Map ${p.name} to an existing ${p.type} field.`);
     if (!requires.includes(field))
