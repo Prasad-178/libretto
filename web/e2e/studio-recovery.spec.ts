@@ -94,7 +94,7 @@ test("empty and malformed drafts retain a working editor", async ({ page }) => {
   await editor.fill(
     original.replace("fields:", "fields: {broken: null}\nunused_fields:"),
   );
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   await expect(page.getByText(/Fix.*YAML/)).toBeVisible();
   expect(errors).toEqual([]);
 });

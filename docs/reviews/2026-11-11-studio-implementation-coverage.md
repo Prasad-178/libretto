@@ -52,11 +52,11 @@ Status: implementation started 2026-11-11. A listed design control is not verifi
 | `Speech.hints` | 04 Speech > Recognition vocabulary | 4 | Planned |
 | `Workflow.version` | 21 Advanced > Schema version; supported versions only | 2 | Planned |
 | `Workflow.id` | 21 Advanced > Workflow ID; reference-safe changes | 2 | Planned |
-| `Workflow.name` | 01 Agent name / header rename / 21 Workflow settings > Name | 2 | Planned |
+| `Workflow.name` | 01 Agent name / header rename / 21 Workflow settings > Name | 2 | Implemented: Conversation editor; source-backed edits, Undo and rendered evidence in studio-agent.spec.ts |
 | `Workflow.description` | 21 What does it help with? | 2 | Planned |
 | `Workflow.start` | 21 Conversation starts at; synthetic Start connector | 2 | Planned |
-| `Workflow.shared_prompt` | 01/12 Conversation > Instructions | 2 | Planned |
-| `Workflow.welcome` | 01 Conversation > First message | 2 | Planned |
+| `Workflow.shared_prompt` | 01/12 Conversation > Instructions | 2 | Implemented: Conversation editor; source-backed edits, Undo and rendered evidence in studio-agent.spec.ts |
+| `Workflow.welcome` | 01 Conversation > First message | 2 | Implemented: Conversation editor; source-backed edits, Undo and rendered evidence in studio-agent.spec.ts |
 | `Workflow.fields` | 07 Collected data; Add/Edit/Remove; reference-aware field ID rename | 2 | Planned |
 | `Workflow.tools` | 21 Advanced > Available registered tools; multiselect | 2 | Planned |
 | `Workflow.knowledge` | 03 Knowledge > Collection definitions; local path/ID editor uses existing collection form pattern | 6 | Planned |
@@ -99,3 +99,9 @@ Status: implementation started 2026-11-11. A listed design control is not verifi
 Latest checks: 256 backend tests, 121 frontend tests, 31 browser tests (one worker), production build and focused Ruff checks passed. The first default-concurrency browser run had one startup-recovery failure; the isolated rerun and six repeats passed. This transient remains recorded rather than being hidden by the later green run.
 
 Paper lists Libretto as open/active but direct structure queries and JSX export return “This file no longer exists. It may have been deleted.” Layout implementation remains pending reconnection. Existing screenshots verify the narrow fixes only, not parity with the new designs. The remaining rollout and final independent review are pending; no remote CI/deployment claim is made.
+
+## Navigation and Conversation checkpoint — 2026-11-12
+
+Paper access was restored and exact JSX was read for screens 01 and 12. The sidebar, workflow identity header, Conversation editor, instructions expansion and responsive layouts are implemented. Tools and Collected data now have separate functional destinations using their existing controls; their full visual refresh remains pending. Stage-controller guidance has a structured editing path; model selection remains the existing editor until the catalog picker slice. Speech retains its current controls under its own Agent section.
+
+Agent edits and the expanded textarea share the document transaction/history model. Browser tests verify name/header/YAML synchronization, grouped Undo, focus restoration, sidebar keyboard navigation, controller guidance serialization, Default reasoning and layouts at 1440/1280/1024. Current frontend checks: 121 unit tests, 37 browser tests, production build and Ruff passed. The rename test was updated to compare rendered inner text consistently after the header became two lines. New layouts have not been deployed.

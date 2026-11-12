@@ -8,6 +8,12 @@ import {
   Pencil,
   Redo2,
   Undo2,
+  UserRound,
+  GitBranch,
+  Library,
+  Wrench,
+  List,
+  Code2,
 } from "lucide-react";
 import type { StudioDocument } from "./types";
 import { DocumentStatus } from "./DocumentStatus";
@@ -49,7 +55,9 @@ export function StudioShell({
     document.lastValid?.workflow;
   const valid = document.validation.state === "valid";
   return (
-    <div className={`studio studio-v2 ${testOpen ? "with-test" : ""}`}>
+    <div
+      className={`studio studio-v2 studio-v3 ${testOpen ? "with-test" : ""}`}
+    >
       <header className="studio-topbar">
         <a className="studio-brand" href="/" aria-label="Libretto home">
           <span className="brand-bars">
@@ -65,11 +73,45 @@ export function StudioShell({
           disabled={!!document.running || !document.source}
           onClick={() => setRenaming(true)}
         >
-          <span>{document.filename}</span>
+          <span className="workflow-identity">
+            <strong>{workflow?.name || "Untitled workflow"}</strong>
+            <span>{document.filename}</span>
+          </span>
           <Pencil size={13} />
         </button>
         <div className="topbar-actions">
+          <div className="studio-history">
+            <button
+              aria-label="Undo (⌘Z)"
+              title="Undo (⌘Z)"
+              disabled={!document.past.length || !!document.running}
+              onClick={onUndo}
+            >
+              <Undo2 size={18} />
+            </button>
+            <button
+              aria-label="Redo (⇧⌘Z)"
+              title="Redo (⇧⌘Z)"
+              disabled={!document.future.length || !!document.running}
+              onClick={onRedo}
+            >
+              <Redo2 size={18} />
+            </button>
+          </div>
           <DocumentStatus document={document} />
+          <button
+            className={`nav-validate ${valid ? "valid" : ""}`}
+            onClick={onValidate}
+            disabled={
+              document.validation.state === "pending" || !document.source
+            }
+          >
+            {document.validation.state === "pending"
+              ? "Validating…"
+              : valid
+                ? "Validated ✓"
+                : "Validate"}
+          </button>
           <button
             className="button open-project"
             disabled={!!document.running}
@@ -100,60 +142,71 @@ export function StudioShell({
           </button>
         </div>
       </header>
-      <nav className="studio-navigation" aria-label="Studio sections">
-        <div role="tablist" aria-label="Studio sections">
-          {[
-            { id: "workflow", label: "Flow" },
-            { id: "yaml", label: "YAML" },
-            { id: "agent", label: "Settings" },
-            { id: "knowledge", label: "Sources" },
-          ].map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              className={tab === t.id ? "selected" : ""}
-              onClick={() => onTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="studio-history">
-          <button
-            aria-label="Undo (⌘Z)"
-            title="Undo (⌘Z)"
-            disabled={!document.past.length || !!document.running}
-            onClick={onUndo}
-          >
-            <Undo2 size={16} />
-          </button>
-          <button
-            aria-label="Redo (⇧⌘Z)"
-            title="Redo (⇧⌘Z)"
-            disabled={!document.future.length || !!document.running}
-            onClick={onRedo}
-          >
-            <Redo2 size={16} />
-          </button>
-        </div>
-        <button
-          className="nav-validate"
-          onClick={onValidate}
-          disabled={document.validation.state === "pending" || !document.source}
+      <nav className="studio-sidebar" aria-label="Studio sections">
+        <span className="sidebar-heading">Build</span>
+        <div
+          role="tablist"
+          aria-label="Studio sections"
+          aria-orientation="vertical"
+          onKeyDown={(event) => {
+            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
+              return;
+            const tabs = Array.from(
+              event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                '[role="tab"]',
+              ),
+            );
+            const index = tabs.indexOf(event.target as HTMLButtonElement);
+            if (index < 0) return;
+            event.preventDefault();
+            const next =
+              event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? tabs.length - 1
+                  : (index +
+                      (event.key === "ArrowDown" ? 1 : -1) +
+                      tabs.length) %
+                    tabs.length;
+            tabs[next].click();
+            tabs[next].focus();
+          }}
         >
-          {document.validation.state === "pending"
-            ? "Validating…"
-            : valid
-              ? "Validated ✓"
-              : "Validate"}
-        </button>
+          {[
+            { id: "agent", label: "Agent", icon: UserRound },
+            { id: "workflow", label: "Workflow", icon: GitBranch },
+            { id: "knowledge", label: "Knowledge", icon: Library },
+            { id: "tools", label: "Tools", icon: Wrench },
+            { id: "fields", label: "Collected data", icon: List },
+            { id: "test", label: "Test & debug", icon: Play },
+            { id: "yaml", label: "YAML", icon: Code2 },
+          ].map(({ id, label, icon: Icon }) => {
+            const selected = testOpen
+              ? id === "test"
+              : (tab === "routes" ? "workflow" : tab) === id;
+            return (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                className={selected ? "selected" : ""}
+                onClick={() =>
+                  id === "test" ? !testOpen && onTest() : onTab(id)
+                }
+              >
+                <Icon size={19} aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
         <button
+          className="sidebar-connection"
           aria-label="Test connection settings"
-          className="nav-connection"
           onClick={onConnection}
         >
-          <KeyRound size={15} />
+          <KeyRound size={19} aria-hidden="true" /> Connection
         </button>
       </nav>
       <div className="studio-small-screen" role="note">

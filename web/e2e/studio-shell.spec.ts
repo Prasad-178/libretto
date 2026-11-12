@@ -10,7 +10,7 @@ for (const width of [1440, 1280, 1024])
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("/studio");
     await expect(
-      page.getByRole("tab", { name: "Flow", exact: true }),
+      page.getByRole("tab", { name: "Workflow", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".studio-small-screen")).toBeHidden();
     await page.getByLabel("Open workflow files").setInputFiles(fixture);
@@ -22,7 +22,7 @@ for (const width of [1440, 1280, 1024])
     ).toBeVisible();
     const bounds = await page.locator(".workflow-canvas").boundingBox();
     expect(bounds!.height).toBeGreaterThan(500);
-    expect(bounds!.width).toBeGreaterThan(width - 100);
+    expect(bounds!.width).toBeGreaterThan(width - 316);
     await page.screenshot({ path: testInfo.outputPath(`flow-${width}.png`) });
     await page
       .getByRole("button", { name: "Open Collect request step", exact: true })

@@ -808,7 +808,10 @@ export default function App() {
     <StudioShell
       document={studioDocument}
       tab={view}
-      onTab={setView}
+      onTab={(tab) => {
+        setView(tab);
+        setShowTest(false);
+      }}
       onOpen={() => openInput.current?.click()}
       onExport={() => setExportOpen(true)}
       onTest={() => setShowTest(!showTest)}
@@ -938,6 +941,15 @@ export default function App() {
             />
           ) : source ? (
             <SettingsPage
+              key={view}
+              category={
+                view === "fields"
+                  ? "fields"
+                  : view === "tools"
+                    ? "tools"
+                    : "agent"
+              }
+              onWorkflow={() => setView("workflow")}
               onHistoryEnd={() =>
                 dispatchDocument({ type: "end-history-group" })
               }

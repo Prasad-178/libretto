@@ -28,7 +28,7 @@ test("rename updates the header, export, Undo and the restored draft", async ({
   await page.getByRole("button", { name: "Save name", exact: true }).click();
   await expect(rename).toContainText("support-desk.yaml");
   await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
-  await expect(rename).toHaveText(original);
+  await expect(rename).toHaveText(original, { useInnerText: true });
   await page.getByRole("button", { name: "Redo (⇧⌘Z)", exact: true }).click();
   await page.reload();
   await expect(rename).toContainText("support-desk.yaml");

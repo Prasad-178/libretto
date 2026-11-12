@@ -25,16 +25,8 @@ for (const width of [1280, 1024]) {
     await page.screenshot({ path: info.outputPath(`routes-${width}.png`) });
     await page.locator(".route-reveal").click();
     await expect(page.getByLabel("Edit route", { exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "Settings", exact: true }).click();
-    if (width === 1024) {
-      await page.getByLabel("Settings section").click();
-      await page
-        .getByRole("option", { name: "Models & speech", exact: true })
-        .click();
-    } else
-      await page
-        .getByRole("button", { name: "Models & speech", exact: true })
-        .click();
+    await page.getByRole("tab", { name: "Agent", exact: true }).click();
+    await page.getByRole("button", { name: "Model settings →", exact: true }).click();
     const model = page.getByRole("combobox", {
       name: "Response model",
       exact: true,

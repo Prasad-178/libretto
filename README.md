@@ -24,7 +24,7 @@ A 3 minute 40 second walkthrough of the workflow, YAML and agent settings.
 
 ## Try it
 
-Open the **[studio](https://libretto.prasadjs.me/studio)**. Browse Flow, Routes, YAML, Settings and Sources without connecting to a provider.
+Open the **[studio](https://libretto.prasadjs.me/studio)**. Explore the workflow, YAML and agent configuration without connecting to a provider.
 
 To start a conversation, open **Connection settings** and enter your own keys:
 
@@ -85,6 +85,8 @@ Vite proxies `/api` and its WebSocket to port 8000. A frontend build is required
 
 Studio is available at `/studio`. Open a YAML file to edit its prompts, routes and fields. The complete Routes index keeps return paths and routes hidden by a saved view discoverable. The editor supports desktop windows at least 1024px wide.
 
+In the current checkout, the sidebar separates **Agent**, **Workflow**, **Knowledge**, **Tools**, **Collected data**, **Test & debug** and **YAML**. Under Agent, Conversation edits the agent name, shared instructions and first message; Expand opens a larger instructions editor. Workflow details retains the description and starting-step controls. Stage controller edits workflow-specific interpretation guidance while built-in runtime rules remain enforced. All editors update the same YAML document and Undo history; Export downloads your changes.
+
 **Open** reads your selected files. **Export YAML** downloads the current definition under its original filename; it does not write back to disk. Optionally download `<name>.studio.json` alongside `<name>.yaml` for presentation hints and named views. Open both files together to restore them. YAML remains the runtime definition: the sidecar is never required to run it. Invalid drafts can be exported explicitly; testing requires validation and freezes the selected revision until Stop.
 
 To inspect your own Markdown knowledge, run a local project:
@@ -93,7 +95,7 @@ To inspect your own Markdown knowledge, run a local project:
 uv run libretto serve /absolute/path/to/project/agent.yaml --project-root /absolute/path/to/project
 ```
 
-Open that runtime's `http://127.0.0.1:8000/studio`. Source paths are relative to the explicit project root and cannot escape it. **Sources → Add collection** lists existing Markdown folders; attaching or detaching changes YAML references, not the source files. Retrieval preview uses the runtime's BM25 index and exposes ranked passages, normalized terms and content hashes. Missing folders are reported rather than fabricated.
+Open that runtime's `http://127.0.0.1:8000/studio`. Source paths are relative to the explicit project root and cannot escape it. **Knowledge → Add collection** lists existing Markdown folders; attaching or detaching changes YAML references, not the source files. Retrieval preview uses the runtime's BM25 index and exposes ranked passages, normalized terms and content hashes. Missing folders are reported rather than fabricated.
 
 Bare `libretto serve` and the hosted demo use bundled sources only. They cannot browse arbitrary local folders; selecting a YAML file in the browser does not grant filesystem access to its neighboring files. Connection settings target the same runtime that serves Studio. Provider keys stay in memory, outside YAML, sidecars and persisted drafts.
 

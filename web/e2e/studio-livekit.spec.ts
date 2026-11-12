@@ -33,9 +33,9 @@ test("voice integration and credential route are separate settings", async ({
   page,
 }, info) => {
   await page.goto("/studio");
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   await page
-    .getByRole("button", { name: "Models & speech", exact: true })
+    .getByRole("button", { name: "Speech", exact: true })
     .click();
   await expect(
     page.getByRole("combobox", { name: "Voice integration", exact: true }),

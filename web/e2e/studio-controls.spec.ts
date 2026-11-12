@@ -3,14 +3,14 @@ import path from "node:path";
 test("instructions use the settings width and select arrows remain centered", async ({ page }, info) => {
   await page.goto("/studio");
   await page.getByLabel("Open workflow files").setInputFiles(path.resolve("src/studio/fixtures/intake.yaml"));
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   const instructions = page.getByLabel("Shared instructions", { exact: true });
   await expect(instructions).toBeVisible();
   const editor = await instructions.boundingBox();
   const section = await instructions.locator("..").boundingBox();
   expect(editor!.width).toBeGreaterThan(section!.width - 3);
   await page.screenshot({ path: info.outputPath("shared-instructions.png") });
-  await page.getByRole("button", { name: "Models & speech", exact: true }).click();
+  await page.getByRole("button", { name: "Model settings →", exact: true }).click();
   const selects = page.locator(".settings-content .studio-select-trigger");
   for (const select of await selects.all()) {
     if (!(await select.isVisible())) continue;
@@ -71,9 +71,9 @@ test("custom selects support keyboard changes and dialog menus", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   await page
-    .getByRole("button", { name: "Models & speech", exact: true })
+    .getByRole("button", { name: "Model settings →", exact: true })
     .click();
   const reasoning = page.getByRole("combobox", {
     name: "Response reasoning",

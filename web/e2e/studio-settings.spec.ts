@@ -14,9 +14,9 @@ test("settings expose real field references and model roles", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   await page
-    .getByRole("button", { name: "Models & speech", exact: true })
+    .getByRole("button", { name: "Model settings →", exact: true })
     .click();
   await expect(
     page.getByRole("combobox", { name: "Response model", exact: true }),
@@ -26,7 +26,7 @@ test("settings expose real field references and model roles", async ({
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath("models-1440.png") });
   await page
-    .getByRole("button", { name: "Fields & tools", exact: true })
+    .getByRole("tab", { name: "Collected data", exact: true })
     .click();
   await page.getByText("callback_number", { exact: true }).click();
   await expect(
@@ -126,21 +126,21 @@ test("Settings keeps separate undo sessions and accepts multiline lists", async 
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   const name = page.getByRole("textbox", {
-    name: "Workflow name",
+    name: "Agent name",
     exact: true,
   });
   await name.fill("First name");
   await name.blur();
-  await page.getByRole("tab", { name: "Flow", exact: true }).click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+  await page.getByRole("tab", { name: "Agent", exact: true }).click();
   await name.fill("Second name");
   await name.blur();
   await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
   await expect(name).toHaveValue("First name");
   await page
-    .getByRole("button", { name: "Models & speech", exact: true })
+    .getByRole("button", { name: "Speech", exact: true })
     .click();
   const hints = page.getByRole("textbox", {
     name: "Recognition hints · one per line",
@@ -152,7 +152,7 @@ test("Settings keeps separate undo sessions and accepts multiline lists", async 
   await expect(hints).toHaveValue("first\nsecond");
   await hints.blur();
   await page
-    .getByRole("button", { name: "Fields & tools", exact: true })
+    .getByRole("tab", { name: "Collected data", exact: true })
     .click();
   await page
     .locator(".settings-field summary")

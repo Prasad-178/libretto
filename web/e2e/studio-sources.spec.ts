@@ -13,7 +13,7 @@ test("Sources previews real retrieval and opens complete passage evidence", asyn
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
   await expect(page.locator(".passages-list>button").first()).toBeVisible();
   await page.getByLabel("Preview for step").click();
   await page
@@ -72,7 +72,7 @@ test("changing the query discards an in-flight retrieval response", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
   await expect(page.locator(".passages-list>button").first()).toBeVisible();
   await page.getByLabel("Test retrieval").fill("Dock room");
   const request = page.waitForRequest("**/api/studio/retrieval");
@@ -109,7 +109,7 @@ test("local project folders attach as references and Undo removes the attachment
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
   await page
     .getByRole("button", { name: "+ Add collection", exact: true })
     .click();

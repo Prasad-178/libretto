@@ -24,7 +24,7 @@ test("invalid YAML retains the validated graph and exports an explicitly labelle
   ).toBeDisabled();
   await expect(page.locator(".yaml-problem").first()).toBeVisible();
   await page.screenshot({ path: info.outputPath("yaml-problems-1440.png") });
-  await page.getByRole("tab", { name: "Flow", exact: true }).click();
+  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
   await expect(page.getByText(/Showing last valid graph/)).toBeVisible();
   await expect(
     page.getByRole("button", {
