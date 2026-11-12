@@ -1,6 +1,6 @@
 # Studio UX implementation coverage
 
-Status: implementation in progress, updated 2026-11-12. Structured controls are implemented; final whole-workflow parity checks and independent review are pending. Historical checkpoint totals below describe their own heads.
+Status: locally complete and reviewed, updated 2026-11-12. All three Important review findings were fixed in one TDD pass. Two minor follow-ups remain in the final review record. Historical checkpoint totals below describe their own heads.
 
 | Binding | Design control | Task | Status / evidence |
 | --- | --- | --- | --- |
@@ -153,3 +153,11 @@ Code head `9b9211f`: Ruff, **285 backend tests**, **154 frontend tests**, produc
 Current screenshots inspected at 1440/1280/1024 and compact CSS viewports include models, speech/popover, prompt/connection/action inspectors, repair, Knowledge, independent field/tool panes, debug, YAML recovery and export. This establishes deterministic UI behavior, not semantic or acoustic quality with live providers. Tests intentionally isolate paid inference.
 
 All 23 artboard groups and all supported executable bindings have visual paths. The table distinguishes implemented controls from the evidence that exercises them; an inventory row alone is never a test. Remaining release gates: one independent whole-rollout review and any required fix pass. No remote CI at this local head, deployment or merge-readiness is claimed.
+
+## Final review fix-pass verification
+
+Code head `686b19a`: **293 backend tests**, **159 frontend tests**, **72 sequential browser tests**, production build, Ruff, retrieval evaluation and diff checks passed. The independent review found three Important issues; all are fixed with regressions that failed first. No Critical issue was confirmed. See the [review response, deferred minors and complete decision record](2026-11-12-studio-ux-final-review.md).
+
+Coverage now includes omitted task-field defaults without loss of recovery UI; frontend/compiler refusal of nonliteral readback placeholders plus public-runner execution of supported IDs; complete staged Conversation-to-Action and End-to-Conversation conversion; editable retained action values; explicit Apply before Save; and one Undo transaction. The 1024px staged-action screenshot was inspected after the fix.
+
+This is local UI-rollout completion with two documented minor follow-ups. Live-provider M2 acceptance, real browser zoom/cross-browser/AT verification, remote CI, publishing and deployment remain separate. No push or deployment was performed.
