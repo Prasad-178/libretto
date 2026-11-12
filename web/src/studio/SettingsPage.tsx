@@ -1,3 +1,8 @@
+import { ControllerInstructions } from "./ControllerInstructions";
+import { ModelPicker } from "./ModelPicker";
+import { ReasoningControl } from "./ReasoningControl";
+import { createStudioApi } from "./runtime-api";
+import { modelDefaults, type ModelCatalog } from "./model-catalog";
 import { DefinitionActions } from "./ConfirmationFields";
 import { definitionUses } from "./settings-edits";
 import { ConversationEditor } from "./ConversationEditor";
@@ -39,6 +44,25 @@ export function SettingsPage({
   const historyEnd = useRef(onHistoryEnd);
   historyEnd.current = onHistoryEnd;
   useEffect(() => () => historyEnd.current(), []);
+  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const needsCatalog = section === "models" || section === "controller";
+  useEffect(() => {
+    if (!needsCatalog) return;
+    const abort = new AbortController();
+    setCatalogLoading(true);
+    createStudioApi("")
+      .models(abort.signal)
+      .then(setCatalog)
+      .catch(() => {
+        if (!abort.signal.aborted) setCatalog(null);
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setCatalogLoading(false);
+      });
+    return () => abort.abort();
+  }, [needsCatalog, catalogRevision]);
   const workflow = readWorkflow(document.source);
   if (!workflow)
     return (
@@ -132,65 +156,46 @@ export function SettingsPage({
           ) : section === "models" || section === "speech" ? (
             <>
               {section === "models" && (
-                <section>
-                  <h3>Language models</h3>
-                  {(
-                    [
-                      {
-                        role: "response",
-                        key: "speaker",
-                        label: "Response model",
-                      },
-                      {
-                        role: "evaluator",
-                        key: "evaluator",
-                        label: "Evaluator model",
-                      },
-                    ] as const
-                  ).map(({ role, key, label }) => (
-                    <label key={key}>
-                      {label}
-                      <Select
-                        value={workflow.models?.[key] || ""}
-                        onChange={(e) =>
-                          change(["models", key], e.target.value)
-                        }
-                      >
-                        {[
-                          ...new Set([
-                            workflow.models?.[key] || "",
-                            ...(capabilities?.modelChoices
-                              .filter((m) => m.role === role)
-                              .map((m) => m.id) || []),
-                          ]),
-                        ]
-                          .filter(Boolean)
-                          .map((id) => (
-                            <option key={id}>{id}</option>
-                          ))}
-                      </Select>
-                    </label>
-                  ))}
-                  <p>
-                    Available choices come from the connected runtime
-                    configuration.
-                  </p>
-                  <label>
-                    Response reasoning
-                    <Select
+                <div className="model-settings-layout">
+                  <div className="model-settings-main">
+                    <ModelPicker
+                      role="response"
+                      value={workflow.models?.speaker || modelDefaults.speaker}
+                      catalog={catalog}
+                      loading={catalogLoading}
+                      disabled={!!document.running}
+                      onChange={(id) => change(["models", "speaker"], id)}
+                      onRetry={() => setCatalogRevision((n) => n + 1)}
+                    />
+                    <ReasoningControl
+                      model={catalog?.models.find(
+                        (m) =>
+                          m.id ===
+                          (workflow.models?.speaker || modelDefaults.speaker),
+                      )}
                       value={workflow.models?.reasoning || "minimal"}
-                      onChange={(e) =>
-                        change(["models", "reasoning"], e.target.value)
+                      disabled={!!document.running}
+                      onChange={(value) =>
+                        change(["models", "reasoning"], value)
                       }
-                    >
-                      <option value="default">Default</option>
-                      {["minimal", "low", "medium", "high"].map((level) => (
-                        <option key={level}>{level}</option>
-                      ))}
-                    </Select>
-                  </label>
-                  <p>The evaluator uses minimal reasoning separately.</p>
-                </section>
+                    />
+                  </div>
+                  <aside className="model-settings-help">
+                    <h3>Model-specific controls</h3>
+                    <p>
+                      Effort levels and reported defaults come from OpenRouter.
+                      Model selection preserves your existing effort setting.
+                    </p>
+                    <p>
+                      Catalog rates are USD per million tokens, before
+                      additional provider charges. Unknown prices are shown
+                      explicitly.
+                    </p>
+                    <button onClick={() => setSection("controller")}>
+                      Open stage controller →
+                    </button>
+                  </aside>
+                </div>
               )}
               {section === "speech" && (
                 <section>
@@ -322,31 +327,38 @@ export function SettingsPage({
             </>
           ) : section === "controller" ? (
             <section>
+              <ModelPicker
+                role="controller"
+                value={workflow.models?.evaluator || modelDefaults.evaluator}
+                catalog={catalog}
+                loading={catalogLoading}
+                disabled={!!document.running}
+                onChange={(id) => change(["models", "evaluator"], id)}
+                onRetry={() => setCatalogRevision((n) => n + 1)}
+              />
+              <p>
+                The stage controller requests minimal reasoning separately.
+                Provider support varies; changing its model does not change that
+                runtime setting.
+              </p>
               <h3>Stage controller instructions</h3>
               <p>
                 The controller interprets caller information and proposes
                 transitions. It does not speak or execute tools. Libretto
                 enforces the workflow rules.
               </p>
-              <label>
-                Controller instructions
-                <textarea
-                  rows={12}
-                  value={workflow.evaluation_prompt || ""}
-                  onChange={(event) =>
-                    change(
-                      ["evaluation_prompt"],
-                      event.target.value,
-                      "settings:evaluation-prompt",
-                    )
-                  }
-                  maxLength={5000}
-                />
-              </label>
-              <p>
-                Add guidance specific to this workflow. Built-in evidence,
-                output and confirmation rules remain enforced.
-              </p>
+              <ControllerInstructions
+                value={workflow.evaluation_prompt || ""}
+                disabled={!!document.running}
+                onChange={(value) =>
+                  change(
+                    ["evaluation_prompt"],
+                    value,
+                    "settings:evaluation-prompt",
+                  )
+                }
+                onHistoryEnd={onHistoryEnd}
+              />
               <button className="button" onClick={() => setSection("models")}>
                 Model settings →
               </button>

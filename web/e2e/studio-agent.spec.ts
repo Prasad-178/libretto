@@ -93,13 +93,7 @@ test("controller guidance and Default reasoning serialize without replacing work
   await page
     .getByRole("button", { name: "Model settings →", exact: true })
     .click();
-  await page
-    .getByRole("combobox", { name: "Response reasoning", exact: true })
-    .click();
-  await expect(
-    page.getByRole("option", { name: "Default", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("option", { name: "Default", exact: true }).click();
+  await page.getByRole("button", { name: "Default", exact: true }).click();
   await page.getByRole("tab", { name: "YAML", exact: true }).click();
   await expect(page.locator(".cm-content")).toContainText(
     "evaluation_prompt: Treat a request for a person as a transfer request.",

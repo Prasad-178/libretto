@@ -1,8 +1,12 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
-test("instructions use the settings width and select arrows remain centered", async ({ page }, info) => {
+test("instructions use the settings width and select arrows remain centered", async ({
+  page,
+}, info) => {
   await page.goto("/studio");
-  await page.getByLabel("Open workflow files").setInputFiles(path.resolve("src/studio/fixtures/intake.yaml"));
+  await page
+    .getByLabel("Open workflow files")
+    .setInputFiles(path.resolve("src/studio/fixtures/intake.yaml"));
   await page.getByRole("tab", { name: "Agent", exact: true }).click();
   const instructions = page.getByLabel("Shared instructions", { exact: true });
   await expect(instructions).toBeVisible();
@@ -10,13 +14,19 @@ test("instructions use the settings width and select arrows remain centered", as
   const section = await instructions.locator("..").boundingBox();
   expect(editor!.width).toBeGreaterThan(section!.width - 3);
   await page.screenshot({ path: info.outputPath("shared-instructions.png") });
-  await page.getByRole("button", { name: "Model settings →", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Model settings →", exact: true })
+    .click();
   const selects = page.locator(".settings-content .studio-select-trigger");
   for (const select of await selects.all()) {
     if (!(await select.isVisible())) continue;
     const box = (await select.boundingBox())!;
-    const arrow = (await select.locator(".studio-select-chevron").boundingBox())!;
-    expect(Math.abs(arrow.y + arrow.height / 2 - box.y - box.height / 2)).toBeLessThanOrEqual(1);
+    const arrow = (await select
+      .locator(".studio-select-chevron")
+      .boundingBox())!;
+    expect(
+      Math.abs(arrow.y + arrow.height / 2 - box.y - box.height / 2),
+    ).toBeLessThanOrEqual(1);
   }
   await page.screenshot({ path: info.outputPath("settings-controls.png") });
 });
@@ -72,22 +82,20 @@ test("custom selects support keyboard changes and dialog menus", async ({
     }),
   ).toBeVisible();
   await page.getByRole("tab", { name: "Agent", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Model settings →", exact: true })
-    .click();
-  const reasoning = page.getByRole("combobox", {
-    name: "Response reasoning",
+  await page.getByRole("button", { name: "Speech", exact: true }).click();
+  const integration = page.getByRole("combobox", {
+    name: "Voice integration",
     exact: true,
   });
-  await reasoning.focus();
+  await integration.focus();
   await page.keyboard.press("Space");
   await expect(page.getByRole("listbox")).toBeVisible();
   await page.keyboard.press("End");
-  await expect(page.getByRole("option", {name:"high",exact:true})).toBeFocused();
+  await expect(
+    page.getByRole("option", { name: "Direct Deepgram", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(reasoning).toContainText("high");
-  await page.getByRole("tab", { name: "YAML", exact: true }).click();
-  await expect(page.locator(".cm-content")).toContainText("reasoning: high");
+  await expect(integration).toContainText("Direct Deepgram");
   await page
     .getByRole("button", { name: "Test connection settings", exact: true })
     .click();

@@ -1,3 +1,4 @@
+import type { ModelCatalog } from "./model-catalog";
 import type { ToolManifest } from "./tool-manifest";
 export type { ToolManifest } from "./tool-manifest";
 export type StudioCapabilities = {
@@ -97,6 +98,8 @@ export function createStudioApi(
     return result as T;
   }
   return {
+    models: (signal?: AbortSignal) =>
+      request<ModelCatalog>("/api/studio/models", undefined, signal),
     capabilities: (signal?: AbortSignal) =>
       request<StudioCapabilities>(
         "/api/studio/capabilities",

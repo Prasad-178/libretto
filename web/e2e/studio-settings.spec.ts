@@ -19,15 +19,16 @@ test("settings expose real field references and model roles", async ({
     .getByRole("button", { name: "Model settings →", exact: true })
     .click();
   await expect(
-    page.getByRole("combobox", { name: "Response model", exact: true }),
+    page.getByRole("button", { name: "Choose response model", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Stage controller", exact: true })
+    .click();
   await expect(
-    page.getByRole("combobox", { name: "Evaluator model", exact: true }),
+    page.getByRole("button", { name: "Choose controller model", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath("models-1440.png") });
-  await page
-    .getByRole("tab", { name: "Collected data", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "Collected data", exact: true }).click();
   await page.getByText("callback_number", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: /Capture message · argument/ }),
@@ -139,9 +140,7 @@ test("Settings keeps separate undo sessions and accepts multiline lists", async 
   await name.blur();
   await page.getByRole("button", { name: "Undo (⌘Z)", exact: true }).click();
   await expect(name).toHaveValue("First name");
-  await page
-    .getByRole("button", { name: "Speech", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Speech", exact: true }).click();
   const hints = page.getByRole("textbox", {
     name: "Recognition hints · one per line",
     exact: true,
@@ -151,9 +150,7 @@ test("Settings keeps separate undo sessions and accepts multiline lists", async 
   await hints.pressSequentially("second");
   await expect(hints).toHaveValue("first\nsecond");
   await hints.blur();
-  await page
-    .getByRole("tab", { name: "Collected data", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "Collected data", exact: true }).click();
   await page
     .locator(".settings-field summary")
     .filter({ hasText: "email" })

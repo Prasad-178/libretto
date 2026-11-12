@@ -26,9 +26,11 @@ for (const width of [1280, 1024]) {
     await page.locator(".route-reveal").click();
     await expect(page.getByLabel("Edit route", { exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "Agent", exact: true }).click();
-    await page.getByRole("button", { name: "Model settings →", exact: true }).click();
-    const model = page.getByRole("combobox", {
-      name: "Response model",
+    await page
+      .getByRole("button", { name: "Model settings →", exact: true })
+      .click();
+    const model = page.getByRole("button", {
+      name: "Choose response model",
       exact: true,
     });
     await expect(model).toBeVisible();
