@@ -91,7 +91,7 @@ function operationPatch(
     if (!pair || !isScalar(pair.key) || !pair.key.range)
       throw new Error("Cannot safely rename this YAML key." + remedy);
     const [from, to] = pair.key.range;
-    const renamed = pair.key.clone();
+    const renamed = pair.key.clone() as typeof pair.key;
     renamed.value = operation.value;
     const insert = render(renamed, source, from, to, true);
     const next = source.slice(0, from) + insert + source.slice(to);
