@@ -249,3 +249,35 @@ it("counts readback limits in Unicode characters like the backend", () => {
   w.nodes.confirm.readback += "😀";
   expect(() => validateStep(w, "confirm")).toThrow(/4,000/);
 });
+
+it("handles omitted request fields while describing and rendering field uses", async () => {
+  const { readWorkflow } = await import("../workflow");
+  const { definitionUses } = await import("./settings-edits");
+  const source =
+    "version: 1\nid: empty\nname: Empty\nstart: end\nshared_prompt: Help.\nfields: {name: {type: string}}\nrequests: {empty: {}}\nnodes: {end: {kind: end}}\n";
+  expect(definitionUses(readWorkflow(source)!, "fields", "name")).toEqual([]);
+  const { renderToString } = await import("react-dom/server");
+  const { createElement } = await import("react");
+  const { CollectedDataPage } = await import("./CollectedDataPage");
+  expect(() =>
+    renderToString(
+      createElement(CollectedDataPage, {
+        workflow: readWorkflow(source)!,
+        document: createDocument(
+          "empty.yaml",
+          new TextEncoder().encode(source),
+        ),
+        onTransaction: () => {},
+        onStep: () => {},
+      }),
+    ),
+  ).not.toThrow();
+});
+it.each(["customer.name", "customer[0]", "0", "１２"])(
+  "rejects field renames that Python format would interpret rather than look up literally: %s",
+  (id) => {
+    expect(() =>
+      renameDefinition(repair, "fields", "customer_name", id),
+    ).toThrow(/plain|placeholder|readback/i);
+  },
+);

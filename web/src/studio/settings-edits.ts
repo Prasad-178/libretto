@@ -31,7 +31,7 @@ export function definitionUses(
   if (kind === "fields") {
     fieldReferences(w, id).forEach((ref) => refs.add(ref.nodeId));
     Object.entries(w.requests || {}).forEach(([key, value]) => {
-      if (value.fields.includes(id)) refs.add(`task ${key}`);
+      if ((value.fields || []).includes(id)) refs.add(`task ${key}`);
     });
     Object.entries(w.confirmations || {}).forEach(([key, value]) => {
       if (
@@ -248,7 +248,11 @@ export function readbackTokens(
     const end = text.indexOf("}", i + 1);
     if (end < 0) throw new Error("Unmatched opening brace in readback.");
     const field = text.slice(i + 1, end);
-    if (!field || /[{}!:]/.test(field))
+    if (
+      !field ||
+      /[{}!:.\[\]]/.test(field) ||
+      /^\p{Decimal_Number}+$/u.test(field)
+    )
       throw new Error("Use plain field names inside braces.");
     tokens.push({ field, start: i, end: end + 1 });
     i = end;

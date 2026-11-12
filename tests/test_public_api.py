@@ -145,3 +145,36 @@ async def test_withheld_approval_emits_authoritative_reason_without_dispatch():
         assert instance.snapshot().receipts == []
     finally:
         await instance.close()
+
+
+@pytest.mark.parametrize('field_id', ['customer_name', 'customer-name', 'customer name', '顧客'])
+async def test_plain_readback_ids_compile_and_execute_literal_lookup(field_id):
+    import yaml
+    from libretto.tools import ToolRegistry
+
+    source = yaml.safe_dump({
+        'version': 1, 'id': 'names', 'name': 'Names', 'start': 'collect', 'shared_prompt': 'Help.',
+        'fields': {field_id: {'type': 'string'}},
+        'nodes': {
+            'collect': {'kind': 'conversation', 'prompt': 'Ask the name.', 'edges': [
+                {'id': 'complete', 'to': 'confirm', 'predicate': {'op': 'exists', 'field': field_id}},
+            ]},
+            'confirm': {'kind': 'conversation', 'entry': 'respond', 'readback': 'Hello {' + field_id + '}. {{literal}}', 'edges': [
+                {'id': 'done', 'to': 'end', 'condition': 'Finished'},
+            ]},
+            'end': {'kind': 'end'},
+        },
+    }, allow_unicode=True)
+    instance = WorkflowRunner(
+        compile_workflow(source, tools=ToolRegistry()),
+        responder=ScriptedResponder(['Thanks']),
+        evaluator=ScriptedEvaluator([Evaluation(updates={field_id: {'value': 'Taylor', 'evidence': 'Taylor'}})]),
+        delivery_mode='external',
+    )
+    try:
+        await instance.submit('Taylor', turn_id='details')
+        await drain_until(instance, 'readback')
+        response = await drain_until(instance, 'response_done')
+        assert response.data['text'] == 'Hello Taylor. {literal}'
+    finally:
+        await instance.close()

@@ -130,3 +130,28 @@ def test_workflow_limit_counts_characters_and_bounds_transitions(tmp_path):
     text = MINIMAL.replace("      - {id: done, to: end, condition: The user has answered.}", edges)
     with pytest.raises(ValueError, match="256 transitions"):
         load(text, tmp_path)
+
+
+@pytest.mark.parametrize('field_id', ['customer.name', 'customer[0]', '0', '１２'])
+def test_readback_rejects_format_expressions_even_when_they_are_configured_field_ids(field_id):
+    import yaml
+    from pathlib import Path
+    from libretto.schema import parse_workflow
+
+    source = yaml.safe_load(Path('examples/repair_visit/agent.yaml').read_text())
+    source['fields'][field_id] = source['fields'].pop('customer_name')
+    source['requests']['visit']['fields'][0] = field_id
+    source['confirmations']['booking']['fields'][0] = field_id
+    source['nodes']['confirm']['readback'] = source['nodes']['confirm']['readback'].replace('{customer_name}', '{' + field_id + '}')
+    source['nodes']['book']['requires'][0] = field_id
+    source['nodes']['book']['arguments']['customer_name'] = field_id
+    def rename_predicate(predicate):
+        if predicate.get('field') == 'customer_name':
+            predicate['field'] = field_id
+        for child in predicate.get('conditions', []):
+            rename_predicate(child)
+    for node in source['nodes'].values():
+        for edge in node.get('edges', []):
+            rename_predicate(edge.get('predicate', {}))
+    with pytest.raises(ValueError, match='plain|placeholder'):
+        parse_workflow(yaml.safe_dump(source, allow_unicode=True))
