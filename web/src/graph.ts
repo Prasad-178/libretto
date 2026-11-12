@@ -3,7 +3,11 @@ import { emptyMetadata } from "./studio/document-store";
 import type { GraphLayout, StudioMetadata } from "./studio/types";
 import type { Edge, Node } from "@xyflow/react";
 import type { FlowNode, Workflow } from "./workflow";
-import { routeLabel } from "./studio/workflow-model";
+import {
+  routeLabel,
+  routeKind,
+  routeDefinitionTone,
+} from "./studio/workflow-model";
 
 export type Point = { x: number; y: number };
 export type StageData = {
@@ -17,7 +21,13 @@ export type StageData = {
   focus?: () => void;
   exits?: number;
   incoming?: number;
-  chips?: { label: string; target: string; inspect: () => void }[];
+  moreChips?: () => void;
+  chips?: {
+    label: string;
+    target: string;
+    inspect: () => void;
+    tone?: "unknown" | "neutral";
+  }[];
 };
 export type BranchData = {
   label: string;
@@ -29,7 +39,12 @@ export type BranchData = {
   highlighted?: boolean;
   selected?: boolean;
   insert?: () => void;
-  members?: { label: string; inspect: () => void }[];
+  tone?: "unknown" | "neutral";
+  members?: {
+    label: string;
+    inspect: () => void;
+    tone?: "unknown" | "neutral";
+  }[];
 };
 export type StageNode = Node<StageData, "stage">;
 export type BranchEdge = Edge<BranchData, "branch">;
@@ -150,6 +165,10 @@ export function buildGraph(
         x: r.labelPoint.x,
         y: r.labelPoint.y,
         sourceStage: r.ref.source,
+        tone: routeDefinitionTone(
+          routeKind(workflow.nodes[r.ref.source], edge),
+          edge.result,
+        ),
       },
     };
   });

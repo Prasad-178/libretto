@@ -11,6 +11,7 @@ export type NewStepSpec =
       continuation: { condition: string } | { predicate: unknown };
     }
   | { kind: "say"; title: string; text: string }
+  | { kind: "end"; title: string }
   | {
       kind: "action";
       title: string;
@@ -109,14 +110,57 @@ export function insertConfiguredStep(
   spec: NewStepSpec,
 ): { source: string; nodeId: string } {
   const workflow = workflowFrom(source);
-  if (Object.keys(workflow.nodes).length >= 64)
-    throw new Error("A workflow can contain up to 64 steps.");
   const index = edgeIndex(source, ref),
     original = workflow.nodes[ref.source].edges[index];
   if (original.timing === "before_action")
     throw new Error(
       "Insert before the confirmation step. This connection protects an action.",
     );
+  const { nodeId, node } = configuredNode(workflow, spec, original.to);
+  return {
+    nodeId,
+    source: applyTransaction(source, {
+      label: `Insert ${spec.title}`,
+      operations: [
+        { op: "set", path: ["nodes", nodeId], value: node },
+        {
+          op: "set",
+          path: ["nodes", ref.source, "edges", index, "to"],
+          value: nodeId,
+        },
+      ],
+    }).source,
+  };
+}
+
+/** A disconnected step can be connected later, or explicitly selected as the entry. */
+export function addConfiguredStep(
+  source: string,
+  spec: NewStepSpec,
+  next?: string,
+  makeFirst = false,
+): { source: string; nodeId: string } {
+  const workflow = workflowFrom(source);
+  const { nodeId, node } = configuredNode(workflow, spec, next);
+  return {
+    nodeId,
+    source: applyTransaction(source, {
+      label: `Add ${spec.title}`,
+      operations: [
+        { op: "set", path: ["nodes", nodeId], value: node },
+        ...(makeFirst
+          ? [{ op: "set" as const, path: ["start"], value: nodeId }]
+          : []),
+      ],
+    }).source,
+  };
+}
+
+function configuredNode(workflow: Workflow, spec: NewStepSpec, next?: string) {
+  if (Object.keys(workflow.nodes).length >= 64)
+    throw new Error("A workflow can contain up to 64 steps.");
+  if (spec.kind === "conversation" || spec.kind === "say")
+    destination(workflow, next || "");
   if (!spec.title.trim()) throw new Error("Give the new step a title.");
   const base =
     spec.title
@@ -138,7 +182,7 @@ export function insertConfiguredStep(
       kind: spec.kind,
       title: spec.title,
       prompt: spec.prompt,
-      edges: [{ id: "continue", to: original.to, ...spec.continuation }],
+      edges: [{ id: "continue", to: next, ...spec.continuation }],
     };
   } else if (spec.kind === "say") {
     if (!spec.text.trim()) throw new Error("Write the exact message to speak.");
@@ -146,8 +190,10 @@ export function insertConfiguredStep(
       kind: spec.kind,
       title: spec.title,
       text: spec.text,
-      edges: [{ id: "spoken", to: original.to }],
+      edges: [{ id: "spoken", to: next }],
     };
+  } else if (spec.kind === "end") {
+    node = { kind: "end", title: spec.title };
   } else {
     validateAction(
       workflow,
@@ -179,24 +225,12 @@ export function insertConfiguredStep(
     Object.values(workflow.nodes).reduce(
       (sum, n) => sum + (n.edges?.length || 0),
       0,
-    ) + (node.edges as unknown[]).length;
+    ) + ((node.edges as unknown[] | undefined)?.length || 0);
   if (total > 256)
     throw new Error("A workflow supports up to 256 transitions.");
-  return {
-    nodeId,
-    source: applyTransaction(source, {
-      label: `Insert ${spec.title}`,
-      operations: [
-        { op: "set", path: ["nodes", nodeId], value: node },
-        {
-          op: "set",
-          path: ["nodes", ref.source, "edges", index, "to"],
-          value: nodeId,
-        },
-      ],
-    }).source,
-  };
+  return { nodeId, node };
 }
+
 export function reconnectRoute(
   source: string,
   ref: RouteRef,

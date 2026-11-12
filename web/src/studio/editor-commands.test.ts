@@ -167,3 +167,42 @@ it("requires mapped facts before executing an action", () => {
     }),
   ).toThrow(/required fact/i);
 });
+
+it("adds standalone steps to terminal-only workflows without inventing an incoming route", async () => {
+  const { addConfiguredStep } = await import("./editor-commands");
+  const source =
+    "version: 1\nid: empty\nname: Empty\nstart: end\nshared_prompt: Help.\nnodes:\n  end: {kind: end}\n";
+  const added = addConfiguredStep(
+    source,
+    {
+      kind: "conversation",
+      title: "Ask",
+      prompt: "Ask.",
+      continuation: { condition: "Answered" },
+    },
+    "end",
+    true,
+  );
+  const w = readWorkflow(added.source)!;
+  expect(w.start).toBe(added.nodeId);
+  expect(w.nodes.end).toEqual({ kind: "end" });
+  expect(w.nodes[added.nodeId].edges).toEqual([
+    { id: "continue", to: "end", condition: "Answered" },
+  ]);
+  const terminal = addConfiguredStep(added.source, {
+    kind: "end",
+    title: "Another ending",
+  });
+  expect(readWorkflow(terminal.source)!.nodes[terminal.nodeId]).toEqual({
+    kind: "end",
+    title: "Another ending",
+  });
+  expect(readWorkflow(terminal.source)!.start).toBe(added.nodeId);
+  expect(() =>
+    addConfiguredStep(
+      source,
+      { kind: "say", title: "Notice", text: "Hello." },
+      "missing",
+    ),
+  ).toThrow(/destination/i);
+});

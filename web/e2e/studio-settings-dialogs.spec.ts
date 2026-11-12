@@ -69,17 +69,6 @@ test("confirmation step settings explain delivery and reject incomplete readback
   await page
     .getByRole("button", { name: "Open Confirm visit step", exact: true })
     .click();
-  await page.locator(".inspector-advanced summary").click();
-  await page
-    .getByRole("combobox", { name: "On entering this step", exact: true })
-    .click();
-  await expect(
-    page.getByRole("option", { name: "Wait for the caller", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("option", { name: "Respond immediately", exact: true })
-    .click();
-  await page.locator(".inspector-advanced summary").click();
   await page
     .getByRole("button", { name: "Step settings", exact: true })
     .click();

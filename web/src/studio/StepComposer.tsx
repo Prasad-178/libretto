@@ -3,7 +3,11 @@ import { useState } from "react";
 import type { Workflow } from "../workflow";
 import type { RouteRef } from "./types";
 import type { ToolManifest } from "./tool-manifest";
-import { insertConfiguredStep, type NewStepSpec } from "./editor-commands";
+import {
+  insertConfiguredStep,
+  addConfiguredStep,
+  type NewStepSpec,
+} from "./editor-commands";
 export function StepComposer({
   source,
   workflow,
@@ -14,7 +18,7 @@ export function StepComposer({
 }: {
   source: string;
   workflow: Workflow;
-  route: RouteRef;
+  route?: RouteRef;
   tools: ToolManifest[];
   onCommit: (source: string, nodeId: string) => void;
   onCancel: () => void;
@@ -28,11 +32,13 @@ export function StepComposer({
     [requires, setRequires] = useState<string[]>([]),
     [results, setResults] = useState<Record<string, string>>({}),
     [error, setError] = useState("");
+  const [next, setNext] = useState(""),
+    [makeFirst, setMakeFirst] = useState(false);
   const tool = tools.find((t) => t.name === toolName),
     available = tools.filter((t) => workflow.tools?.includes(t.name));
-  const edge = workflow.nodes[route.source]?.edges.find(
-    (e) => e.id === route.edgeId,
-  );
+  const edge = route
+    ? workflow.nodes[route.source]?.edges?.find((e) => e.id === route.edgeId)
+    : undefined;
   return (
     <form
       className="step-composer"
@@ -43,6 +49,7 @@ export function StepComposer({
           if (kind === "conversation")
             spec = { kind, title, prompt, continuation: { condition } };
           else if (kind === "say") spec = { kind, title, text: prompt };
+          else if (kind === "end") spec = { kind, title };
           else {
             if (!tool)
               throw new Error("Choose an available registered action.");
@@ -55,7 +62,9 @@ export function StepComposer({
               resultDestinations: results,
             };
           }
-          const result = insertConfiguredStep(source, route, spec);
+          const result = route
+            ? insertConfiguredStep(source, route, spec)
+            : addConfiguredStep(source, spec, next, makeFirst);
           onCommit(result.source, result.nodeId);
         } catch (e) {
           setError((e as Error).message);
@@ -63,10 +72,11 @@ export function StepComposer({
       }}
     >
       <section>
-        <h3>Insert a step</h3>
+        <h3>{route ? "Insert a step" : "Add a step"}</h3>
         <p className="inspector-help">
-          {workflow.nodes[route.source].title || route.source} → New step →{" "}
-          {workflow.nodes[edge?.to || ""]?.title || edge?.to}
+          {route
+            ? `${workflow.nodes[route.source].title || route.source} → New step → ${workflow.nodes[edge?.to || ""]?.title || edge?.to}`
+            : "Connect this step from an existing step, or make it the first step."}
         </p>
         <label>
           Step type
@@ -80,6 +90,7 @@ export function StepComposer({
             <option value="conversation">Conversation</option>
             <option value="say">Say an exact message</option>
             <option value="action">Run an action</option>
+            {!route && <option value="end">End conversation</option>}
           </Select>
         </label>
         <label>
@@ -92,7 +103,9 @@ export function StepComposer({
           />
         </label>
       </section>
-      {kind !== "action" ? (
+      {kind === "end" ? (
+        <p className="inspector-help">Ends the conversation when reached.</p>
+      ) : kind !== "action" ? (
         <section>
           <label>
             {kind === "say" ? "Exact message" : "Step prompt"}
@@ -163,7 +176,7 @@ export function StepComposer({
               >
                 <option value="">Choose {p.type} field…</option>
                 {Object.entries(workflow.fields || {})
-                  .filter(([, f]) => f.type === p.type)
+                  .filter(([, f]) => (f.type || "string") === p.type)
                   .map(([id]) => (
                     <option key={id}>{id}</option>
                   ))}
@@ -208,6 +221,35 @@ export function StepComposer({
               </Select>
             </label>
           ))}
+        </section>
+      )}
+      {!route && (
+        <section>
+          {(kind === "conversation" || kind === "say") && (
+            <label>
+              Go to after this step
+              <Select
+                value={next}
+                onChange={(event) => setNext(event.target.value)}
+                required
+              >
+                <option value="">Choose destination…</option>
+                {Object.entries(workflow.nodes).map(([id, node]) => (
+                  <option key={id} value={id}>
+                    {node.title || id}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
+          <label className="inspector-check">
+            <input
+              type="checkbox"
+              checked={makeFirst}
+              onChange={(event) => setMakeFirst(event.target.checked)}
+            />
+            Make this the first step
+          </label>
         </section>
       )}
       {error && (

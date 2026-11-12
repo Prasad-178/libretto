@@ -891,6 +891,7 @@ export default function App() {
                 tools={toolManifests}
                 hideInspector={showTest}
                 onInspect={() => setShowTest(false)}
+                onFields={() => setView("fields")}
                 onSources={(id) => {
                   setSelected(id);
                   setView("knowledge");

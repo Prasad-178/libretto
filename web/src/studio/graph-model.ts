@@ -5,6 +5,7 @@ import type {
   RoutePresentation,
   RouteRef,
   SavedView,
+  StudioMetadata,
 } from "./types";
 export function describeRoutes(workflow: Workflow): RouteDescriptor[] {
   const nodes = Object.entries(workflow.nodes);
@@ -47,8 +48,10 @@ export function describeRoutes(workflow: Workflow): RouteDescriptor[] {
 export function presentRoutes(
   routes: RouteDescriptor[],
   view: SavedView | null,
+  hints: StudioMetadata["presentation"] = [],
 ): RoutePresentation[] {
   const visible = view ? new Set(view.visibleRoutes.map(routeKey)) : null;
+  const modes = new Map(hints.map((hint) => [hint.target, hint.mode]));
   const result: RoutePresentation[] = [],
     used = new Set<string>();
   for (const route of routes) {
@@ -56,6 +59,11 @@ export function presentRoutes(
     if (used.has(key)) continue;
     if (visible && !visible.has(key)) {
       result.push({ refs: [route.ref], mode: "hidden", target: route.target });
+      used.add(key);
+      continue;
+    }
+    if (modes.get(route.target) === "chips") {
+      result.push({ refs: [route.ref], mode: "chip", target: route.target });
       used.add(key);
       continue;
     }

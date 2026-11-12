@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Select } from "../ui/Select";
 import { Choices, friendlyName, type SettingsDraft } from "./SettingsDialog";
 import {
-  definitionUses,
+  removalUses,
   removeDefinition,
   renameDefinition,
   type DefinitionKind,
@@ -26,7 +26,7 @@ export function DefinitionActions({
   const [nextId, setId] = useState(id);
   const pendingKey = `${kind}:${id}`;
   useEffect(() => () => draft.markPending?.(pendingKey, false), [kind, id]);
-  const uses = definitionUses(draft.workflow, kind, id);
+  const uses = removalUses(draft.workflow, kind, id);
   return (
     <div className="definition-actions">
       <label>
@@ -84,7 +84,9 @@ export function DefinitionActions({
         title={uses.length ? `Used by ${uses.join(", ")}` : undefined}
         onClick={() => {
           try {
-            draft.apply(removeDefinition(draft.source, kind, id));
+            draft.apply(
+              removeDefinition(draft.source, kind, id, draft.metadata),
+            );
           } catch (error) {
             draft.setError((error as Error).message);
           }
@@ -97,7 +99,7 @@ export function DefinitionActions({
             ? "rule"
             : kind === "fields"
               ? "field"
-              : "definition"}
+              : "step"}
       </button>
       {uses.length > 0 && (
         <p>

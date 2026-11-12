@@ -22,3 +22,11 @@ export function routeKind(
   if (edge.condition) return "language";
   return "unconfigured";
 }
+
+/** Definition colour follows reserved contract semantics, never business-result spelling. */
+export function routeDefinitionTone(
+  kind: RouteKind,
+  result?: string,
+): "unknown" | "neutral" {
+  return kind === "result" && result === "unknown" ? "unknown" : "neutral";
+}

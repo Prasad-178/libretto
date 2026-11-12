@@ -106,12 +106,10 @@ export function configureAction(
       ),
     },
     { op: "set", path: ["nodes", nodeId, "requires"], value: requires },
-    ...obsolete
-      .reverse()
-      .map(({ index }) => ({
-        op: "delete" as const,
-        path: ["nodes", nodeId, "edges", index],
-      })),
+    ...obsolete.reverse().map(({ index }) => ({
+      op: "delete" as const,
+      path: ["nodes", nodeId, "edges", index],
+    })),
   ];
   const retained = node.edges.filter((e) =>
     tool.results.includes(e.result || ""),
@@ -137,4 +135,82 @@ export function configureAction(
       });
     }
   return { label: "Configure action", operations };
+}
+
+/** Existing YAML bindings remain editable when the connected runtime lacks its contract. */
+export function editActionBindings(
+  source: string,
+  nodeId: string,
+  args: Record<string, string>,
+  requires: string[],
+  destinations: Record<string, string>,
+): DocumentTransaction {
+  const workflow = workflowFrom(source),
+    node = workflow.nodes[nodeId];
+  if (!node || node.kind !== "action" || !node.tool)
+    throw new Error("Choose an action step with a tool ID.");
+  const fields = workflow.fields || {};
+  for (const [parameter, field] of Object.entries(args)) {
+    if (!parameter.trim() || !Object.hasOwn(fields, field))
+      throw new Error("Map each parameter to an existing field.");
+    if (!requires.includes(field))
+      throw new Error(`Mark ${field} as required before the action runs.`);
+  }
+  for (const field of requires)
+    if (!Object.hasOwn(fields, field))
+      throw new Error(`Unknown required field ${field}.`);
+  const operations: EditOperation[] = [
+    { op: "set", path: ["nodes", nodeId, "arguments"], value: args },
+    { op: "set", path: ["nodes", nodeId, "requires"], value: requires },
+  ];
+  for (const [id, to] of Object.entries(destinations)) {
+    const index = node.edges.findIndex((e) => e.id === id);
+    if (index < 0) throw new Error("This result route no longer exists.");
+    if (!Object.hasOwn(workflow.nodes, to))
+      throw new Error("Choose an existing destination step.");
+    operations.push({
+      op: "set",
+      path: ["nodes", nodeId, "edges", index, "to"],
+      value: to,
+    });
+  }
+  return { label: "Edit imported action bindings", operations };
+}
+
+/** Remove a connection without losing required action-result recovery paths. */
+export function removeRoute(
+  source: string,
+  ref: RouteRef,
+  metadata: StudioMetadata,
+  tools: ToolManifest[],
+): DocumentTransaction {
+  const workflow = workflowFrom(source);
+  const index = edgeIndex(source, ref);
+  const node = workflow.nodes[ref.source];
+  const edge = node.edges[index];
+  if (node.kind !== "end" && node.edges.length === 1)
+    throw new Error("Keep at least one connection from this step.");
+  const contract = tools.find((tool) => tool.name === node.tool);
+  if (
+    node.kind === "action" &&
+    edge.result &&
+    contract?.results.includes(edge.result) &&
+    node.edges.filter((item) => item.result === edge.result).length === 1
+  )
+    throw new Error(
+      `The declared result ${edge.result} requires a connection. Change its destination instead.`,
+    );
+  return {
+    label: "Delete connection",
+    operations: [{ op: "delete", path: ["nodes", ref.source, "edges", index] }],
+    metadata: {
+      ...metadata,
+      views: metadata.views.map((view) => ({
+        ...view,
+        visibleRoutes: view.visibleRoutes.filter(
+          (item) => item.source !== ref.source || item.edgeId !== ref.edgeId,
+        ),
+      })),
+    },
+  };
 }

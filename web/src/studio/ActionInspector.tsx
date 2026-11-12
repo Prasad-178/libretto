@@ -1,185 +1,340 @@
 import { Select } from "../ui/Select";
+import { AlertTriangle, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Workflow } from "../workflow";
 import type { DocumentTransaction } from "./types";
 import type { ToolManifest } from "./tool-manifest";
-import { validateAction } from "./editor-commands";
+import { configureAction, editActionBindings } from "./authoring-commands";
+import { humanizeId } from "./workflow-model";
+
 export function ActionInspector({
+  source,
   workflow,
   nodeId,
   tools,
   onTransaction,
+  onSettings,
 }: {
+  source: string;
   workflow: Workflow;
   nodeId: string;
   tools: ToolManifest[];
   onTransaction: (tx: DocumentTransaction) => void;
+  onSettings: () => void;
 }) {
   const node = workflow.nodes[nodeId];
   const [toolName, setToolName] = useState(node.tool || ""),
     [args, setArgs] = useState(node.arguments || {}),
     [requires, setRequires] = useState(node.requires || []),
     [results, setResults] = useState<Record<string, string>>({}),
-    [error, setError] = useState("");
+    [routes, setRoutes] = useState<Record<string, string>>({}),
+    [error, setError] = useState(""),
+    [newParameter, setNewParameter] = useState(""),
+    [newField, setNewField] = useState("");
   useEffect(() => {
     setToolName(node.tool || "");
     setArgs(node.arguments || {});
     setRequires(node.requires || []);
     setResults(
       Object.fromEntries(
-        (node.edges || [])
-          .filter((e) => e.result)
-          .map((e) => [e.result!, e.to]),
+        node.edges.filter((e) => e.result).map((e) => [e.result!, e.to]),
       ),
     );
+    setRoutes(Object.fromEntries(node.edges.map((e) => [e.id, e.to])));
+    setError("");
   }, [node]);
   const tool = tools.find((t) => t.name === toolName);
+  const parameters =
+    tool?.parameters ||
+    Object.keys(args).map((name) => ({
+      name,
+      type: undefined,
+      required: undefined,
+    }));
+  const fieldChoices = (type?: string) =>
+    Object.entries(workflow.fields || {}).filter(
+      ([, f]) => !type || (f.type || "string") === type,
+    );
+  const bind = (name: string, field: string) => {
+    if (field) {
+      setArgs({ ...args, [name]: field });
+      setRequires((previous) => [...new Set([...previous, field])]);
+    } else
+      setArgs(
+        Object.fromEntries(Object.entries(args).filter(([id]) => id !== name)),
+      );
+  };
+  const rule =
+    node.confirmation &&
+    Object.hasOwn(workflow.confirmations || {}, node.confirmation)
+      ? workflow.confirmations![node.confirmation]
+      : undefined;
   return (
-    <section>
-      <h3>Action configuration</h3>
-      <label>
-        Registered action
-        <Select
-          value={toolName}
-          onChange={(e) => {
-            setToolName(e.target.value);
-            setArgs({});
-            setResults({});
-          }}
-        >
-          <option value={node.tool || ""}>
-            {node.tool || "Choose action…"}
-          </option>
-          {tools
-            .filter(
-              (t) => t.name !== node.tool && workflow.tools?.includes(t.name),
-            )
-            .map((t) => (
-              <option key={t.name}>{t.name}</option>
-            ))}
-        </Select>
-      </label>
-      {!tool ? (
-        <p className="inspector-notice">
-          The runtime has no manifest for this action. Its YAML is preserved;
-          connect a runtime that registers it to edit mappings.
+    <div className="action-editor">
+      <section>
+        <label>
+          Registered action
+          <Select
+            value={toolName}
+            onChange={(event) => {
+              setToolName(event.target.value);
+              setArgs({});
+              setResults({});
+              setError("");
+            }}
+          >
+            <option value={node.tool || ""}>
+              {node.tool || "Choose an action…"}
+            </option>
+            {tools
+              .filter(
+                (t) => t.name !== node.tool && workflow.tools?.includes(t.name),
+              )
+              .map((t) => (
+                <option key={t.name}>{t.name}</option>
+              ))}
+          </Select>
+        </label>
+        <p className="inspector-help">
+          Actions are registered by your Python application. Studio edits the
+          workflow’s bindings.
         </p>
-      ) : (
-        <>
-          {tool.parameters.map((p) => (
-            <label key={p.name}>
-              {p.name}
-              {p.required ? " *" : " (optional)"}
+      </section>
+      {!tool && (
+        <p className="inspector-notice">
+          This runtime has no Python contract for{" "}
+          <code>{toolName || "this action"}</code>. Existing YAML bindings
+          remain editable; connect a runtime that registers it before testing.
+        </p>
+      )}
+      <section>
+        <h3>Inputs</h3>
+        <p className="inspector-help">
+          Pass collected information into the action.
+        </p>
+        {parameters.length ? (
+          parameters.map((parameter) => (
+            <div className="action-input-row" key={parameter.name}>
+              <label htmlFor={`action-param-${parameter.name}`}>
+                <code>{parameter.name}</code>
+                <small>
+                  {parameter.type || "Type not available"}
+                  {parameter.required ? " · required" : ""}
+                </small>
+              </label>
               <Select
-                value={args[p.name] || ""}
-                onChange={(e) => {
-                  setArgs({ ...args, [p.name]: e.target.value });
-                  if (e.target.value)
-                    setRequires((old) => [
-                      ...new Set([...old, e.target.value]),
-                    ]);
-                }}
-              >
-                <option value="">Choose {p.type} field…</option>
-                {Object.entries(workflow.fields || {})
-                  .filter(([, f]) => f.type === p.type)
-                  .map(([field]) => (
-                    <option key={field}>{field}</option>
-                  ))}
-              </Select>
-            </label>
-          ))}
-          <h4>Required facts</h4>
-          {Object.keys(workflow.fields || {}).map((field) => (
-            <label key={field} className="inspector-check">
-              <input
-                type="checkbox"
-                checked={requires.includes(field)}
-                onChange={(e) =>
-                  setRequires(
-                    e.target.checked
-                      ? [...requires, field]
-                      : requires.filter((f) => f !== field),
-                  )
+                id={`action-param-${parameter.name}`}
+                aria-label={`Input for ${parameter.name}`}
+                value={
+                  Object.hasOwn(args, parameter.name)
+                    ? args[parameter.name]
+                    : ""
                 }
-              />
-              {field}
-            </label>
-          ))}
-          <h4>Results</h4>
-          {tool.results.map((result) => (
-            <label key={result}>
-              {result}
-              <Select
-                value={results[result] || ""}
-                onChange={(e) =>
-                  setResults({ ...results, [result]: e.target.value })
-                }
+                onChange={(e) => bind(parameter.name, e.target.value)}
               >
-                <option value="">Choose destination…</option>
-                {Object.entries(workflow.nodes).map(([id, n]) => (
+                <option value="">
+                  {parameter.required ? "Choose a field…" : "Not mapped"}
+                </option>
+                {fieldChoices(parameter.type).map(([id]) => (
                   <option key={id} value={id}>
-                    {n.title || id}
+                    {humanizeId(id)}
+                  </option>
+                ))}
+              </Select>
+              {!tool && (
+                <button
+                  aria-label={`Remove mapping ${parameter.name}`}
+                  onClick={() => bind(parameter.name, "")}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))
+        ) : (
+          <p className="inspector-help">This action has no mapped inputs.</p>
+        )}
+        {!tool && (
+          <details className="action-technical">
+            <summary>Add a YAML input mapping</summary>
+            <label>
+              Parameter ID
+              <input
+                value={newParameter}
+                onChange={(e) => setNewParameter(e.target.value)}
+              />
+            </label>
+            <label>
+              Collected field
+              <Select
+                value={newField}
+                onChange={(e) => setNewField(e.target.value)}
+              >
+                <option value="">Choose a field…</option>
+                {fieldChoices().map(([id]) => (
+                  <option key={id} value={id}>
+                    {humanizeId(id)}
                   </option>
                 ))}
               </Select>
             </label>
-          ))}
-          <button
-            className="button"
-            onClick={() => {
-              try {
-                validateAction(workflow, tool, args, requires, results);
-                const used = new Set<string>();
-                const edges = tool.results.map((result, i) => {
-                  const existing = node.edges.find((e) => e.result === result);
-                  let id = existing?.id || `result_${i + 1}`;
-                  while (used.has(id)) id += "_";
-                  used.add(id);
-                  return { ...existing, id, to: results[result], result };
-                });
-                onTransaction({
-                  label: "Configure action",
-                  operations: [
-                    {
-                      op: "set",
-                      path: ["nodes", nodeId, "tool"],
-                      value: tool.name,
-                    },
-                    {
-                      op: "set",
-                      path: ["nodes", nodeId, "arguments"],
-                      value: Object.fromEntries(
-                        Object.entries(args).filter(([, field]) => field),
-                      ),
-                    },
-                    {
-                      op: "set",
-                      path: ["nodes", nodeId, "requires"],
-                      value: requires,
-                    },
-                    {
-                      op: "set",
-                      path: ["nodes", nodeId, "edges"],
-                      value: edges,
-                    },
-                  ],
-                });
+            <button
+              className="button"
+              onClick={() => {
+                if (!newParameter.trim() || !newField) {
+                  setError(
+                    "Enter a parameter ID and choose its collected field.",
+                  );
+                  return;
+                }
+                if (Object.hasOwn(args, newParameter)) {
+                  setError("That parameter already has a mapping.");
+                  return;
+                }
+                bind(newParameter, newField);
+                setNewParameter("");
+                setNewField("");
                 setError("");
-              } catch (e) {
-                setError((e as Error).message);
+              }}
+            >
+              Add mapping
+            </button>
+          </details>
+        )}
+      </section>
+      <details className="action-required">
+        <summary>Required information · {requires.length}</summary>
+        <p className="inspector-help">
+          The action waits until these values are collected. Every mapped input
+          must be required.
+        </p>
+        {Object.keys(workflow.fields || {}).map((field) => (
+          <label className="inspector-check" key={field}>
+            <input
+              type="checkbox"
+              checked={requires.includes(field)}
+              onChange={(e) =>
+                setRequires(
+                  e.target.checked
+                    ? [...requires, field]
+                    : requires.filter((f) => f !== field),
+                )
               }
-            }}
+            />
+            {humanizeId(field)}
+          </label>
+        ))}
+      </details>
+      <div className="action-guard-note">
+        <strong>Before this action can run</strong>
+        <p>
+          {rule
+            ? rule.require_delivery !== false
+              ? "Requires the mapped values and caller approval of a fully heard readback for this request."
+              : "Requires the mapped values and caller approval under the configured confirmation rule."
+            : "Requires its collected values. No caller confirmation rule is configured."}
+        </p>
+        <button className="inspector-link" onClick={onSettings}>
+          {rule ? "Review confirmation rule" : "Step settings and confirmation"}
+        </button>
+      </div>
+      <section>
+        <h3>Outcome destinations</h3>
+        <p className="inspector-help">
+          {tool ? (
+            <>
+              Result IDs are declared by <code>{tool.name}</code> in Python.
+              Choose the next step for each result.
+            </>
+          ) : (
+            "These result bindings come from the opened YAML. The Python result contract is not available here."
+          )}
+        </p>
+        {(tool
+          ? tool.results.map((result) => ({
+              key: result,
+              result,
+              value: results[result] || "",
+            }))
+          : node.edges.map((edge) => ({
+              key: edge.id,
+              result: edge.result || "Unconfigured result",
+              value: routes[edge.id] || edge.to,
+            }))
+        ).map((item) => (
+          <div
+            className={`action-outcome-row ${item.result === "unknown" ? "unknown-result" : ""}`}
+            key={item.key}
           >
-            Apply action configuration
-          </button>
-        </>
-      )}
+            <label htmlFor={`action-result-${item.key}`}>
+              {item.result === "unknown" && (
+                <AlertTriangle
+                  size={13}
+                  aria-label="Uncertain outcome recovery"
+                />
+              )}
+              <code>{item.result}</code>
+            </label>
+            <Select
+              id={`action-result-${item.key}`}
+              aria-label={`Destination for ${item.result}`}
+              value={item.value}
+              onChange={(e) =>
+                tool
+                  ? setResults({ ...results, [item.key]: e.target.value })
+                  : setRoutes({ ...routes, [item.key]: e.target.value })
+              }
+            >
+              <option value="">Choose the next step…</option>
+              {Object.entries(workflow.nodes).map(([id, n]) => (
+                <option key={id} value={id}>
+                  {n.title || id}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ))}
+        {(tool?.results.includes("unknown") ||
+          node.edges.some((e) => e.result === "unknown")) && (
+          <p className="inspector-help">
+            Unknown handles an uncertain outcome. Inspect the actual receipt
+            before attempting the action again.
+          </p>
+        )}
+      </section>
       {error && (
         <p className="inspector-error" role="alert">
           {error}
         </p>
       )}
-    </section>
+      <div className="action-apply">
+        <span>Mappings and destinations apply together.</span>
+        <button
+          className="button black"
+          aria-label="Apply action configuration"
+          onClick={() => {
+            try {
+              onTransaction(
+                tool
+                  ? configureAction(
+                      source,
+                      nodeId,
+                      tool,
+                      args,
+                      requires,
+                      results,
+                    )
+                  : editActionBindings(source, nodeId, args, requires, routes),
+              );
+              setError("");
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Apply changes
+        </button>
+      </div>
+    </div>
   );
 }

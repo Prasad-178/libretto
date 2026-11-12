@@ -1,21 +1,27 @@
 import { StepSettingsDialog } from "./studio/StepSettingsDialog";
-import { voiceEngine } from "./voice-config";
-import { Select } from "./ui/Select";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Code2, Expand, Undo2, X } from "lucide-react";
-import { type Workflow } from "./workflow";
+import { Code2, Undo2, X } from "lucide-react";
+import type { Workflow } from "./workflow";
 import type { EdgeSelection } from "./studio-editing";
 import { branchLabel } from "./graph";
 import { applyTransaction } from "./studio/yaml-edits";
-import { createRoute } from "./studio/editor-commands";
 import { ActionInspector } from "./studio/ActionInspector";
 import { RouteInspector } from "./studio/RouteInspector";
 import { StepComposer } from "./studio/StepComposer";
+import { StepConnections, ConnectionRows } from "./studio/StepConnections";
+import { StepPromptEditor } from "./studio/StepPromptEditor";
 import { predicateFields } from "./studio/PredicateEditor";
+import { readbackTokens } from "./studio/settings-edits";
+import { humanizeId } from "./studio/workflow-model";
 import type { StudioMetadata, DocumentTransaction } from "./studio/types";
 import type { ToolManifest } from "./studio/tool-manifest";
 export type Selection =
-  { kind: "step"; id: string } | ({ kind: "edge" | "insert" } & EdgeSelection);
+  | {
+      kind: "step";
+      id: string;
+      section?: "prompt" | "connections" | "knowledge";
+    }
+  | ({ kind: "edge" | "insert" } & EdgeSelection);
 export default function StepInspector({
   source,
   workflow,
@@ -31,6 +37,7 @@ export default function StepInspector({
   onTransaction,
   onHistoryEnd,
   onSources,
+  onFields,
   metadata,
 }: {
   metadata: StudioMetadata;
@@ -48,17 +55,14 @@ export default function StepInspector({
   onTransaction?: (tx: DocumentTransaction) => void;
   onHistoryEnd?: () => void;
   onSources?: (id: string) => void;
+  onFields?: () => void;
 }) {
-  const [stepSettings, setStepSettings] = useState(false);
-  const [error, setError] = useState(""),
-    [tab, setTab] = useState("exits"),
-    [wide, setWide] = useState(false),
-    [adding, setAdding] = useState(false);
-  const [routeId, setRouteId] = useState(""),
-    [target, setTarget] = useState(""),
-    [rule, setRule] = useState("");
-  const wideDialog = useRef<HTMLDialogElement>(null),
-    panel = useRef<HTMLElement>(null),
+  const [stepSettings, setStepSettings] = useState(false),
+    [error, setError] = useState(""),
+    [section, setSection] = useState(
+      selection.kind === "step" ? selection.section || "prompt" : "prompt",
+    );
+  const panel = useRef<HTMLElement>(null),
     returnFocus = useRef<HTMLElement | null>(null);
   const id = selection.kind === "step" ? selection.id : selection.source,
     node = workflow.nodes[id];
@@ -68,8 +72,8 @@ export default function StepInspector({
       : undefined;
   useEffect(() => {
     returnFocus.current =
-      window.document.activeElement instanceof HTMLElement
-        ? window.document.activeElement
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
         : null;
     panel.current
       ?.querySelector<HTMLElement>("input,textarea,select,button")
@@ -79,19 +83,22 @@ export default function StepInspector({
       if (returnFocus.current?.isConnected) returnFocus.current.focus();
     };
   }, []);
+  const requestedSection =
+    selection.kind === "step" ? selection.section : undefined;
   useEffect(() => {
-    if (wide) wideDialog.current?.showModal();
-    else wideDialog.current?.close();
-  }, [wide]);
+    if (requestedSection) setSection(requestedSection);
+  }, [requestedSection]);
   if (!node || (selection.kind !== "step" && !edge)) return null;
-  function commit(tx: DocumentTransaction) {
-    if (readOnly) return;
+  function commit(tx: DocumentTransaction): boolean {
+    if (readOnly) return false;
     try {
       if (onTransaction) onTransaction(tx);
       else onChange(applyTransaction(source, tx).source, tx.historyGroup);
       setError("");
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     }
   }
   const change = (key: string, value: unknown, group?: string) =>
@@ -100,17 +107,27 @@ export default function StepInspector({
       historyGroup: group,
       operations: [{ op: "set", path: ["nodes", id, key], value }],
     });
-  const incoming = Object.entries(workflow.nodes).flatMap(([source, n]) =>
-    (n.edges || [])
-      .filter((e) => e.to === id)
-      .map((e) => ({ source, edge: e })),
-  );
+  let tokens: string[] = [];
+  try {
+    tokens = readbackTokens(node.readback || "").map((token) => token.field);
+  } catch {
+    /* Invalid readbacks remain editable. */
+  }
   const fields = [
-    ...new Set((node.edges || []).flatMap((e) => predicateFields(e.predicate))),
+    ...new Set([
+      ...(node.edges || []).flatMap((e) => predicateFields(e.predicate)),
+      ...(node.requires || []),
+      ...Object.values(node.arguments || {}),
+      ...tokens,
+    ]),
   ];
-  const promptKey = node.kind === "say" ? "text" : "prompt",
-    prompt = node.kind === "say" ? node.text || "" : node.prompt || "",
-    group = `step:${id}:${promptKey}`;
+  const promptKey =
+    node.kind === "say"
+      ? "text"
+      : node.readback && node.confirmation
+        ? "readback"
+        : "prompt";
+  const prompt = node[promptKey] || "";
   const sources = [
     ...new Set([
       ...(workflow.common_knowledge || []),
@@ -129,7 +146,11 @@ export default function StepInspector({
             : "Insert step"
       }
       onKeyDown={(e) => {
-        if (e.key === "Escape" && !wide && !stepSettings) {
+        if (
+          e.key === "Escape" &&
+          !e.defaultPrevented &&
+          !(e.target as HTMLElement).closest("dialog,[role=listbox]")
+        ) {
           e.stopPropagation();
           onClose();
         }
@@ -142,54 +163,83 @@ export default function StepInspector({
       <header className="studio-inspector-header">
         <div className="inspector-eyebrow">
           {selection.kind === "step"
-            ? node.kind
+            ? `${humanizeId(node.kind)} step`
             : selection.kind === "edge"
-              ? "Route"
+              ? "Connection"
               : "Insert step"}
           <button aria-label="Close inspector" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         {selection.kind === "step" ? (
-          <input
-            className="step-title-input"
-            aria-label="Step name"
-            value={node.title || ""}
-            placeholder={id}
-            disabled={readOnly}
-            onChange={(e) =>
-              change("title", e.target.value, `step:${id}:title`)
-            }
-            onBlur={onHistoryEnd}
-          />
+          <>
+            <input
+              className="step-title-input"
+              aria-label="Step name"
+              value={node.title || ""}
+              placeholder={id}
+              disabled={readOnly}
+              onChange={(e) =>
+                change("title", e.target.value, `step:${id}:title`)
+              }
+              onBlur={onHistoryEnd}
+            />
+            <button
+              className="inspector-link"
+              disabled={readOnly}
+              onClick={() => setStepSettings(true)}
+            >
+              Step settings
+            </button>
+          </>
         ) : (
-          <h2>
-            {selection.kind === "edge" ? branchLabel(edge!) : "Add to workflow"}
-          </h2>
-        )}
-        {selection.kind !== "step" && <p>From {node.title || id}</p>}
-        {selection.kind === "step" && (
-          <button
-            className="inspector-link"
-            disabled={readOnly}
-            onClick={() => setStepSettings(true)}
-          >
-            Step settings
-          </button>
+          <>
+            <h2>
+              {selection.kind === "edge"
+                ? branchLabel(edge!)
+                : "Add to workflow"}
+            </h2>
+            <button
+              className="inspector-back"
+              onClick={() =>
+                onSelect({ kind: "step", id, section: "connections" })
+              }
+            >
+              ← {node.title || id}
+            </button>
+          </>
         )}
       </header>
+      {selection.kind === "step" && (
+        <nav className="inspector-main-tabs" aria-label="Step sections">
+          {[
+            {
+              id: "prompt" as const,
+              label:
+                node.kind === "action"
+                  ? "Action"
+                  : node.kind === "end"
+                    ? "Overview"
+                    : "Prompt",
+            },
+            { id: "connections" as const, label: "Connections" },
+            { id: "knowledge" as const, label: "Knowledge" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              aria-current={section === tab.id ? "page" : undefined}
+              className={section === tab.id ? "selected" : ""}
+              onClick={() => {
+                onHistoryEnd?.();
+                setSection(tab.id);
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      )}
       <div className="studio-inspector-scroll">
-        {node.begin_request && (
-          <p className="inspector-notice">
-            Begins request: <code>{node.begin_request}</code>
-          </p>
-        )}
-        {node.confirmation && (
-          <p className="inspector-notice">
-            Caller confirmation required · <code>{node.confirmation}</code>.
-            Review this rule in Step settings.
-          </p>
-        )}
         {readOnly && (
           <p className="inspector-notice">
             Showing the running snapshot. Stop the test to edit.
@@ -219,273 +269,135 @@ export default function StepInspector({
               workflow={workflow}
               route={selection}
               tools={tools}
+              metadata={metadata}
+              onRemoved={() =>
+                onSelect({ kind: "step", id, section: "connections" })
+              }
+              onRenamed={(edgeId) =>
+                onSelect({ kind: "edge", source: id, edgeId })
+              }
               onTransaction={commit}
             />
           ) : (
             <>
-              {(node.kind === "conversation" || node.kind === "say") && (
-                <section>
-                  <div className="inspector-section-heading">
-                    <h3>{node.kind === "say" ? "Exact message" : "Prompt"}</h3>
-                    <button
-                      className="inspector-link"
-                      aria-label="Expand prompt editor"
-                      onClick={() => setWide(true)}
-                    >
-                      <Expand size={14} /> Expand
+              {section === "prompt" && (
+                <>
+                  {node.begin_request && (
+                    <p className="inspector-notice">
+                      Begins request: <code>{node.begin_request}</code>
+                    </p>
+                  )}
+                  {node.confirmation && (
+                    <p className="inspector-notice">
+                      Caller confirmation required ·{" "}
+                      <code>{node.confirmation}</code>. Review this rule in Step
+                      settings.
+                    </p>
+                  )}
+                  {(node.kind === "conversation" || node.kind === "say") && (
+                    <StepPromptEditor
+                      title={node.title || id}
+                      value={prompt}
+                      readback={promptKey === "readback"}
+                      literal={node.kind === "say"}
+                      disabled={readOnly}
+                      onChange={(value) =>
+                        change(promptKey, value, `step:${id}:${promptKey}`)
+                      }
+                      onHistoryEnd={onHistoryEnd}
+                    />
+                  )}
+                  {node.kind === "action" && (
+                    <ActionInspector
+                      source={source}
+                      workflow={workflow}
+                      nodeId={id}
+                      tools={tools}
+                      onTransaction={commit}
+                      onSettings={() => setStepSettings(true)}
+                    />
+                  )}
+                  {node.kind === "end" && (
+                    <section>
+                      <p>This step ends the conversation.</p>
+                    </section>
+                  )}
+                  {!!fields.length && (
+                    <section>
+                      <h3>Information used here</h3>
+                      <div className="inspector-field-tags">
+                        {fields.map((field) => (
+                          <span key={field} title={field}>
+                            {humanizeId(field)}
+                          </span>
+                        ))}
+                      </div>
+                      {onFields && (
+                        <button className="inspector-link" onClick={onFields}>
+                          Manage collected data →
+                        </button>
+                      )}
+                    </section>
+                  )}
+                  {node.kind !== "action" && (node.edges || []).length > 0 && (
+                    <section>
+                      <h3>Next step</h3>
+                      <ConnectionRows
+                        edges={(node.edges || []).slice(0, 2)}
+                        workflow={workflow}
+                        nodeId={id}
+                        onSelect={onSelect}
+                      />
+                      {(node.edges || []).length > 2 && (
+                        <button
+                          className="inspector-link"
+                          onClick={() => setSection("connections")}
+                        >
+                          View all {node.edges?.length} connections →
+                        </button>
+                      )}
+                    </section>
+                  )}
+                  <details className="inspector-advanced">
+                    <summary>Advanced · Step ID and YAML</summary>
+                    <p className="inspector-help">
+                      Step ID: <code>{id}</code>
+                    </p>
+                    <button className="inspector-link" onClick={onYaml}>
+                      Open YAML definition ↗
                     </button>
-                  </div>
-                  <textarea
-                    aria-label="Step prompt"
-                    className="step-prompt"
-                    rows={8}
-                    value={prompt}
-                    onChange={(e) => change(promptKey, e.target.value, group)}
-                    onBlur={onHistoryEnd}
-                  />
-                  <p className="inspector-help">
-                    {node.kind === "say"
-                      ? "Spoken exactly, then continues automatically."
-                      : "Changes apply to the draft as you type. Routes determine when to leave this step."}
-                  </p>
-                </section>
+                  </details>
+                </>
               )}
-              {node.kind === "action" && (
-                <ActionInspector
+              {section === "connections" && (
+                <StepConnections
+                  source={source}
                   workflow={workflow}
                   nodeId={id}
                   tools={tools}
-                  onTransaction={commit}
+                  onSelect={onSelect}
+                  onChange={onChange}
                 />
               )}
-              {node.kind === "end" && (
+              {section === "knowledge" && (
                 <section>
-                  <p>This step ends the conversation.</p>
+                  <h3>Knowledge available here · {sources.length}</h3>
+                  <p className="inspector-help">
+                    {sources.length
+                      ? sources.join(", ")
+                      : "No collections attached."}
+                  </p>
+                  <p className="inspector-help">
+                    Includes shared collections and this step’s own attachments.
+                  </p>
+                  <button
+                    className="inspector-link"
+                    onClick={() => onSources?.(id)}
+                  >
+                    Manage source usage →
+                  </button>
                 </section>
               )}
-              <section className="inspector-divider">
-                <div className="inspector-subtabs">
-                  <button
-                    className={tab === "exits" ? "selected" : ""}
-                    onClick={() => setTab("exits")}
-                  >
-                    Exits {node.edges?.length || 0}
-                  </button>
-                  <button
-                    className={tab === "incoming" ? "selected" : ""}
-                    onClick={() => setTab("incoming")}
-                  >
-                    Incoming {incoming.length}
-                  </button>
-                </div>
-                {tab === "exits" ? (
-                  <>
-                    {(node.edges || []).map((e) => (
-                      <div key={e.id} className="inspector-transition">
-                        <button
-                          onClick={() =>
-                            onSelect({ kind: "edge", source: id, edgeId: e.id })
-                          }
-                        >
-                          <span>{branchLabel(e)}</span>
-                          <strong>
-                            <ArrowRight size={14} />
-                            {workflow.nodes[e.to]?.title || e.to}
-                          </strong>
-                        </button>
-                        {e.timing !== "before_action" && (
-                          <button
-                            className="inspector-link"
-                            onClick={() =>
-                              onSelect({
-                                kind: "insert",
-                                source: id,
-                                edgeId: e.id,
-                              })
-                            }
-                          >
-                            + Insert step
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {node.kind !== "end" && node.kind !== "say" && (
-                      <button
-                        className="inspector-link"
-                        onClick={() => setAdding(!adding)}
-                      >
-                        + Add route
-                      </button>
-                    )}
-                    {adding && (
-                      <div className="new-route-form">
-                        <label>
-                          Route ID
-                          <input
-                            value={routeId}
-                            onChange={(e) => setRouteId(e.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Destination
-                          <Select
-                            value={target}
-                            onChange={(e) => setTarget(e.target.value)}
-                          >
-                            <option value="">Choose step…</option>
-                            {Object.entries(workflow.nodes).map(([id, n]) => (
-                              <option key={id} value={id}>
-                                {n.title || id}
-                              </option>
-                            ))}
-                          </Select>
-                        </label>
-                        {node.kind === "action" ? (
-                          <label>
-                            Action result
-                            <Select
-                              value={rule}
-                              onChange={(e) => setRule(e.target.value)}
-                            >
-                              <option value="">Choose result…</option>
-                              {tools
-                                .find((t) => t.name === node.tool)
-                                ?.results.map((r) => (
-                                  <option key={r}>{r}</option>
-                                ))}
-                            </Select>
-                          </label>
-                        ) : (
-                          <label>
-                            Continue when
-                            <textarea
-                              value={rule}
-                              onChange={(e) => setRule(e.target.value)}
-                            />
-                          </label>
-                        )}
-                        <button
-                          className="button"
-                          onClick={() => {
-                            try {
-                              onChange(
-                                createRoute(source, id, {
-                                  id: routeId,
-                                  to: target,
-                                  ...(node.kind === "action"
-                                    ? { result: rule }
-                                    : { condition: rule }),
-                                }),
-                              );
-                              setAdding(false);
-                              setError("");
-                            } catch (e) {
-                              setError((e as Error).message);
-                            }
-                          }}
-                        >
-                          Create route
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  incoming.map(({ source, edge }) => (
-                    <div
-                      className="inspector-transition"
-                      key={JSON.stringify([source, edge.id])}
-                    >
-                      <button
-                        onClick={() =>
-                          onSelect({ kind: "edge", source, edgeId: edge.id })
-                        }
-                      >
-                        <span>{workflow.nodes[source].title || source}</span>
-                        <strong>{branchLabel(edge)}</strong>
-                      </button>
-                    </div>
-                  ))
-                )}
-              </section>
-              <section>
-                <h3>Sources · {sources.length}</h3>
-                <p className="inspector-help">
-                  {sources.length
-                    ? sources.map((s) => s).join(", ")
-                    : "No collections attached."}
-                </p>
-                <button
-                  className="inspector-link"
-                  onClick={() => onSources?.(id)}
-                >
-                  Manage source usage →
-                </button>
-              </section>
-              {!!fields.length && (
-                <section>
-                  <h3>Fields checked here</h3>
-                  <p className="inspector-help">{fields.join(", ")}</p>
-                </section>
-              )}
-              <details className="inspector-advanced">
-                <summary>Advanced</summary>
-                <p className="inspector-help">
-                  Step ID: <code>{id}</code>
-                </p>
-                {node.kind === "conversation" && (
-                  <>
-                    <label className="inspector-check">
-                      <input
-                        type="checkbox"
-                        checked={node.patient || false}
-                        onChange={(e) => change("patient", e.target.checked)}
-                      />
-                      Allow more time for the caller
-                    </label>
-                    {voiceEngine(workflow.speech) === "livekit" && (
-                      <p className="inspector-help">
-                        Patient turn tuning is inactive for LiveKit; its YAML
-                        value is retained.
-                      </p>
-                    )}
-                    <label>
-                      On entering this step
-                      <Select
-                        value={node.entry || "wait"}
-                        onChange={(e) => change("entry", e.target.value)}
-                      >
-                        <option
-                          value="wait"
-                          disabled={!!node.readback || !!node.confirmation}
-                        >
-                          Wait for the caller
-                        </option>
-                        <option value="respond">Respond immediately</option>
-                      </Select>
-                    </label>
-                    <label>
-                      Exact readback template
-                      <textarea
-                        value={node.readback || ""}
-                        onChange={(e) =>
-                          change(
-                            "readback",
-                            e.target.value,
-                            `step:${id}:readback`,
-                          )
-                        }
-                      />
-                    </label>
-                    <p className="inspector-help">
-                      Readbacks require Respond immediately and plain configured
-                      field names in braces.
-                    </p>
-                  </>
-                )}
-                <button className="inspector-link" onClick={onYaml}>
-                  Open YAML definition ↗
-                </button>
-              </details>
             </>
           )}
         </fieldset>
@@ -511,41 +423,17 @@ export default function StepInspector({
           metadata={metadata}
           nodeId={id}
           onClose={() => setStepSettings(false)}
-          onSave={(transaction, nextId) => {
+          onSave={(tx, nextId) => {
             if (readOnly)
               throw new Error("Stop the test before editing settings.");
-            if (onTransaction) onTransaction(transaction);
-            else onChange(applyTransaction(source, transaction).source);
+            if (onTransaction) onTransaction(tx);
+            else onChange(applyTransaction(source, tx).source);
             onHistoryEnd?.();
-            onSelect({ kind: "step", id: nextId });
+            if (nextId) onSelect({ kind: "step", id: nextId });
+            else onClose();
           }}
         />
       )}
-      <dialog
-        className="wide-prompt-dialog"
-        ref={wideDialog}
-        onCancel={() => setWide(false)}
-      >
-        <header>
-          <h2>{node.title || id} · Prompt</h2>
-          <button aria-label="Close wide editor" onClick={() => setWide(false)}>
-            <X size={18} />
-          </button>
-        </header>
-        <textarea
-          aria-label="Expanded step prompt"
-          value={prompt}
-          disabled={readOnly}
-          onChange={(e) => change(promptKey, e.target.value, group)}
-          onBlur={onHistoryEnd}
-        />
-        <footer>
-          Edits update the draft as you type.
-          <button className="button black" onClick={() => setWide(false)}>
-            Done
-          </button>
-        </footer>
-      </dialog>
     </aside>
   );
 }

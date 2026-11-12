@@ -21,7 +21,7 @@ export function StepSettingsDialog({
   source: string;
   metadata: StudioMetadata;
   nodeId: string;
-  onSave: (transaction: DocumentTransaction, nodeId: string) => void;
+  onSave: (transaction: DocumentTransaction, nodeId: string | null) => void;
   onClose: () => void;
 }) {
   const draft = useSettingsDraft(source, metadata),
@@ -32,7 +32,33 @@ export function StepSettingsDialog({
   const readback = useRef<HTMLTextAreaElement>(null);
   const node =
     w && Object.hasOwn(w.nodes, nodeId) ? w.nodes[nodeId] : undefined;
-  if (!node) return null;
+  if (!node)
+    return (
+      <SettingsDialog
+        title="Remove this step?"
+        viewKey="remove"
+        label="Step settings"
+        description="The change stays staged until you save."
+        saveLabel="Remove step"
+        error={draft.error}
+        onClose={onClose}
+        onSave={() => {
+          try {
+            draft.save("Remove step", (transaction) =>
+              onSave(transaction, null),
+            );
+            onClose();
+          } catch (error) {
+            draft.setError((error as Error).message);
+          }
+        }}
+      >
+        <p>
+          <code>{nodeId}</code> will be removed when you save. Cancel keeps the
+          original workflow.
+        </p>
+      </SettingsDialog>
+    );
   const change = (key: string, value: unknown) =>
     draft.set(["nodes", nodeId, key], value);
   const binding = (key: string, value: string) =>

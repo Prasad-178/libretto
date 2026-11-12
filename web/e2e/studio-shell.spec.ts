@@ -32,16 +32,20 @@ for (const width of [1440, 1280, 1024])
       .getByLabel("Edit step", { exact: true })
       .boundingBox();
     expect(inspector!.width).toBe(
-      width === 1440 ? 400 : width === 1280 ? 360 : 380,
+      width === 1440 ? 408 : width === 1280 ? 360 : 380,
     );
     expect(inspector!.x + inspector!.width).toBeLessThanOrEqual(width + 1);
     await page.screenshot({
       path: testInfo.outputPath(`inspector-${width}.png`),
     });
     await page.getByLabel("Expand prompt editor").click();
-    await expect(page.getByLabel("Expanded step prompt")).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Expanded step prompt", exact: true }),
+    ).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByLabel("Expanded step prompt")).toBeHidden();
+    await expect(
+      page.getByRole("textbox", { name: "Expanded step prompt", exact: true }),
+    ).toBeHidden();
     await page.getByLabel("Step prompt", { exact: true }).focus();
     await page.keyboard.press("Escape");
     await expect(page.getByLabel("Edit step", { exact: true })).toBeHidden();

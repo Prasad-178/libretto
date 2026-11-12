@@ -18,6 +18,7 @@ import {
 } from "@xyflow/react";
 import {
   AudioLines,
+  AlertTriangle,
   BookOpen,
   CircleMinus,
   Code2,
@@ -39,12 +40,13 @@ import { readWorkflow, type Workflow } from "./workflow";
 import "@xyflow/react/dist/style.css";
 import "./workflow-graph.css";
 import { WorkflowSettingsDialog } from "./studio/WorkflowSettingsDialog";
+import { StepComposer } from "./studio/StepComposer";
 import StepInspector, { type Selection } from "./StepInspector";
 import { describeRoutes, presentRoutes } from "./studio/graph-model";
 import type { ToolManifest } from "./studio/tool-manifest";
 import { RoutesTable } from "./studio/RoutesTable";
 import { emptyMetadata } from "./studio/document-store";
-import { routeKey } from "./studio/workflow-model";
+import { routeKey, routeDefinitionTone } from "./studio/workflow-model";
 import type {
   GraphLayout,
   StudioMetadata,
@@ -132,12 +134,21 @@ const StageCard = memo(function StageCard({ data }: NodeProps<StageNode>) {
               {data.chips.slice(0, 1).map((chip) => (
                 <button
                   key={chip.label}
+                  className={
+                    chip.tone === "unknown" ? "unknown-result" : undefined
+                  }
                   title={`${chip.label} → ${chip.target}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     chip.inspect();
                   }}
                 >
+                  {chip.tone === "unknown" && (
+                    <AlertTriangle
+                      size={11}
+                      aria-label="Unknown outcome recovery"
+                    />
+                  )}
                   {chip.label} → {chip.target}
                 </button>
               ))}
@@ -145,7 +156,7 @@ const StageCard = memo(function StageCard({ data }: NodeProps<StageNode>) {
                 <button
                   onClick={(event) => {
                     event.stopPropagation();
-                    data.inspect?.();
+                    (data.moreChips || data.inspect)?.();
                   }}
                 >
                   +{data.chips.length - 1} more
@@ -196,6 +207,8 @@ const Branch = memo(function Branch({
   markerEnd,
 }: EdgeProps<BranchEdge>) {
   if (!data) return null;
+  const uncertain =
+    data.tone === "unknown" && !(data.members && data.members.length > 1);
   const points = [
     { x: sourceX, y: sourceY },
     ...data.points.slice(1, -1),
@@ -211,8 +224,10 @@ const Branch = memo(function Branch({
           stroke: data.selected
             ? "#245EC7"
             : data.highlighted
-              ? "#28745B"
-              : "#A7B7C7",
+              ? "#C7952C"
+              : uncertain
+                ? "#C7952C"
+                : "#A7B7C7",
           strokeWidth: data.selected || data.highlighted ? 2 : 1.4,
         }}
       />
@@ -231,7 +246,19 @@ const Branch = memo(function Branch({
                 </summary>
                 <div>
                   {data.members.map((member, index) => (
-                    <button key={index} onClick={member.inspect}>
+                    <button
+                      key={index}
+                      className={
+                        member.tone === "unknown" ? "unknown-result" : undefined
+                      }
+                      onClick={member.inspect}
+                    >
+                      {member.tone === "unknown" && (
+                        <AlertTriangle
+                          size={12}
+                          aria-label="Unknown outcome recovery"
+                        />
+                      )}
                       {member.label}
                     </button>
                   ))}
@@ -239,11 +266,17 @@ const Branch = memo(function Branch({
               </details>
             ) : (
               <button
-                className={`flow-condition nodrag nopan ${data.highlighted ? "highlighted" : ""} ${data.selected ? "selected" : ""}`}
+                className={`flow-condition nodrag nopan ${data.highlighted ? "highlighted" : ""} ${data.selected ? "selected" : ""} ${uncertain ? "unknown-result" : ""}`}
                 title={data.label}
                 onClick={data.inspect}
                 aria-label={`Edit transition: ${data.label}`}
               >
+                {uncertain && (
+                  <AlertTriangle
+                    size={11}
+                    aria-label="Unknown outcome recovery"
+                  />
+                )}
                 <span>{data.label}</span>
               </button>
             )}
@@ -279,6 +312,7 @@ type Props = {
   onHistoryEnd?: () => void;
   onInspect?: () => void;
   onSources?: (id: string) => void;
+  onFields?: () => void;
   tools?: ToolManifest[];
   hideInspector?: boolean;
   previewWorkflow?: Workflow | null;
@@ -307,6 +341,7 @@ export default function WorkflowGraph({
   onHistoryEnd,
   onInspect,
   onSources,
+  onFields,
   tools,
   hideInspector,
   previewWorkflow,
@@ -315,8 +350,12 @@ export default function WorkflowGraph({
 }: Props) {
   const [selection, updateSelection] = useState<Selection | null>(null);
   const [workflowSettings, setWorkflowSettings] = useState(false);
+  const [addingStep, setAddingStep] = useState(false);
   function setSelection(next: Selection | null) {
-    if (next) onInspect?.();
+    if (next) {
+      onInspect?.();
+      setAddingStep(false);
+    }
     updateSelection(next);
   }
   const [viewId, setViewId] = useState("");
@@ -371,7 +410,10 @@ export default function WorkflowGraph({
     () => (definition && !graph.error ? describeRoutes(definition) : []),
     [definition, graph.error],
   );
-  const presentation = presentRoutes(routes, view);
+  const presentation = useMemo(
+    () => presentRoutes(routes, view, metadata.presentation),
+    [routes, view, metadata.presentation],
+  );
   const hiddenCount = presentation
     .filter((p) => p.mode === "hidden")
     .reduce((n, p) => n + p.refs.length, 0);
@@ -414,6 +456,8 @@ export default function WorkflowGraph({
           pending: connected && n.id === pending,
           inspected: n.id === selected,
           stageId: n.id,
+          moreChips: () =>
+            setSelection({ kind: "step", id: n.id, section: "connections" }),
           chips: presentation
             .filter((p) => p.mode === "chip" && p.refs[0].source === n.id)
             .flatMap((p) =>
@@ -422,6 +466,10 @@ export default function WorkflowGraph({
                   .label,
                 target: definition?.nodes[p.target].title || p.target,
                 inspect: () => selectRoute(ref),
+                tone: routeDefinitionTone(
+                  routes.find((r) => routeKey(r.ref) === routeKey(ref))!.kind,
+                  routes.find((r) => routeKey(r.ref) === routeKey(ref))!.result,
+                ),
               })),
             ),
           inspect: n.data.synthetic
@@ -431,7 +479,17 @@ export default function WorkflowGraph({
               },
         },
       })),
-    [graph.nodes, connected, active, pending, selected, focus, view, routes],
+    [
+      graph.nodes,
+      connected,
+      active,
+      pending,
+      selected,
+      focus,
+      view,
+      routes,
+      presentation,
+    ],
   );
   const edges = useMemo(
     () =>
@@ -463,6 +521,10 @@ export default function WorkflowGraph({
                 label: routes.find((r) => routeKey(r.ref) === routeKey(ref))!
                   .label,
                 inspect: () => selectRoute(ref),
+                tone: routeDefinitionTone(
+                  routes.find((r) => routeKey(r.ref) === routeKey(ref))!.kind,
+                  routes.find((r) => routeKey(r.ref) === routeKey(ref))!.result,
+                ),
               })),
             highlighted:
               connected && e.source === active && e.target === pending,
@@ -488,6 +550,7 @@ export default function WorkflowGraph({
         })),
     [
       graph.edges,
+      presentation,
       connected,
       active,
       pending,
@@ -674,6 +737,7 @@ export default function WorkflowGraph({
             <RoutesTable
               workflow={definition}
               view={view}
+              hints={metadata.presentation}
               onSelect={selectRoute}
               onReveal={(ref) => {
                 setRevealed(ref);
@@ -765,6 +829,17 @@ export default function WorkflowGraph({
                       </option>
                     ))}
                   </Select>
+                  <button
+                    className="button"
+                    disabled={connected || readOnly}
+                    onClick={() => {
+                      setSelection(null);
+                      setAddingStep(true);
+                      onInspect?.();
+                    }}
+                  >
+                    Add step
+                  </button>
                   {connected && (
                     <button className="button" onClick={() => focus(active)}>
                       <Scan size={13} />
@@ -776,21 +851,62 @@ export default function WorkflowGraph({
                   Drag to explore <span>·</span> Scroll to zoom
                 </div>
               </ReactFlow>
+              <div className="definition-legend" role="note">
+                <div>
+                  <span>
+                    <i className="selected" />
+                    Selected
+                  </span>
+                  <span>
+                    <AlertTriangle size={11} />
+                    Unknown result
+                  </span>
+                  <span>
+                    <i />
+                    Other results
+                  </span>
+                </div>
+                <p>
+                  Definition view · Test &amp; debug shows actual execution.
+                </p>
+                {metadata.groups.length > 0 && (
+                  <p>
+                    Group annotations are preserved in the layout file; group
+                    boxes are not drawn in this canvas.
+                  </p>
+                )}
+              </div>
             </div>
+          )}
+          {addingStep && definition && !hideInspector && (
+            <aside className="studio-inspector" aria-label="Add step">
+              <fieldset disabled={connected || readOnly}>
+                <StepComposer
+                  source={source}
+                  workflow={definition}
+                  tools={tools || []}
+                  onCancel={() => setAddingStep(false)}
+                  onCommit={(next, nodeId) => {
+                    onChange(next);
+                    setAddingStep(false);
+                    setSelection({ kind: "step", id: nodeId });
+                  }}
+                />
+              </fieldset>
+            </aside>
           )}
           {selection && definition && !hideInspector && (
             <StepInspector
               key={
                 selection.kind +
-                (selection.kind === "step"
-                  ? selection.id
-                  : selection.source + selection.edgeId)
+                (selection.kind === "step" ? selection.id : selection.source)
               }
               tools={tools}
               metadata={metadata}
               onTransaction={onTransaction}
               onHistoryEnd={onHistoryEnd}
               onSources={onSources}
+              onFields={onFields}
               source={source}
               workflow={definition}
               selection={selection}

@@ -5,7 +5,7 @@ import type { Workflow } from "../workflow";
 import { predicateLabel } from "../graph";
 import { describeRoutes, presentRoutes } from "./graph-model";
 import { routeKey } from "./workflow-model";
-import type { RouteRef, SavedView } from "./types";
+import type { RouteRef, SavedView, StudioMetadata } from "./types";
 export const routeTypeLabel = {
   language: "Language",
   state: "State check",
@@ -17,11 +17,13 @@ export const routeTypeLabel = {
 export function RoutesTable({
   workflow,
   view,
+  hints = [],
   onSelect,
   onReveal,
 }: {
   workflow: Workflow;
   view: SavedView | null;
+  hints?: StudioMetadata["presentation"];
   onSelect: (ref: RouteRef) => void;
   onReveal: (ref: RouteRef) => void;
 }) {
@@ -29,7 +31,7 @@ export function RoutesTable({
     [kind, setKind] = useState("all"),
     [canvas, setCanvas] = useState("all");
   const routes = useMemo(() => describeRoutes(workflow), [workflow]);
-  const presentation = presentRoutes(routes, view),
+  const presentation = presentRoutes(routes, view, hints),
     modes = new Map(
       presentation.flatMap((p) => p.refs.map((ref) => [routeKey(ref), p.mode])),
     );

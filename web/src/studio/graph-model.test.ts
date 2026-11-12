@@ -191,3 +191,30 @@ it("recomputes connectors and entry against final pinned coordinates", () => {
       ).toBe(false);
     }
 });
+
+it("honours explicit chip/line presentation hints without changing executable routes", () => {
+  const workflow = readWorkflow(fixtures["./fixtures/eight-incoming.yaml"])!;
+  const routes = describeRoutes(workflow),
+    before = JSON.stringify(workflow);
+  const chips = presentRoutes(routes, null, [
+    { target: "shared", mode: "chips" },
+  ]);
+  expect(
+    chips.filter((p) => p.target === "shared" && p.mode === "chip"),
+  ).toHaveLength(8);
+  const lines = presentRoutes(routes, null, [
+    { target: "shared", mode: "lines" },
+  ]);
+  expect(
+    lines.filter((p) => p.target === "shared" && p.mode === "drawn"),
+  ).toHaveLength(8);
+  expect(JSON.stringify(workflow)).toBe(before);
+});
+
+it("definition tones mark only reserved unknown recovery, never custom business success", async () => {
+  const { routeDefinitionTone } = await import("./workflow-model");
+  expect(routeDefinitionTone("result", "unknown")).toBe("unknown");
+  for (const result of ["booked", "saved", "failed", "success", "custom"])
+    expect(routeDefinitionTone("result", result)).toBe("neutral");
+  expect(routeDefinitionTone("language", "unknown")).toBe("neutral");
+});

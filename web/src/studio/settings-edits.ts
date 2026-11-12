@@ -48,15 +48,35 @@ export function definitionUses(
     });
   return [...refs];
 }
+export function removalUses(
+  w: Workflow,
+  kind: DefinitionKind,
+  id: string,
+): string[] {
+  // Self-references disappear with the removed step; outside incoming routes do not.
+  return definitionUses(
+    kind === "nodes"
+      ? {
+          ...w,
+          nodes: Object.fromEntries(
+            Object.entries(w.nodes).filter(([key]) => key !== id),
+          ),
+        }
+      : w,
+    kind,
+    id,
+  );
+}
 export function removeDefinition(
   source: string,
   kind: DefinitionKind,
   id: string,
+  metadata?: StudioMetadata,
 ): DocumentTransaction {
   const w = workflowFrom(source);
   if (!Object.hasOwn(w[kind] || {}, id))
     throw new Error("This definition no longer exists.");
-  const uses = definitionUses(w, kind, id);
+  const uses = removalUses(w, kind, id);
   if (uses.length)
     throw new Error(
       `Still used by ${uses.join(", ")}. Update these references first.`,
@@ -64,6 +84,31 @@ export function removeDefinition(
   return {
     label: `Remove ${id}`,
     operations: [{ op: "delete", path: [kind, id] }],
+    ...(kind === "nodes" && metadata
+      ? {
+          metadata: {
+            ...metadata,
+            positions: Object.fromEntries(
+              Object.entries(metadata.positions).filter(([key]) => key !== id),
+            ),
+            groups: metadata.groups
+              .map((group) => ({
+                ...group,
+                members: group.members.filter((key) => key !== id),
+              }))
+              .filter((group) => group.members.length),
+            views: metadata.views.map((view) => ({
+              ...view,
+              visibleRoutes: view.visibleRoutes.filter(
+                (route) => route.source !== id,
+              ),
+            })),
+            presentation: metadata.presentation.filter(
+              (hint) => hint.target !== id,
+            ),
+          },
+        }
+      : {}),
   };
 }
 function renameMetadata(

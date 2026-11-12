@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { moveRoute, renameRoute, removeRoute } from "./authoring-commands";
 import { Select } from "../ui/Select";
 import type { Workflow } from "../workflow";
-import type { DocumentTransaction, RouteRef } from "./types";
+import type { DocumentTransaction, RouteRef, StudioMetadata } from "./types";
 import type { ToolManifest } from "./tool-manifest";
 import { edgeIndex } from "../studio-editing";
 import { routeKind, routeLabel } from "./workflow-model";
@@ -11,16 +14,29 @@ export function RouteInspector({
   route,
   tools,
   onTransaction,
+  metadata,
+  onRenamed,
+  onRemoved,
 }: {
   source: string;
   workflow: Workflow;
   route: RouteRef;
   tools: ToolManifest[];
-  onTransaction: (tx: DocumentTransaction) => void;
+  onTransaction: (tx: DocumentTransaction) => void | boolean;
+  metadata: StudioMetadata;
+  onRenamed: (id: string) => void;
+  onRemoved: () => void;
 }) {
   const node = workflow.nodes[route.source],
     edge = node.edges.find((e) => e.id === route.edgeId)!;
-  const path = ["nodes", route.source, "edges", edgeIndex(source, route)],
+  const [nextId, setNextId] = useState(edge.id),
+    [error, setError] = useState("");
+  useEffect(() => {
+    setNextId(edge.id);
+    setError("");
+  }, [edge.id, route.source]);
+  const index = edgeIndex(source, route);
+  const path = ["nodes", route.source, "edges", index],
     kind = routeKind(node, edge);
   const set = (key: string, value: unknown, group?: string) =>
     onTransaction({
@@ -28,11 +44,17 @@ export function RouteInspector({
       historyGroup: group,
       operations: [{ op: "set", path: [...path, key], value }],
     });
+  let removalReason = "";
+  try {
+    removeRoute(source, route, metadata, tools);
+  } catch (e) {
+    removalReason = (e as Error).message;
+  }
   return (
     <>
       <section>
         <label>
-          Route name
+          Canvas label
           <input
             maxLength={200}
             value={edge.label ?? ""}
@@ -146,7 +168,7 @@ export function RouteInspector({
           </>
         ) : node.kind === "action" ? (
           <label>
-            Action result
+            When the tool returns
             <Select
               value={edge.result || ""}
               onChange={(e) => set("result", e.target.value)}
@@ -170,7 +192,7 @@ export function RouteInspector({
       </section>
       <section>
         <label>
-          Then go to
+          Go to
           <Select value={edge.to} onChange={(e) => set("to", e.target.value)}>
             {Object.entries(workflow.nodes).map(([id, n]) => (
               <option value={id} key={id}>
@@ -180,7 +202,32 @@ export function RouteInspector({
           </Select>
         </label>
       </section>
-      <section>
+      {node.kind === "action" && (
+        <p className="inspector-help">
+          Result IDs come from the action’s registered Python contract. The
+          canvas label changes display text independently.
+        </p>
+      )}
+      <details className="connection-advanced">
+        <summary>Advanced connection settings</summary>
+        <label>
+          Route ID
+          <input value={nextId} onChange={(e) => setNextId(e.target.value)} />
+        </label>
+        <button
+          className="button"
+          onClick={() => {
+            try {
+              const tx = renameRoute(source, route, nextId, metadata);
+              if (onTransaction(tx) !== false) onRenamed(nextId);
+              setError("");
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Apply route ID
+        </button>
         <label>
           Transition timing
           <Select
@@ -191,11 +238,90 @@ export function RouteInspector({
             <option value="before_action">Before running the action</option>
           </Select>
         </label>
+        <div className="connection-order">
+          <strong>
+            YAML order · {index + 1} of {node.edges.length}
+          </strong>
+          <div>
+            <button
+              className="button"
+              aria-label="Move connection earlier"
+              disabled={index === 0}
+              onClick={() => {
+                try {
+                  onTransaction(moveRoute(source, route, -1));
+                  setError("");
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              <ArrowUp size={14} />
+              Earlier
+            </button>
+            <button
+              className="button"
+              aria-label="Move connection later"
+              disabled={index === node.edges.length - 1}
+              onClick={() => {
+                try {
+                  onTransaction(moveRoute(source, route, 1));
+                  setError("");
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              <ArrowDown size={14} />
+              Later
+            </button>
+          </div>
+        </div>
         <p className="inspector-help">
-          State checks are deterministic; language matches come from the
-          evaluator. YAML order breaks ties within each type.
+          State checks are deterministic; language matches come from the stage
+          controller. YAML order breaks ties within each type.
         </p>
-      </section>
+        {node.kind === "action" && !tools.some((t) => t.name === node.tool) && (
+          <label>
+            Result ID · contract unavailable
+            <input
+              value={edge.result || ""}
+              onChange={(e) => set("result", e.target.value)}
+            />
+            <span className="inspector-help">
+              Edits this YAML result binding. The Python result contract must
+              match before testing.
+            </span>
+          </label>
+        )}
+      </details>
+      <footer className="connection-footer">
+        <button
+          className="button danger"
+          disabled={!!removalReason}
+          onClick={() => {
+            try {
+              if (
+                onTransaction(removeRoute(source, route, metadata, tools)) !==
+                false
+              )
+                onRemoved();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
+          Delete connection
+        </button>
+        <p className="inspector-help">
+          {removalReason || "Saved in this browser · Undo available"}
+        </p>
+      </footer>
+      {error && (
+        <p className="inspector-error" role="alert">
+          {error}
+        </p>
+      )}
     </>
   );
 }

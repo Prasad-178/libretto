@@ -142,13 +142,118 @@ it("refuses duplicate result bindings and tool contracts without required recove
   ).toThrow(/failed.*unknown|recovery/);
 });
 
-it('reorders flow sequences and final unterminated blocks without changing surrounding prompts',()=>{
- const flow=source.replace(/    edges:[\s\S]*?  end:/,'    edges: [{id: one, result: saved, to: end}, {id: two, result: failed, to: end}, {id: three, result: unknown, to: end}] # routes\n  end:');
- const next=applyTransaction(flow,moveRoute(flow,{source:'act',edgeId:'three'},-1)).source;
- expect(readWorkflow(next)!.nodes.act.edges.map(e=>e.id)).toEqual(['one','three','two']);
- expect(next).toContain('# routes');
- expect(next.slice(0,next.indexOf('    edges:'))).toBe(flow.slice(0,flow.indexOf('    edges:')));
- const blocks='items:\n  - first\n  - second';
- const moved=applyTransaction(blocks,{label:'Move',operations:[{op:'move',path:['items'],from:1,to:0}]}).source;
- expect(moved).toBe('items:\n  - second\n  - first');
+it("reorders flow sequences and final unterminated blocks without changing surrounding prompts", () => {
+  const flow = source.replace(
+    /    edges:[\s\S]*?  end:/,
+    "    edges: [{id: one, result: saved, to: end}, {id: two, result: failed, to: end}, {id: three, result: unknown, to: end}] # routes\n  end:",
+  );
+  const next = applyTransaction(
+    flow,
+    moveRoute(flow, { source: "act", edgeId: "three" }, -1),
+  ).source;
+  expect(readWorkflow(next)!.nodes.act.edges.map((e) => e.id)).toEqual([
+    "one",
+    "three",
+    "two",
+  ]);
+  expect(next).toContain("# routes");
+  expect(next.slice(0, next.indexOf("    edges:"))).toBe(
+    flow.slice(0, flow.indexOf("    edges:")),
+  );
+  const blocks = "items:\n  - first\n  - second";
+  const moved = applyTransaction(blocks, {
+    label: "Move",
+    operations: [{ op: "move", path: ["items"], from: 1, to: 0 }],
+  }).source;
+  expect(moved).toBe("items:\n  - second\n  - first");
+});
+
+it("edits imported action bindings without inventing a missing Python contract", async () => {
+  const { editActionBindings } = await import("./authoring-commands");
+  const tx = editActionBindings(
+    source,
+    "act",
+    { answer: "answer" },
+    ["answer"],
+    { saved: "retry" },
+  );
+  expect(applyTransaction(source, tx).source).toBe(
+    source.replace(
+      "{id: saved, result: saved, to: end}",
+      "{id: saved, result: saved, to: retry}",
+    ),
+  );
+  expect(() =>
+    editActionBindings(source, "act", { answer: "missing" }, ["answer"], {}),
+  ).toThrow(/field/);
+  expect(() =>
+    editActionBindings(source, "act", { answer: "answer" }, [], {}),
+  ).toThrow(/required/);
+});
+
+it("removes an unreferenced self-loop step with its presentation references, while protecting incoming references", async () => {
+  const { removeDefinition } = await import("./settings-edits");
+  const input =
+    source +
+    "  spare:\n    kind: conversation\n    prompt: Retry.\n    edges: [{id: again, to: spare, condition: Retry}]\n";
+  const doc = createDocument("generic.yaml", new TextEncoder().encode(input));
+  doc.metadata = {
+    ...emptyMetadata(),
+    positions: { spare: { x: 10, y: 20 } },
+    groups: [{ id: "g", label: "Group", members: ["act", "spare"] }],
+    views: [
+      {
+        id: "v",
+        name: "View",
+        visibleRoutes: [{ source: "spare", edgeId: "again" }],
+      },
+    ],
+    presentation: [{ target: "spare", mode: "lines" }],
+  };
+  const tx = removeDefinition(input, "nodes", "spare", doc.metadata);
+  const next = documentReducer(doc, { type: "transaction", transaction: tx });
+  expect(readWorkflow(next.source)!.nodes.spare).toBeUndefined();
+  expect(next.metadata.positions.spare).toBeUndefined();
+  expect(next.metadata.groups[0].members).toEqual(["act"]);
+  expect(next.metadata.views[0].visibleRoutes).toEqual([]);
+  expect(next.metadata.presentation).toEqual([]);
+  expect(documentReducer(next, { type: "undo" }).metadata).toEqual(
+    doc.metadata,
+  );
+  expect(() => removeDefinition(input, "nodes", "end", doc.metadata)).toThrow(
+    /used/,
+  );
+});
+
+it("removes only optional or duplicate connections and cleans named views", async () => {
+  const { removeRoute } = await import("./authoring-commands");
+  const metadata = {
+    ...emptyMetadata(),
+    views: [
+      {
+        id: "v",
+        name: "View",
+        visibleRoutes: [{ source: "act", edgeId: "saved" }],
+      },
+    ],
+  };
+  expect(() =>
+    removeRoute(source, { source: "act", edgeId: "failed" }, metadata, [tool]),
+  ).toThrow(/required|declare/i);
+  const duplicate = source.replace(
+    "      # outcome routes",
+    "      - {id: extra, result: saved, to: end}\n      # outcome routes",
+  );
+  const next = removeRoute(
+    duplicate,
+    { source: "act", edgeId: "saved" },
+    metadata,
+    [tool],
+  );
+  expect(
+    readWorkflow(applyTransaction(duplicate, next).source)!.nodes.act.edges.map(
+      (e) => e.id,
+    ),
+  ).not.toContain("saved");
+  expect(next.metadata!.views[0].visibleRoutes).toEqual([]);
 });
