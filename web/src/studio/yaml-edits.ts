@@ -78,6 +78,28 @@ function operationPatch(
   const path = [...operation.path];
   if (!path.length) throw new Error("Choose a YAML property to edit." + remedy);
   const current = doc.getIn(path, true);
+  if (operation.op === "rename") {
+    const parent = doc.getIn(path.slice(0, -1), true);
+    const oldKey = path.at(-1);
+    if (!isMap(parent) || current === undefined)
+      throw new Error("Choose an existing definition to rename.");
+    if (oldKey === operation.value) return null;
+    if (parent.has(operation.value)) throw new Error("This ID already exists.");
+    const pair = parent.items.find(
+      (item) => isScalar(item.key) && item.key.value === oldKey,
+    );
+    if (!pair || !isScalar(pair.key) || !pair.key.range)
+      throw new Error("Cannot safely rename this YAML key." + remedy);
+    const [from, to] = pair.key.range;
+    const renamed = pair.key.clone();
+    renamed.value = operation.value;
+    const insert = render(renamed, source, from, to, true);
+    const next = source.slice(0, from) + insert + source.slice(to);
+    pair.key.value = operation.value;
+    if (JSON.stringify(parse(next).toJS()) !== JSON.stringify(doc.toJS()))
+      throw new Error("Cannot preserve this key safely." + remedy);
+    return { from, to, insert };
+  }
   const expected = doc.clone();
   if (operation.op === "delete") {
     if (current === undefined) return null;

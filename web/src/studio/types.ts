@@ -11,11 +11,13 @@ export type YamlPath = readonly (string | number)[];
 export type TextPatch = { from: number; to: number; insert: string };
 export type EditOperation =
   | { op: "set"; path: YamlPath; value: unknown }
+  | { op: "rename"; path: YamlPath; value: string }
   | { op: "delete"; path: YamlPath };
 export type DocumentTransaction = {
   label: string;
   operations: readonly EditOperation[];
   historyGroup?: string;
+  metadata?: StudioMetadata;
 };
 export type WorkflowIssue = {
   path: (string | number)[];

@@ -108,6 +108,7 @@ export function documentReducer(
             {
               ...snapshot(d),
               source: applyTransaction(d.source, action.transaction).source,
+              metadata: action.transaction.metadata || d.metadata,
             },
             action.transaction.historyGroup || null,
           );
