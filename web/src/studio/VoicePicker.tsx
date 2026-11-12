@@ -52,9 +52,9 @@ export function VoicePicker({
   useEffect(() => {
     if (custom) return;
     const controller = new AbortController();
+    setLoading(true);
+    setError("");
     const timer = setTimeout(() => {
-      setLoading(true);
-      setError("");
       const cacheKey = JSON.stringify([query, cursor]);
       const pending = cache.current.has(cacheKey)
         ? Promise.resolve(cache.current.get(cacheKey)!)

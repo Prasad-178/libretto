@@ -254,7 +254,21 @@ test("voice search discards delayed results and preserves the configured custom 
   await trigger.click();
   const popup = page.getByRole("dialog", { name: "Choose voice", exact: true }),
     search = popup.getByRole("textbox", { name: "Search voices", exact: true });
+  await expect(
+    popup.getByText(
+      "No voices match this search. Your current voice remains configured.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await search.fill("old");
+  expect(
+    await popup
+      .getByText(
+        "No voices match this search. Your current voice remains configured.",
+        { exact: true },
+      )
+      .count(),
+  ).toBe(0);
   await expect.poll(() => requested).toBe(true);
   await search.fill("new");
   await expect(
