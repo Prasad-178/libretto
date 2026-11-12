@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-export function RecognitionTerms({
+export function TokenList({
   value,
   onChange,
   disabled,
+  termName = "recognition term",
+  maxTerms = 64,
+  maxLength = 100,
 }: {
   value: string[];
   onChange: (terms: string[]) => void;
   disabled: boolean;
+  termName?: string;
+  maxTerms?: number;
+  maxLength?: number;
 }) {
   const [draft, setDraft] = useState(""),
     [error, setError] = useState("");
@@ -21,8 +27,13 @@ export function RecognitionTerms({
           .filter(Boolean),
       ]),
     ];
-    if (terms.length > 64 || terms.some((t) => [...t].length > 100)) {
-      setError("Use up to 64 terms, each no longer than 100 characters.");
+    if (
+      terms.length > maxTerms ||
+      terms.some((t) => [...t].length > maxLength)
+    ) {
+      setError(
+        `Use ${Number.isFinite(maxTerms) ? `up to ${maxTerms} terms, each` : "terms"} no longer than ${maxLength} characters.`,
+      );
       return;
     }
     onChange(terms);
@@ -36,7 +47,7 @@ export function RecognitionTerms({
           <span key={i}>
             {term}
             <button
-              aria-label={`Remove recognition term ${term}`}
+              aria-label={`Remove ${termName} ${term}`}
               disabled={disabled}
               onClick={() => onChange(value.filter((_, n) => n !== i))}
             >
@@ -45,7 +56,7 @@ export function RecognitionTerms({
           </span>
         ))}
         <input
-          aria-label="Add recognition term"
+          aria-label={`Add ${termName}`}
           disabled={disabled}
           placeholder="Add a term…"
           value={draft}
@@ -73,4 +84,12 @@ export function RecognitionTerms({
       )}
     </div>
   );
+}
+
+export function RecognitionTerms(props: {
+  value: string[];
+  onChange: (terms: string[]) => void;
+  disabled: boolean;
+}) {
+  return <TokenList {...props} />;
 }

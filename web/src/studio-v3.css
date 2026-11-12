@@ -1275,3 +1275,84 @@
 @media(max-width:1100px) { .workflow-surface:has(.studio-inspector) .definition-legend { display: none; } }
 
 .connection-footer{border-top:1px solid var(--border,#e1e5ea);padding-top:18px;display:grid;gap:10px}.connection-footer .danger{color:#b42318;justify-self:start}
+
+/* Test & debug is a dedicated workspace; the immutable snapshot owns both panes. */
+.studio-v3.with-test .editor-layout>.definition-panel{display:none}
+.studio-v3.with-test .test-panel{width:100%;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:auto minmax(0,1fr);border-left:0;background:#fff;max-width:none;position:relative}
+.studio-v3 .test-snapshot-note{grid-column:1/-1}
+.studio-v3 .debug-main{display:flex;flex-direction:column;min-width:0;min-height:0;padding:0 28px 12px}
+.studio-v3 .debug-main .chat-scroll{flex:1;min-height:0}
+.studio-v3 .debug-main .messages{max-width:720px;margin:0 auto;width:100%;padding:24px 8px}
+.studio-v3 .debug-main .message{font-size:15px;line-height:25px}
+.studio-v3 .debug-main .message.user{max-width:85%;margin-left:auto;background:#f6f7f9;border-radius:8px;padding:16px 18px}
+.studio-v3 .debug-main .message.assistant{background:transparent;padding:16px 0}
+.studio-v3 .debug-summary{min-height:0;min-width:0;overflow:auto;border-left:1px solid #e3e6eb;padding:28px 24px;display:flex;flex-direction:column;gap:24px;font-size:13px;line-height:21px;color:#5e6876;overscroll-behavior:contain}
+.studio-v3 .debug-summary section{display:grid;gap:10px}
+.studio-v3 .debug-summary h3{font-size:14px;font-weight:600;color:#171b22;margin:0}
+.studio-v3 .debug-current-step{font-size:24px;line-height:30px;font-weight:600;color:#171b22;overflow-wrap:anywhere}
+.studio-v3 .debug-summary .inspector-link{text-align:left;justify-self:start;white-space:normal}
+.studio-v3 .debug-notice{background:#fff8e8;border:1px solid #edddb6;border-radius:6px;padding:16px;color:#775917}
+.studio-v3 .debug-notice p{font-size:14px;line-height:22px;margin:0}
+.studio-v3 .debug-summary dl{display:grid;gap:12px;margin:0}
+.studio-v3 .debug-summary dl>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.studio-v3 .debug-summary dd{margin:0;text-align:right;color:#171b22;overflow-wrap:anywhere}
+.studio-v3 .debug-timeline{border-top:1px solid #e3e6eb;padding-top:20px}
+.studio-v3 .debug-timeline ol{list-style:none;display:grid;gap:12px;padding:0;margin:0}
+.studio-v3 .debug-timeline li{display:flex;gap:10px;align-items:start}
+.studio-v3 .debug-timeline time{width:45px;flex-shrink:0;font-size:12px;font-variant-numeric:tabular-nums}
+.studio-v3 .debug-timeline p{font-size:12px;line-height:18px;margin:4px 0 0}
+@media(max-width:1150px){.studio-v3.with-test .test-panel{grid-template-columns:minmax(0,1fr) 280px}.studio-v3 .debug-main{padding-inline:16px}.studio-v3 .debug-summary{padding:20px 16px}}
+.studio-v3 .debug-main .test-heading{font-size:16px;padding-inline:0;height:64px}
+.studio-v3 .debug-main .test-heading>span{font-size:16px;font-weight:600}
+.studio-v3 .debug-main .test-heading button{font-size:13px}
+.studio-v3 .debug-main .test-options{padding:16px 0}
+.studio-v3 .debug-main .mode-switch button{font-size:13px;padding:8px 14px}
+.studio-v3 .debug-main .test-tabs{gap:20px;padding:0 0 14px}
+.studio-v3 .debug-main .test-tabs button{font-size:14px}
+.studio-v3 .debug-main .test-empty{padding:28px 16px}
+.studio-v3 .debug-main .test-empty h2{font-size:20px;line-height:28px}
+.studio-v3 .debug-main .test-empty p{font-size:14px;line-height:22px}
+.studio-v3 .debug-main .test-suggestions button{font-size:13px;padding:12px 14px}
+.studio-v3 .debug-main .test-suggestions>span{font-size:11px}
+.studio-v3 .debug-main .test-session-status{font-size:12px;padding:12px 0}
+.studio-v3 .debug-main .test-session-status button{font-size:12px;padding:6px 10px}
+.studio-v3 .debug-main .composer input{font-size:14px;padding:14px;min-height:46px}
+.studio-v3 .debug-main .test-footer{font-size:11px;padding:10px 0}
+.studio-v3 .debug-main .test-inspector{font-size:14px;line-height:22px}
+.studio-v3 .debug-main .trace-row{font-size:13px}
+.studio-v3 .debug-main .message p{font-size:15px;line-height:25px}.studio-v3 .debug-main .message-label{font-size:12px;line-height:18px}
+.definition-browser{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:0;gap:32px}
+.definition-list{display:flex;flex-direction:column;gap:8px;min-width:0}
+.definition-list>button:not(.inspector-link){padding:16px;border:1px solid transparent;border-radius:6px;text-align:left;display:grid;gap:7px;background:#fff;min-width:0}
+.definition-list>button.selected{background:#eef3ff;border-color:#dce6ff}
+.definition-list>button>div{display:flex;gap:12px;align-items:start;justify-content:space-between}
+.definition-list strong{font-size:15px;font-weight:500;color:#171b22;overflow-wrap:anywhere}
+.definition-list span{font-size:12px;white-space:nowrap;color:#5e6876}
+.definition-list code,.definition-detail header code{font:12px/18px 'IBM Plex Mono',monospace;color:#5e6876;overflow-wrap:anywhere}
+.definition-list small{font-size:12px;line-height:18px;color:#5e6876}
+.definition-detail{border-left:1px solid #e3e6eb;padding-left:32px;min-width:0;display:flex;flex-direction:column;gap:24px}
+.definition-detail>small{font-size:12px;line-height:18px;color:#5e6876;letter-spacing:.04em}
+.definition-detail header h3{font-size:24px;line-height:30px;font-weight:600;margin:0 0 8px}
+.definition-detail label{display:grid;gap:10px;font-size:14px;font-weight:500}
+.definition-detail textarea{font-size:15px;line-height:25px;padding:16px;width:100%;min-height:108px}
+.definition-detail label>span,.definition-detail p{font-size:13px;line-height:21px;font-weight:400;color:#5e6876;margin:0}
+.definition-detail section{display:grid;gap:12px}
+.definition-detail h4{font-size:14px;line-height:20px;font-weight:600;margin:0}
+.definition-detail details{border-top:1px solid #e3e6eb;padding-top:20px}
+.definition-detail details summary,.data-add summary{font-size:13px;cursor:pointer;padding-bottom:16px;color:#5e6876}
+.definition-detail .definition-actions{margin-top:20px}
+.definition-detail .recognition-terms{margin-top:10px}
+.data-add{margin-top:12px;padding:16px;border-top:1px solid #e3e6eb}
+.data-add label{display:grid;gap:8px;font-size:13px;margin-bottom:14px}
+.tool-inputs{display:grid}.tool-inputs>div{display:flex;align-items:start;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid #e3e6eb;font-size:13px}
+.tool-inputs code{overflow-wrap:anywhere}.tool-inputs span{white-space:nowrap;color:#5e6876}
+.tool-results{display:flex;gap:10px;flex-wrap:wrap}.tool-results code{padding:7px 10px;background:#f6f7f9;border-radius:4px;font-size:12px;color:#5e6876}.tool-results .uncertain{background:#fff5dc;color:#775917}
+.tool-step-use{display:grid;gap:8px;padding:12px 0}.definition-browser .inspector-link{text-align:left}
+@media(max-width:1250px){.definition-browser{grid-template-columns:260px minmax(0,1fr);gap:24px}.definition-detail{padding-left:24px}.definition-browser-page .settings-content{padding:28px 24px}}
+.definition-browser-page .settings-content{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.definition-browser-page .agent-page-header{flex-shrink:0}
+.definition-browser-page .settings-content>fieldset{display:flex;flex:1;flex-direction:column;min-height:0;overflow:hidden}
+.definition-browser-page .definition-browser{height:100%;min-height:0}
+.definition-browser-page .definition-list,.definition-browser-page .definition-detail{min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:24px;scrollbar-gutter:stable}
+.definition-browser-page .definition-detail .field-reference{display:block;text-align:left;justify-self:start}
+.definition-browser-page .definition-detail section{padding-bottom:0;margin-bottom:0;border-bottom:0}

@@ -48,6 +48,7 @@ import type { ToolManifest } from "./studio/tool-manifest";
 import { SourcesPage } from "./studio/SourcesPage";
 import type { StudioCapabilities } from "./studio/runtime-api";
 import { SettingsPage } from "./studio/SettingsPage";
+import { DebugSummary } from "./studio/DebugSummary";
 import { TestPanel } from "./studio/TestPanel";
 import {
   TestScenarios,
@@ -217,8 +218,7 @@ export default function App() {
       ].includes(event.type)
     )
       setChats((old) => updateDelivery(old, event));
-    if (!["text_delta", "playback", "draft_ready"].includes(event.type))
-      setTrace((old) => [...old.slice(-99), event]);
+    if (retainEvent(event)) setTrace((old) => [...old.slice(-99), event]);
     if (event.type === "ready") {
       setRunningWorkflow(d.workflow);
       ready.current = true;
@@ -1001,7 +1001,23 @@ export default function App() {
           </div>
         </main>
         {showTest && (
-          <TestPanel snapshot={studioDocument.running}>
+          <TestPanel
+            snapshot={studioDocument.running}
+            summary={
+              <DebugSummary
+                workflow={liveWorkflow}
+                active={active}
+                facts={facts}
+                events={trace}
+                onEvents={() => setTestTab("trace")}
+                onStep={(id) => {
+                  setSelected(id);
+                  setView("workflow");
+                  setShowTest(false);
+                }}
+              />
+            }
+          >
             {connecting && !settings && (
               <button onClick={end}>Cancel connection</button>
             )}
@@ -1039,6 +1055,7 @@ export default function App() {
               </div>
               <button
                 title="Connection settings"
+                aria-label="Connection settings"
                 onClick={() => setSettings(true)}
               >
                 <Settings2 size={15} />
@@ -1135,33 +1152,43 @@ export default function App() {
                 {!chats.length &&
                 !(mode === "voice" && (connected || connecting)) ? (
                   <div className="test-empty">
-                    <VoiceOrb state={connecting ? "connecting" : "ready"} />
+                    {mode === "voice" ? (
+                      <VoiceOrb state={connecting ? "connecting" : "ready"} />
+                    ) : (
+                      <MessageSquare size={32} aria-hidden="true" />
+                    )}
                     <h2>
                       {connected
-                        ? "Your agent is listening"
+                        ? mode === "voice"
+                          ? "Your agent is listening"
+                          : "Your agent is ready"
                         : "Try a conversation"}
                     </h2>
                     <p>
                       {connected
-                        ? "Speak or type a message to begin."
+                        ? mode === "voice"
+                          ? "Speak or type a message to begin."
+                          : "Type a message to test the workflow."
                         : "Test your agent’s voice, instructions, and workflow before sharing it."}
                     </p>
-                    <button
-                      className="button black"
-                      disabled={connecting || connected}
-                      onClick={() => setSettings(true)}
-                    >
-                      {connecting ? (
-                        <LoaderCircle size={14} className="spin" />
-                      ) : (
-                        <Play size={13} fill="currentColor" />
-                      )}
-                      {connecting
-                        ? "Connecting…"
-                        : connected
-                          ? "Connected"
-                          : "Start test"}
-                    </button>
+                    {!connected && (
+                      <button
+                        className="button black"
+                        disabled={connecting}
+                        onClick={() => setSettings(true)}
+                      >
+                        {connecting ? (
+                          <LoaderCircle size={14} className="spin" />
+                        ) : (
+                          <Play size={13} fill="currentColor" />
+                        )}
+                        {connecting
+                          ? "Connecting…"
+                          : connected
+                            ? "Connected"
+                            : "Start test"}
+                      </button>
+                    )}
                     <div className="test-suggestions">
                       <span>TRY ASKING</span>
                       {examples.map((example) => (
@@ -1277,7 +1304,7 @@ export default function App() {
                         <h3>Action receipts</h3>
                         {receipts.map((r, i) => (
                           <div className="receipt" key={i}>
-                            <Check size={13} />
+                            <FileText size={13} />
                             {pretty(r.tool)}
                             <span className="badge">{r.status}</span>
                           </div>

@@ -4,15 +4,13 @@ import { ModelPicker } from "./ModelPicker";
 import { ReasoningControl } from "./ReasoningControl";
 import { createStudioApi } from "./runtime-api";
 import { modelDefaults, type ModelCatalog } from "./model-catalog";
-import { DefinitionActions } from "./ConfirmationFields";
-import { definitionUses } from "./settings-edits";
+import { CollectedDataPage } from "./CollectedDataPage";
+import { ToolsPage } from "./ToolsPage";
 import { ConversationEditor } from "./ConversationEditor";
-import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
 import { readWorkflow } from "../workflow";
 import type { StudioDocument, DocumentTransaction } from "./types";
 import type { StudioCapabilities } from "./runtime-api";
-import { fieldReferences } from "./field-references";
 export function SettingsPage({
   document,
   capabilities,
@@ -35,9 +33,7 @@ export function SettingsPage({
   onHistoryEnd: () => void;
 }) {
   const [agentSection, setAgentSection] = useState("conversation"),
-    [error, setError] = useState(""),
-    [newField, setNewField] = useState(""),
-    [newType, setNewType] = useState("string");
+    [error, setError] = useState("");
   const section = category === "agent" ? agentSection : category;
   const setSection = (next: string) => {
     onHistoryEnd();
@@ -103,7 +99,7 @@ export function SettingsPage({
           : sections.find((s) => s.id === section)?.label;
   return (
     <section
-      className={`settings-page agent-page ${category === "agent" ? "agent-settings" : ""} ${section === "speech" ? "speech-page" : ""}`}
+      className={`settings-page agent-page ${category === "agent" ? "agent-settings" : ""} ${section === "speech" ? "speech-page" : ""} ${category !== "agent" ? "definition-browser-page" : ""}`}
       aria-label="Workflow settings"
       onBlur={onHistoryEnd}
     >
@@ -248,181 +244,20 @@ export function SettingsPage({
                 Model settings →
               </button>
             </section>
-          ) : section === "fields" || section === "tools" ? (
-            <>
-              {section === "fields" && (
-                <section>
-                  <h3>Information fields</h3>
-                  {Object.entries(workflow.fields || {}).map(([id, field]) => {
-                    const refs = fieldReferences(workflow, id);
-                    const uses = definitionUses(workflow, "fields", id);
-                    return (
-                      <details className="settings-field" key={id}>
-                        <summary>
-                          <strong>{id}</strong>
-                          <span>
-                            {field.type || "string"} · {uses.length} references
-                          </span>
-                        </summary>
-                        <label>
-                          Description
-                          <input
-                            value={field.description || ""}
-                            onChange={(e) =>
-                              change(
-                                ["fields", id, "description"],
-                                e.target.value,
-                                `field:${id}:description`,
-                              )
-                            }
-                          />
-                        </label>
-                        <label>
-                          Type
-                          <Select
-                            value={field.type || "string"}
-                            disabled={uses.length > 0}
-                            title={
-                              uses.length
-                                ? "Update or remove the references below before changing this field type."
-                                : undefined
-                            }
-                            onChange={(e) =>
-                              change(["fields", id, "type"], e.target.value)
-                            }
-                          >
-                            <option>string</option>
-                            <option>boolean</option>
-                          </Select>
-                        </label>
-                        {uses.length > 0 && (
-                          <p>
-                            Update or remove the references below before
-                            changing this field type.
-                          </p>
-                        )}
-                        {(field.type || "string") === "string" && (
-                          <label>
-                            Allowed choices · one per line
-                            <LineList
-                              value={field.choices || []}
-                              onCommit={(value) =>
-                                change(
-                                  ["fields", id, "choices"],
-                                  value,
-                                  `field:${id}:choices`,
-                                )
-                              }
-                            />
-                          </label>
-                        )}
-                        <p>Used by</p>
-                        {refs.length ? (
-                          refs.map((ref, i) => (
-                            <button
-                              className="field-reference"
-                              key={i}
-                              onClick={() => onStep(ref.nodeId)}
-                            >
-                              {workflow.nodes[ref.nodeId].title || ref.nodeId} ·{" "}
-                              {ref.kind} →
-                            </button>
-                          ))
-                        ) : (
-                          <p>No structured references.</p>
-                        )}
-                        <p>
-                          {uses.length
-                            ? `Structured uses: ${uses.join(", ")}`
-                            : "No task or rule references."}
-                        </p>
-                        <DefinitionActions
-                          kind="fields"
-                          id={id}
-                          draft={{
-                            source: document.source,
-                            metadata: document.metadata,
-                            workflow,
-                            setError,
-                            apply: (transaction) => {
-                              onTransaction(transaction);
-                              return true;
-                            },
-                          }}
-                        />
-                      </details>
-                    );
-                  })}
-                  <div className="settings-add-field">
-                    <label>
-                      New field ID
-                      <input
-                        value={newField}
-                        onChange={(e) => setNewField(e.target.value)}
-                      />
-                    </label>
-                    <Select
-                      aria-label="New field type"
-                      value={newType}
-                      onChange={(e) => setNewType(e.target.value)}
-                    >
-                      <option>string</option>
-                      <option>boolean</option>
-                    </Select>
-                    <button
-                      className="button"
-                      onClick={() => {
-                        if (
-                          !/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(newField) ||
-                          Object.hasOwn(workflow.fields || {}, newField)
-                        ) {
-                          setError(
-                            "Choose a new field ID starting with a letter.",
-                          );
-                          return;
-                        }
-                        change(["fields", newField], { type: newType });
-                        setNewField("");
-                      }}
-                    >
-                      Add field
-                    </button>
-                  </div>
-                </section>
-              )}
-              {section === "tools" && (
-                <section>
-                  <h3>Registered tools</h3>
-                  <p>
-                    YAML references registered implementations. It does not
-                    create executable tools.
-                  </p>
-                  {capabilities?.tools.map((tool) => (
-                    <details className="settings-field" key={tool.name}>
-                      <summary>
-                        {tool.name}
-                        {workflow.tools?.includes(tool.name)
-                          ? " · enabled"
-                          : " · available"}
-                      </summary>
-                      <p>
-                        Parameters:{" "}
-                        {tool.parameters
-                          .map(
-                            (p) =>
-                              `${p.name} (${p.type}${p.required ? ", required" : ""})`,
-                          )
-                          .join(", ")}
-                      </p>
-                      <p>Results: {tool.results.join(", ")}</p>
-                    </details>
-                  ))}
-                  {capabilities?.limitations?.map((note) => (
-                    <p key={note}>{note}</p>
-                  ))}
-                </section>
-              )}
-            </>
+          ) : section === "fields" ? (
+            <CollectedDataPage
+              workflow={workflow}
+              document={document}
+              onTransaction={onTransaction}
+              onStep={onStep}
+            />
+          ) : section === "tools" ? (
+            <ToolsPage
+              workflow={workflow}
+              tools={capabilities?.tools || []}
+              onStep={onStep}
+              onWorkflow={onWorkflow}
+            />
           ) : (
             <section>
               <h3>Runtime connection</h3>
@@ -439,32 +274,5 @@ export function SettingsPage({
         </fieldset>
       </div>
     </section>
-  );
-}
-
-function LineList({
-  value,
-  onCommit,
-}: {
-  value: string[];
-  onCommit: (value: string[]) => void;
-}) {
-  const serialized = value.join("\n");
-  const [text, setText] = useState(serialized);
-  useEffect(() => setText(serialized), [serialized]);
-  return (
-    <textarea
-      rows={4}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() =>
-        onCommit(
-          text
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean),
-        )
-      }
-    />
   );
 }

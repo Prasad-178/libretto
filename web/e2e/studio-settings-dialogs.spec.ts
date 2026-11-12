@@ -175,19 +175,16 @@ test("field settings include task/rule references in type safety and rename read
   });
   await page.getByRole("tab", { name: "Collected data", exact: true }).click();
   await page
-    .locator(".settings-field summary")
-    .filter({ hasText: /^accepted/ })
+    .getByRole("button", { name: "Edit Accepted field", exact: true })
     .click();
   await expect(
     page.getByRole("combobox", { name: "Type", exact: true }),
   ).toBeDisabled();
   await page
-    .locator(".settings-field summary")
-    .filter({ hasText: /^accepted/ })
+    .getByRole("button", { name: "Edit Customer name field", exact: true })
     .click();
   await page
-    .locator(".settings-field summary")
-    .filter({ hasText: /^customer_name/ })
+    .getByText("Advanced · Choices and stable field ID", { exact: true })
     .click();
   await page
     .getByRole("textbox", { name: "New ID", exact: true })

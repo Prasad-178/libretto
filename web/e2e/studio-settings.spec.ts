@@ -104,6 +104,10 @@ test("a scripted test runs the validated snapshot and freezes document edits unt
     page.getByRole("button", { name: "Open YAML", exact: true }),
   ).toBeDisabled();
   await page
+    .getByRole("button", { name: "Back to editor", exact: true })
+    .first()
+    .click();
+  await page
     .getByRole("button", { name: "Open Collect request step", exact: true })
     .click();
   await expect(page.getByLabel("Step prompt", { exact: true })).toBeDisabled();
@@ -163,21 +167,32 @@ test("Settings keeps separate undo sessions and accepts multiline lists", async 
   ).toBeVisible();
   await page.getByRole("tab", { name: "Collected data", exact: true }).click();
   await page
-    .locator(".settings-field summary")
-    .filter({ hasText: "email" })
+    .getByRole("button", { name: "Edit Email field", exact: true })
     .click();
   await expect(
     page.getByRole("combobox", { name: "Type", exact: true }).first(),
   ).toBeDisabled();
-  const choices = page
-    .getByRole("textbox", {
-      name: "Allowed choices · one per line",
-      exact: true,
-    })
-    .first();
-  await choices.pressSequentially("one");
+  await page
+    .getByText("Advanced · Choices and stable field ID", { exact: true })
+    .click();
+  const choices = page.getByRole("textbox", {
+    name: "Add allowed choice",
+    exact: true,
+  });
+  await choices.fill("one");
   await choices.press("Enter");
-  await choices.pressSequentially("two");
-  await expect(choices).toHaveValue("one\ntwo");
-  await choices.blur();
+  await choices.fill("two");
+  await choices.press("Enter");
+  await expect(
+    page.getByRole("button", {
+      name: "Remove allowed choice one",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Remove allowed choice two",
+      exact: true,
+    }),
+  ).toBeVisible();
 });

@@ -361,8 +361,22 @@ class Session:
             for policy_id, policy in self.workflow.confirmations.items():
                 proposed = proposals.get(policy.acceptance_field)
                 permit = self.state.confirmations.get(policy_id)
-                if proposed and proposed.value is True and permit:
+                if proposed and proposed.value is True:
+                    diagnostic = {
+                        "policy": policy_id, "node": context.snapshot.stage,
+                        "request_id": self.state.request.id if self.state.request else None,
+                    }
+                    if not permit:
+                        await self.emit(
+                            "confirmation_withheld", **diagnostic, code="missing_readback",
+                            reason="No complete current readback was available for this approval. Hear the details again, then confirm on a later turn.",
+                        )
+                        continue
                     if context.snapshot.confirmation_messages.get(policy_id) != permit.message_id:
+                        await self.emit(
+                            "confirmation_withheld", **diagnostic, code="readback_not_heard_before_turn",
+                            reason="The current readback was not completely delivered before this turn. Hear it fully, then confirm on a later turn.",
+                        )
                         continue
                     try:
                         fingerprint = confirmation_fingerprint(
@@ -376,8 +390,8 @@ class Session:
                             changed_fields=changed.intersection(policy.fields),
                         )
                         self.state.facts[policy.acceptance_field] = proposed
-                    except ConfirmationBlocked:
-                        pass
+                    except ConfirmationBlocked as error:
+                        await self.emit("confirmation_withheld", **diagnostic, code=error.code, reason=str(error))
             self.state.revision += 1
             node = self.workflow.nodes[context.snapshot.stage]
             selected = next(
@@ -699,7 +713,11 @@ class Session:
                 )
             self._speaking = True
             try:
-                await self.emit("readback", message_id=message.id, fields=sorted(fields))
+                await self.emit(
+                    "readback", message_id=message.id, fields=sorted(fields),
+                    node=self.state.active_stage, policy=node.confirmation,
+                    request_id=self.state.request.id if self.state.request else None,
+                )
                 await self.emit(
                     "first_text", turn_id=turn_id, message_id=message.id, response_kind="readback"
                 )

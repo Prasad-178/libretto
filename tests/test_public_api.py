@@ -120,3 +120,28 @@ async def test_close_finishes_full_event_stream_without_discarding_events():
         events = [event async for event in instance.events()]
     assert len(events) == session.queue.maxsize
     assert events[-1].data["index"] == session.queue.maxsize - 1
+
+
+async def test_withheld_approval_emits_authoritative_reason_without_dispatch():
+    compiled = compile_workflow((ROOT / 'agent.yaml').read_text(), tools=tools(), project_root=ROOT)
+    instance = WorkflowRunner(
+        compiled,
+        responder=ScriptedResponder(['Thanks'] * 8),
+        evaluator=ScriptedEvaluator([
+            collected(), Evaluation(updates={'accepted': {'value': True, 'evidence': 'yes'}}),
+        ]), delivery_mode='external',
+    )
+    try:
+        await instance.submit('book Taylor 7 Test St oven morning', turn_id='details')
+        readback = await drain_until(instance, 'readback')
+        await drain_until(instance, 'response_done')
+        await instance.acknowledge_delivery(readback.data['message_id'], epoch=readback.epoch, completed=False)
+        await instance.submit('yes', turn_id='approval')
+        withheld = await drain_until(instance, 'confirmation_withheld')
+        assert withheld.data['policy'] == 'booking'
+        assert withheld.data['node'] == 'confirm'
+        assert withheld.data['code'] == 'missing_readback'
+        assert withheld.data['request_id'] == instance.snapshot().request.id
+        assert instance.snapshot().receipts == []
+    finally:
+        await instance.close()

@@ -40,12 +40,18 @@ export function PredicateEditor({
           )
         }
       >
-        <option value="exists">Information is collected</option>
+        <option value="exists">Information has a value</option>
         <option value="equals">Information equals a value</option>
         <option value="all">All checks pass</option>
         <option value="any">Any check passes</option>
         <option value="not">Check does not pass</option>
       </Select>
+      {value.op === "exists" && (
+        <p className="inspector-help">
+          Requires a non-empty value. For Yes / no fields this requires Yes; use
+          Equals to match No.
+        </p>
+      )}
       {["exists", "equals"].includes(value.op) ? (
         <>
           <Select

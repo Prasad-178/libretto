@@ -3,9 +3,11 @@ import type { ValidatedRevision } from "./types";
 export function TestPanel({
   snapshot,
   children,
+  summary,
 }: {
   snapshot: ValidatedRevision | null;
   children: ReactNode;
+  summary: ReactNode;
 }) {
   return (
     <aside className="test-panel" aria-label="Agent test">
@@ -14,7 +16,8 @@ export function TestPanel({
           ? `Testing revision ${snapshot.revision} · editing paused until Stop`
           : "Test the current draft · validation runs before connection"}
       </div>
-      {children}
+      <div className="debug-main">{children}</div>
+      {summary}
     </aside>
   );
 }
