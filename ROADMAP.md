@@ -1,6 +1,6 @@
 # Libretto roadmap
 
-Updated 2026-11-04. Direction approved by Prasad; M1 is merged into main and locally verified; later milestones are planned. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
+Updated 2026-11-12. Direction approved by Prasad; M1 and the LiveKit migration are implemented locally. Real-provider M2 acceptance and final Studio-rollout review remain separate gates. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -16,13 +16,13 @@ Accounts, billing, subscriptions, organizations, collaboration, shared workspace
 | --- | --- | --- |
 | Definition | Strict YAML schema, fields, graph, prompts, knowledge, actions, model/speech configuration | Explicit request/confirmation semantics and compiled application tool contracts are implemented on main. |
 | Runtime | Parallel responder/evaluator, transitions, cancellation epochs, readbacks and simulated actions | Core authority is generic; Northline guidance and simulated handlers are explicit application configuration. |
-| Studio | Flow/Routes, inspectors, source-preserving edits/history, import/export/sidecar, Sources/retrieval, Settings, fixed test snapshots | Bounded usability gaps remain; no new product-platform layer is needed. |
+| Studio | Source-preserving visual authoring, model/voice selection, separate STT/TTS, knowledge inspection, fixed test snapshots and runtime explanations | Current UX rollout is implemented locally; finish exact-head checks, parity evidence and independent review before calling it complete. Routes remains a secondary index. |
 | Developer API | Python source package, provider protocols and an internal Session | WorkflowRunner and the developer registry are documented and clean-install tested; see the library guide. |
-| LiveKit | No Libretto adapter shipped | Need one thin integration with explicit media/control ownership. |
+| LiveKit | Optional pinned integration is the default voice path; Direct Deepgram remains available; core works without either | Deterministic delivery/interruption regressions pass. Real-provider voice acceptance remains pending. |
 | Testing | Unit/API/browser checks and local retrieval evaluation | UI scenarios mostly remain manual; need reusable executable workflow scenarios. |
 | Distribution | Source checkout works; repository public | Core-only wheel install/run verified outside checkout. License and release decision remain; no registry publication. |
 
-This baseline was checked against source on 2026-11-04. The Nov 1 improvement review predates fixes to workflow selection, reasoning settings, import/recovery and Studio; reproduce its remaining findings before treating them as current defects. M1 moves domain-specific confirmation rules and interpretation guidance into example configuration.
+This baseline was refreshed against source on 2026-11-12. The Nov 1 improvement review predates fixes to workflow selection, reasoning settings, import/recovery and Studio; reproduce its remaining findings before treating them as current defects. M1 moves domain-specific confirmation rules and interpretation guidance into example configuration.
 
 ## Sequence and gates
 
@@ -179,4 +179,7 @@ For every task record: milestone, outcome, dependencies, files/interfaces, accep
 
 ## Immediate next work
 
-Execute M1 from the linked plan. Start with regression fixtures and request/confirmation characterization, not another Studio redesign. The target is **two substantive agents, one reusable core**, then **one working LiveKit example**.
+1. Close the approved [Studio UX rollout](docs/superpowers/plans/2026-11-08-studio-ux-rollout.md): final parity checks, exact-head local verification and one independent review. Keep changes bounded to the existing developer workflow.
+2. Complete the separately gated M2 live-provider acceptance with explicit credential/budget arrangements: recognition, synthesis, interruption, playback and authorized action in the repair example. Mocked browser tests do not establish this.
+3. Start M3 with a small local scenario contract and CLI assertions for facts, transitions, blocked reasons and receipts. Reuse WorkflowRunner and the same events Studio observes; do not build a second runtime or a hosted platform.
+4. Improve the source-install quickstart and examples using those verified paths. Source/GitHub distribution stays the plan; no registry publication is implied.

@@ -246,8 +246,78 @@ test("the independent repair workflow has editable imported action bindings", as
   await expect(
     panel.getByRole("heading", { name: "Outcome destinations", exact: true }),
   ).toBeVisible();
-  await expect(
-    panel.getByText(/no Python contract/i).first(),
-  ).toBeVisible();
+  await expect(panel.getByText(/no Python contract/i).first()).toBeVisible();
   await page.screenshot({ path: info.outputPath("repair-action-1440.png") });
+});
+
+test("nested state checks preserve typed values and quoted YAML strings through export and reopen", async ({
+  page,
+}) => {
+  const input =
+    "version: 1\nid: nested\nname: Nested\nstart: ask\nshared_prompt: Help.\nfields: {ready: {type: boolean}, note: {type: string}}\nnodes:\n  ask:\n    kind: conversation\n    title: Ask\n    prompt: Ask.\n    edges:\n      - id: rule\n        to: end\n        predicate:\n          op: all\n          conditions:\n            - {op: any, conditions: [{op: equals, field: ready, value: false}, {op: exists, field: note}]}\n            - {op: not, conditions: [{op: equals, field: note, value: stop}]}\n  end: {kind: end}\n";
+  await page.goto("/studio");
+  await page.getByLabel("Open workflow files").setInputFiles({
+    name: "nested.yaml",
+    mimeType: "application/yaml",
+    buffer: Buffer.from(input),
+  });
+  await page
+    .getByRole("button", { name: "Open Ask step", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Connections", exact: true }).click();
+  await page
+    .locator(".inspector-transition")
+    .first()
+    .locator("button")
+    .first()
+    .click();
+  const panel = page.getByRole("complementary", {
+    name: "Edit route",
+    exact: true,
+  });
+  await expect(
+    panel.getByRole("combobox", { name: "Check type", exact: true }),
+  ).toHaveCount(6);
+  await expect(
+    panel.getByRole("combobox", { name: "Expected value", exact: true }),
+  ).toContainText("No / not confirmed");
+  await panel
+    .getByRole("combobox", { name: "Expected value", exact: true })
+    .click();
+  await page
+    .getByRole("option", { name: "Yes / confirmed", exact: true })
+    .click();
+  await panel
+    .getByRole("textbox", { name: "Expected value", exact: true })
+    .fill("on");
+  const source = await exportYaml(page, "nested.yaml");
+  const exported = parse(source);
+  expect(
+    exported.nodes.ask.edges[0].predicate.conditions[0].conditions[0].value,
+  ).toBe(true);
+  expect(
+    exported.nodes.ask.edges[0].predicate.conditions[1].conditions[0].value,
+  ).toBe("on");
+  const validation = await page.request.post("/api/workflow/validate", {
+    data: { source },
+  });
+  expect(validation.ok()).toBe(true);
+  await page.getByLabel("Open workflow files").setInputFiles({
+    name: "nested.yaml",
+    mimeType: "application/yaml",
+    buffer: Buffer.from(source),
+  });
+  await page
+    .getByRole("button", { name: "Open Ask step", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Connections", exact: true }).click();
+  await page
+    .locator(".inspector-transition")
+    .first()
+    .locator("button")
+    .first()
+    .click();
+  await expect(
+    panel.getByRole("textbox", { name: "Expected value", exact: true }),
+  ).toHaveValue("on");
 });
