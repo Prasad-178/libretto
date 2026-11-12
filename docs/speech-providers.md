@@ -56,4 +56,11 @@ Each term is matched at word boundaries, including across streamed text chunks. 
 
 The runtime's generated text, facts, action arguments and confirmation identity retain the original wording. Direct Deepgram interrupted speech prefixes map back to original text conservatively: a partially heard replacement does not claim the whole original term, and an unrecognized provider-normalized prefix is treated as unknown. Complete delivery still requires the existing message/epoch acknowledgement; pronunciation never bypasses failed/truncated-synthesis safeguards.
 
-The schema and both synthesis boundaries support these rules. The new Studio pronunciation editor is still part of the ongoing UI rollout.
+Studio exposes recognition vocabulary and pronunciation rows separately. Recognition hints remain explicitly inactive in the LiveKit adapter; Direct Deepgram uses them. TTS scrolls independently of the page and the recognition pane. Advanced settings preserve imported provider/model/voice IDs, including inactive values.
+
+
+## Voice discovery in Studio
+
+The anchored voice picker shows a small, clearly labelled compatible suggestion set for LiveKit Inference. It does not claim to fetch the full LiveKit voice library or require a Cartesia key for Inference. Suggestions are sourced from [LiveKit Cartesia](https://docs.livekit.io/agents/models/tts/cartesia/) and [Deepgram](https://docs.livekit.io/agents/models/tts/deepgram/) documentation (checked 2026-11-12). Pre-existing Cartesia custom/community voices require the provider plugin rather than Inference. Direct Deepgram's Flux Haley model includes its voice; a separate voice ID is inactive there.
+
+For the Cartesia provider plugin, a Cartesia key entered in Connection enables authenticated, paginated [voice metadata discovery](https://docs.cartesia.ai/api-reference/voices/list). The key travels only in a request header, never YAML. Responses use `Cache-Control: no-store`; account lists are cached only in the mounted browser view, cleared when provider/credential context changes. The server does not retain a shared account cache. Searches, errors and delayed responses cannot replace another credential context's list. Current/custom voice IDs survive discovery failures. Browsing never generates paid audio previews.

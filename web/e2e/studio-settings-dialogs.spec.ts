@@ -1,18 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
-import path from "node:path";
 import { readFile } from "node:fs/promises";
+import { expect, test } from "@playwright/test";
+import path from "node:path";
+import { exportYaml } from "./helpers";
 import { parse } from "yaml";
-
-async function exportYaml(page: Page, filename: string): Promise<string> {
-  await page.getByRole("button", { name: "Export YAML", exact: true }).click();
-  const downloaded = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: `Download ${filename}`, exact: true })
-    .click();
-  const file = await (await downloaded).path();
-  if (!file) throw new Error("The YAML download did not complete.");
-  return (await readFile(file)).toString();
-}
 
 test("workflow settings save one undoable edit and Cancel discards staged changes", async ({
   page,

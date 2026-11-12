@@ -946,6 +946,7 @@ export default function App() {
           ) : source ? (
             <SettingsPage
               key={view}
+              cartesiaKey={voiceKeys.cartesia_key || ""}
               category={
                 view === "fields"
                   ? "fields"

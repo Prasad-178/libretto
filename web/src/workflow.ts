@@ -65,6 +65,7 @@ export type Workflow = {
     stt: { provider: string; model: string; voice?: string | null };
     tts: { provider: string; model: string; voice?: string | null };
     hints?: string[];
+    pronunciations?: { word: string; say_as: string }[];
   };
   fields?: Record<
     string,
@@ -172,11 +173,20 @@ export function readWorkflow(source: string): Workflow | null {
       value.speech !== undefined &&
       (!record(value.speech) ||
         !stringLists(value.speech, ["hints"]) ||
+        (value.speech.pronunciations !== undefined &&
+          (!Array.isArray(value.speech.pronunciations) ||
+            !value.speech.pronunciations.every(
+              (row: unknown) =>
+                record(row) &&
+                typeof row.word === "string" &&
+                typeof row.say_as === "string",
+            ))) ||
         !["stt", "tts"].every(
           (key) =>
             value.speech[key] === undefined ||
             (record(value.speech[key]) &&
-              optionalText(value.speech[key], ["provider", "model"])),
+              optionalText(value.speech[key], ["provider", "model"]) &&
+              nullableText(value.speech[key], ["voice"])),
         ))
     )
       return null;

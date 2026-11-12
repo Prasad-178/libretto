@@ -890,3 +890,336 @@
 .controller-instructions .prompt-editor header { display: flex; align-items: center; justify-content: space-between; }
 .controller-instructions .prompt-editor header label { margin: 0; }
 .controller-instructions .prompt-editor header button { display: inline-flex; align-items: center; gap: 6px; color: #2d5bdb; }
+
+/* Speech panes own their scroll; opening a voice popover never resizes the page. */
+.speech-page .settings-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.speech-page .settings-content > fieldset {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.speech-settings {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.speech-connection-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.speech-connection-controls label {
+  flex: 1;
+  max-width: 420px;
+}
+.speech-connection-controls > .button {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+.speech-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.settings-content .speech-pane {
+  overflow-y: auto;
+  min-height: 0;
+  min-width: 0;
+  overscroll-behavior: contain;
+  padding: 0 12px 20px 0;
+  margin: 0;
+  border: 0;
+}
+.settings-content .tts-pane {
+  border-left: 1px solid #e3e6eb;
+  padding-left: 32px;
+}
+.settings-content .speech-pane > h3 {
+  font-size: 22px;
+  line-height: 28px;
+  margin-bottom: 8px;
+}
+.speech-pane > h3 span {
+  color: #5e6876;
+  font-weight: 400;
+}
+.speech-pane > label {
+  margin: 24px 0;
+}
+.speech-pane h4 {
+  font-size: 16px;
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+.recognition-vocabulary {
+  margin-top: 28px;
+}
+.speech-capability-note {
+  border-left: 2px solid #b5bdc7;
+  padding-left: 10px;
+}
+.term-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #ccd2da;
+  border-radius: 6px;
+}
+.term-tokens > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #f7f9fc;
+  border: 1px solid #d6dde6;
+  border-radius: 5px;
+  font-size: 13px;
+}
+.term-tokens button {
+  display: flex;
+  align-items: center;
+}
+.agent-page .term-tokens input {
+  width: 120px;
+  flex: 1;
+  min-width: 90px;
+  border: 0;
+  padding: 6px 4px;
+}
+.settings-content .pronunciation-settings {
+  margin: 24px 0 0;
+  padding: 24px 0 0;
+  border: 0;
+  border-top: 1px solid #e3e6eb;
+}
+.pronunciation-columns,
+.pronunciation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 20px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.pronunciation-columns {
+  font-size: 12px;
+  color: #5e6876;
+}
+.agent-page .pronunciation-row input,
+.agent-page .new-pronunciation input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid #ccd2da;
+  border-radius: 5px;
+  padding: 9px 10px;
+  font-size: 13px;
+}
+.new-pronunciation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.new-pronunciation input {
+  flex: 1 1 100px;
+}
+.pronunciation-settings > button {
+  color: #2d5bdb;
+  font-size: 13px;
+  padding: 8px 0;
+}
+.speech-advanced {
+  border-top: 1px solid #e3e6eb;
+  padding: 18px 0;
+  margin-top: 24px;
+}
+.speech-advanced summary {
+  font-size: 13px;
+  color: #5e6876;
+  cursor: pointer;
+}
+.speech-advanced label {
+  margin-top: 16px;
+}
+.voice-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 24px 0;
+}
+.voice-picker-field > span {
+  font-size: 14px;
+  font-weight: 500;
+}
+.agent-page .voice-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #ccd2da;
+  border-radius: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  text-align: left;
+}
+.voice-trigger span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.voice-trigger svg {
+  flex-shrink: 0;
+}
+.voice-popover {
+  z-index: 60;
+  background: #fff;
+  color: #15191f;
+  border: 1px solid #ccd2da;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px #15191f14;
+  width: var(--radix-popover-trigger-width);
+  min-width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: min(360px, var(--radix-popover-content-available-height));
+  display: flex;
+  flex-direction: column;
+  font-family: "IBM Plex Sans Variable", sans-serif;
+}
+.voice-popover header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e3e6eb;
+  flex-shrink: 0;
+}
+.voice-popover header input {
+  flex: 1;
+  min-width: 0;
+  width: 80px;
+  padding: 8px 10px;
+  border: 1px solid #ccd2da;
+  border-radius: 5px;
+  font-size: 13px;
+}
+.voice-popover header .studio-select-trigger {
+  max-width: 140px;
+  font-size: 12px;
+}
+.voice-popover-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 12px;
+}
+.voice-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 4px;
+  min-height: 42px;
+  border-bottom: 1px solid #eef0f3;
+  text-align: left;
+}
+.voice-option.selected {
+  background: #eef3ff;
+  border-radius: 4px;
+}
+.voice-selection {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #b7c1ce;
+  flex-shrink: 0;
+}
+.voice-option.selected .voice-selection {
+  background: #2d5bdb;
+  border-color: #2d5bdb;
+}
+.voice-option strong {
+  flex: 1;
+  font-weight: 500;
+  font-size: 14px;
+}
+.voice-option small {
+  font-size: 11px;
+  color: #5e6876;
+  text-align: right;
+}
+.voice-popover p {
+  font-size: 13px;
+  line-height: 20px;
+  margin: 8px 0;
+}
+.voice-popover footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid #e3e6eb;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #5e6876;
+}
+.voice-popover footer > div {
+  flex: 1;
+}
+.voice-popover footer small {
+  display: block;
+  font-size: 11px;
+  line-height: 16px;
+  margin-top: 4px;
+}
+.voice-popover footer button,
+.voice-load-more {
+  color: #2d5bdb;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.voice-load-more {
+  padding: 10px 0;
+}
+@media (max-width: 1100px) {
+  .speech-panes {
+    gap: 20px;
+  }
+  .settings-content .tts-pane {
+    padding-left: 20px;
+  }
+  .speech-connection-controls {
+    gap: 10px;
+  }
+  .speech-connection-controls > .button {
+    font-size: 12px;
+    max-width: 120px;
+  }
+}
+.speech-page .agent-page-header {
+  margin-bottom: 20px;
+}
+.speech-connection-controls label {
+  margin: 0;
+}
+.speech-connection-controls > .button {
+  margin-bottom: 0;
+}
+.term-tokens > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.term-tokens button {
+  flex-shrink: 0;
+}

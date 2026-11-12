@@ -1,3 +1,4 @@
+import { SpeechSettings } from "./SpeechSettings";
 import { ControllerInstructions } from "./ControllerInstructions";
 import { ModelPicker } from "./ModelPicker";
 import { ReasoningControl } from "./ReasoningControl";
@@ -6,10 +7,9 @@ import { modelDefaults, type ModelCatalog } from "./model-catalog";
 import { DefinitionActions } from "./ConfirmationFields";
 import { definitionUses } from "./settings-edits";
 import { ConversationEditor } from "./ConversationEditor";
-import { voiceEngine, voicePresets } from "../voice-config";
 import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
-import { readWorkflow, type Workflow } from "../workflow";
+import { readWorkflow } from "../workflow";
 import type { StudioDocument, DocumentTransaction } from "./types";
 import type { StudioCapabilities } from "./runtime-api";
 import { fieldReferences } from "./field-references";
@@ -22,8 +22,10 @@ export function SettingsPage({
   onHistoryEnd,
   category = "agent",
   onWorkflow,
+  cartesiaKey = "",
 }: {
   category?: "agent" | "fields" | "tools";
+  cartesiaKey?: string;
   onWorkflow: () => void;
   document: StudioDocument;
   capabilities: StudioCapabilities | null;
@@ -70,8 +72,6 @@ export function SettingsPage({
         Fix the YAML syntax before editing settings.
       </p>
     );
-  const speech: NonNullable<Workflow["speech"]> =
-    workflow.speech || voicePresets.livekit;
   const change = (
     path: (string | number)[],
     value: unknown,
@@ -103,7 +103,7 @@ export function SettingsPage({
           : sections.find((s) => s.id === section)?.label;
   return (
     <section
-      className={`settings-page agent-page ${category === "agent" ? "agent-settings" : ""}`}
+      className={`settings-page agent-page ${category === "agent" ? "agent-settings" : ""} ${section === "speech" ? "speech-page" : ""}`}
       aria-label="Workflow settings"
       onBlur={onHistoryEnd}
     >
@@ -198,131 +198,16 @@ export function SettingsPage({
                 </div>
               )}
               {section === "speech" && (
-                <section>
-                  <h3>Speech</h3>
-                  <label>
-                    Voice integration
-                    <Select
-                      value={voiceEngine(workflow.speech)}
-                      onChange={(event) => {
-                        const preset =
-                          voicePresets[
-                            event.target.value as "livekit" | "direct"
-                          ];
-                        onTransaction({
-                          label: "Change voice integration",
-                          operations: Object.entries(preset).map(
-                            ([key, value]) => ({
-                              op: "set" as const,
-                              path: ["speech", key],
-                              value,
-                            }),
-                          ),
-                        });
-                      }}
-                    >
-                      <option value="livekit">LiveKit Agents</option>
-                      <option value="direct">Direct Deepgram</option>
-                    </Select>
-                  </label>
-                  {voiceEngine(workflow.speech) === "livekit" && (
-                    <label>
-                      Speech credentials
-                      <Select
-                        value={workflow.speech?.credential_mode || "inference"}
-                        onChange={(event) =>
-                          change(
-                            ["speech", "credential_mode"],
-                            event.target.value,
-                          )
-                        }
-                      >
-                        <option value="inference">
-                          LiveKit Inference · LiveKit credentials
-                        </option>
-                        <option value="providers">
-                          Direct plugins · individual provider keys
-                        </option>
-                      </Select>
-                    </label>
-                  )}
-                  {(["stt", "tts"] as const).map((role) => {
-                    const current = speech[role];
-                    const choices =
-                      capabilities?.speechChoices.filter(
-                        (s) =>
-                          s.role === role &&
-                          (!s.engine ||
-                            s.engine === voiceEngine(workflow.speech)),
-                      ) || [];
-                    return (
-                      <label key={role}>
-                        {role === "stt" ? "Speech recognition" : "Voice output"}
-                        <Select
-                          value={JSON.stringify(current || null)}
-                          onChange={(e) => {
-                            const endpoint = JSON.parse(e.target.value);
-                            if (
-                              role === "tts" &&
-                              endpoint.provider === "cartesia"
-                            )
-                              endpoint.voice =
-                                current?.voice ||
-                                voicePresets.livekit.tts.voice;
-                            change(["speech", role], endpoint);
-                          }}
-                        >
-                          {current && (
-                            <option value={JSON.stringify(current)}>
-                              {current.provider} / {current.model}
-                            </option>
-                          )}
-                          {choices
-                            .filter(
-                              (c) =>
-                                c.provider !== current?.provider ||
-                                c.model !== current?.model,
-                            )
-                            .map((c) => (
-                              <option
-                                key={JSON.stringify(c)}
-                                value={JSON.stringify({
-                                  provider: c.provider,
-                                  model: c.model,
-                                })}
-                              >
-                                {c.provider} / {c.model}
-                              </option>
-                            ))}
-                        </Select>
-                      </label>
-                    );
-                  })}
-                  {speech.tts?.provider === "cartesia" && (
-                    <label>
-                      Voice ID
-                      <input
-                        value={speech.tts.voice || ""}
-                        onChange={(event) =>
-                          change(
-                            ["speech", "tts", "voice"],
-                            event.target.value,
-                            "settings:voice",
-                          )
-                        }
-                      />
-                    </label>
-                  )}
-                  <label>
-                    Recognition hints · one per line
-                    <LineList
-                      value={workflow.speech?.hints || []}
-                      onCommit={(value) =>
-                        change(["speech", "hints"], value, "settings:hints")
-                      }
-                    />
-                  </label>
-                </section>
+                <SpeechSettings
+                  workflow={workflow}
+                  capabilities={capabilities}
+                  disabled={!!document.running}
+                  change={change}
+                  onTransaction={onTransaction}
+                  onConnection={onConnection}
+                  onHistoryEnd={onHistoryEnd}
+                  cartesiaKey={cartesiaKey}
+                />
               )}
             </>
           ) : section === "controller" ? (

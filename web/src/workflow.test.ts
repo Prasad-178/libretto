@@ -81,3 +81,35 @@ it("rejects schema-invalid predicate containers before exposing forms", () => {
   );
   expect(readWorkflow(malformed)).toBeNull();
 });
+
+it("refuses malformed pronunciation rows without removing YAML recovery", () => {
+  const source =
+    "version: 1\nid: test\nname: Test\nstart: end\nshared_prompt: Test\nnodes: {end: {kind: end}}\n";
+  expect(readWorkflow(source + "speech: {pronunciations: [null]}")).toBeNull();
+  expect(
+    readWorkflow(source + "speech: {pronunciations: [{word: 3, say_as: yes}]}"),
+  ).toBeNull();
+  expect(
+    readWorkflow(
+      source +
+        "speech: {pronunciations: [{word: Libretto, say_as: lih-BRET-oh}]}",
+    ),
+  ).not.toBeNull();
+});
+
+it("keeps malformed voice IDs out of controls while allowing nullable IDs", () => {
+  const source =
+    "version: 1\nid: test\nname: Test\nstart: end\nshared_prompt: Test\nnodes: {end: {kind: end}}\n";
+  expect(
+    readWorkflow(
+      source +
+        "speech: {tts: {provider: cartesia, model: sonic-3, voice: {broken: true}}}",
+    ),
+  ).toBeNull();
+  expect(
+    readWorkflow(
+      source +
+        "speech: {tts: {provider: cartesia, model: sonic-3, voice: null}}",
+    ),
+  ).not.toBeNull();
+});

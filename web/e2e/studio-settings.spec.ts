@@ -142,14 +142,25 @@ test("Settings keeps separate undo sessions and accepts multiline lists", async 
   await expect(name).toHaveValue("First name");
   await page.getByRole("button", { name: "Speech", exact: true }).click();
   const hints = page.getByRole("textbox", {
-    name: "Recognition hints · one per line",
+    name: "Add recognition term",
     exact: true,
   });
-  await hints.pressSequentially("first");
+  await hints.fill("first");
   await hints.press("Enter");
-  await hints.pressSequentially("second");
-  await expect(hints).toHaveValue("first\nsecond");
-  await hints.blur();
+  await hints.fill("second");
+  await hints.press("Enter");
+  await expect(
+    page.getByRole("button", {
+      name: "Remove recognition term first",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Remove recognition term second",
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: "Collected data", exact: true }).click();
   await page
     .locator(".settings-field summary")

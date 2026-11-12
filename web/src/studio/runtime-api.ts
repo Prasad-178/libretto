@@ -1,3 +1,4 @@
+import type { VoiceCatalog, VoiceQuery } from "./voice-catalog";
 import type { ModelCatalog } from "./model-catalog";
 import type { ToolManifest } from "./tool-manifest";
 export type { ToolManifest } from "./tool-manifest";
@@ -72,13 +73,14 @@ export function createStudioApi(
     path: string,
     body: unknown,
     signal?: AbortSignal,
+    extraHeaders: Record<string, string> = {},
   ): Promise<T> {
     const response = await fetcher(base + path, {
       method: body === undefined ? "GET" : "POST",
       ...(body === undefined
         ? {}
         : {
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...extraHeaders },
             body: JSON.stringify(body),
           }),
       signal,
@@ -98,6 +100,13 @@ export function createStudioApi(
     return result as T;
   }
   return {
+    voices: (body: VoiceQuery, key = "", signal?: AbortSignal) =>
+      request<VoiceCatalog>(
+        "/api/studio/voices",
+        body,
+        signal,
+        key ? { "X-Cartesia-Key": key } : {},
+      ),
     models: (signal?: AbortSignal) =>
       request<ModelCatalog>("/api/studio/models", undefined, signal),
     capabilities: (signal?: AbortSignal) =>

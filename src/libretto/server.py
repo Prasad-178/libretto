@@ -10,7 +10,7 @@ from typing import Literal
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from pydantic import Field, SecretStr, ValidationError
 
@@ -32,6 +32,7 @@ from libretto.studio_api import (
     preview_retrieval,
 )
 from libretto.studio_entry import HTML as STUDIO_HTML
+from libretto.voice_catalog import VoiceCatalogError, VoiceQuery, discover_voices
 from libretto.workspace import StudioWorkspace
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -159,6 +160,18 @@ def create_app(
     @app.get("/api/studio/models")
     async def studio_models():
         return await model_catalog.get()
+
+    @app.post("/api/studio/voices")
+    async def studio_voices(
+        body: VoiceQuery, response: Response, cartesia_key: str = Header(default="", alias="X-Cartesia-Key")
+    ):
+        response.headers["Cache-Control"] = "no-store"
+        if len(cartesia_key) > 1024:
+            raise HTTPException(422, "Session key is too long.", headers={"Cache-Control": "no-store"})
+        try:
+            return await discover_voices(body, client=app.state.pool, key=cartesia_key)
+        except VoiceCatalogError as exc:
+            raise HTTPException(422, str(exc), headers={"Cache-Control": "no-store"}) from None
 
     @app.get("/api/studio/capabilities")
     async def studio_capabilities():
