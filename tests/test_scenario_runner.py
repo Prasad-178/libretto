@@ -266,10 +266,11 @@ async def test_event_budget_failure_still_drains_and_closes_runtime(monkeypatch)
     monkeypatch.setattr(_Inference, "stream_reply", many_chunks)
     data = repair_scenario()
     data["steps"] = [{"kind": "turn", "id": str(i), "text": "hello", "evaluation": {}} for i in range(2)]
-    async with asyncio.timeout(1):
-        report = await run(data, timeout=0.1)
+    async with asyncio.timeout(3):
+        report = await run(data, timeout=2)
     assert not report.passed
     assert any("5,000 events" in failure for failure in report.failures)
+    assert not any("runtime stalled" in failure for failure in report.failures)
 
 
 @pytest.mark.parametrize("text", ["? [one, two]\n: value", "version: true\n"])
@@ -301,3 +302,68 @@ async def test_retrieved_passage_identity_assertions_use_actual_retriever():
     assert not report.passed
     assert report.passages
     assert any("nonexistent-passage" in failure for failure in report.failures)
+
+
+@pytest.mark.parametrize("with_action", [False, True])
+async def test_startup_only_requests_keep_identity_after_the_session_finishes(tmp_path, with_action):
+    workflow = {
+        "version": 1,
+        "id": "startup-request",
+        "name": "Startup request",
+        "start": "intro",
+        "shared_prompt": "Fictional workflow.",
+        "requests": {"work": {"fields": []}},
+        "fields": {"stop": {"type": "boolean"}},
+        "tools": ["ping"] if with_action else [],
+        "nodes": {
+            "intro": {"kind": "say", "text": "Starting.", "edges": [{"id": "next", "to": "work"}]},
+            "work": {
+                "kind": "conversation",
+                "begin_request": "work",
+                "edges": [
+                    {
+                        "id": "next",
+                        "to": "job" if with_action else "end",
+                        "predicate": {"op": "not", "conditions": [{"op": "exists", "field": "stop"}]},
+                    },
+                ],
+            },
+            **(
+                {
+                    "job": {
+                        "kind": "action",
+                        "tool": "ping",
+                        "edges": [
+                            {"id": result, "to": "end", "result": result}
+                            for result in ["done", "failed", "unknown"]
+                        ],
+                    }
+                }
+                if with_action
+                else {}
+            ),
+            "end": {"kind": "end"},
+        },
+    }
+    path = tmp_path / "agent.yaml"
+    path.write_text(yaml.safe_dump(workflow))
+    data = {
+        "version": 1,
+        "name": "Startup",
+        "workflow": str(path),
+        "completed": True,
+        "tools": {"ping": {"results": ["done", "failed", "unknown"], "responses": [{"status": "done"}]}}
+        if with_action
+        else {},
+        "steps": [{"kind": "expect", "action_count": 1 if with_action else 0, "request_count": 1}],
+    }
+    report = await run(data)
+    assert report.passed, report.failures
+    request_states = [
+        event.details["request"]
+        for event in report.timeline
+        if event.type == "state" and event.details.get("request")
+    ]
+    assert request_states and request_states[0]["reference"] == "request-1"
+    if with_action:
+        assert report.actions[0]["request"] == "request-1"

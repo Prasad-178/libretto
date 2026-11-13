@@ -47,13 +47,18 @@ class WorkflowRunner:
         await self._session.submit_turn(text, turn_id)
 
     async def wait_idle(self) -> None:
-        """Wait for tracked runtime work, including work it schedules in turn.
+        """Wait for tracked work and for the concurrent consumer to drain its events.
 
         This does not acknowledge external delivery. The caller must consume events
         concurrently and apply a deadline if its providers or tools can stall.
         """
-        while tasks := tuple(self._session._tasks):
-            await asyncio.gather(*tasks)
+        while True:
+            tasks = tuple(self._session._tasks)
+            if tasks:
+                await asyncio.gather(*tasks)
+            await self._session.queue.join()
+            if not self._session._tasks:
+                return
 
     async def events(self) -> AsyncIterator[ServerEvent]:
         async for event in self._session.events():

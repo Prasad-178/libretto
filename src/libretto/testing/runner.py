@@ -123,51 +123,69 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
             if len(events) >= 5000:
                 raise ValueError("Scenario exceeds 5,000 events")
             events.append(event)
+            if event.type == "state" and event.data.get("request"):
+                request_id = event.data["request"]["id"]
+                requests.setdefault(request_id, f"request-{len(requests) + 1}")
 
     pump = asyncio.create_task(collect())
     state = runner.snapshot()
     remember(state)
     step_number = 0
+
+    async def execute() -> None:
+        nonlocal state, step_number
+        await runner.start()
+        await runner.wait_idle()
+        for step_number, step in enumerate(scenario.steps, 1):
+            if pump.done():
+                pump.result()  # Surface a failed event drain before proceeding.
+            if isinstance(step, Turn):
+                await runner.submit(step.text, turn_id=step.id)
+            elif isinstance(step, Deliver):
+                permit = runner.snapshot().confirmations.get(step.policy)
+                if permit is None:
+                    failures.append(f"step {step_number}: no current readback for {step.policy}")
+                    break
+                await runner.acknowledge_delivery(
+                    permit.message_id, epoch=permit.epoch, completed=step.completed
+                )
+            elif isinstance(step, Interrupt):
+                await runner.interrupt()
+            elif isinstance(step, Advance):
+                clock.now += step.seconds
+            await runner.wait_idle()
+            state = runner.snapshot()
+            remember(state)
+            if isinstance(step, Expect):
+                failures.extend(
+                    f"step {step_number}: {failure}"
+                    for failure in _check(step, state, tools.calls, len(requests))
+                )
+        state = runner.snapshot()
+
+    execution = asyncio.create_task(execute())
     try:
         async with asyncio.timeout(timeout):
-            await runner.start()
-            await runner.wait_idle()
-            for step_number, step in enumerate(scenario.steps, 1):
-                if pump.done():
-                    pump.result()  # Surface a failed event drain before proceeding.
-                if isinstance(step, Turn):
-                    await runner.submit(step.text, turn_id=step.id)
-                elif isinstance(step, Deliver):
-                    permit = runner.snapshot().confirmations.get(step.policy)
-                    if permit is None:
-                        failures.append(f"step {step_number}: no current readback for {step.policy}")
-                        break
-                    await runner.acknowledge_delivery(
-                        permit.message_id, epoch=permit.epoch, completed=step.completed
-                    )
-                elif isinstance(step, Interrupt):
-                    await runner.interrupt()
-                elif isinstance(step, Advance):
-                    clock.now += step.seconds
-                await runner.wait_idle()
-                state = runner.snapshot()
-                remember(state)
-                if isinstance(step, Expect):
-                    failures += [
-                        f"step {step_number}: {failure}"
-                        for failure in _check(step, state, tools.calls, len(requests))
-                    ]
-            state = runner.snapshot()
+            done, _ = await asyncio.wait({execution, pump}, return_when=asyncio.FIRST_COMPLETED)
+            if pump in done:
+                pump.result()  # A failed drain must wake a backpressured producer immediately.
+            await execution
     except TimeoutError:
         failures.append(f"step {step_number}: runtime stalled (deadline {timeout}s)")
     except Exception as error:
         failures.append(f"step {step_number}: {type(error).__name__}: {error}")
     finally:
+        if not execution.done():
+            execution.cancel()
+        await asyncio.gather(execution, return_exceptions=True)
+        state = runner.snapshot()
+        remember(state)
         await runner.close()
         try:
             await pump
         except Exception as error:
-            failures.append(str(error))
+            if not any(str(error) in failure for failure in failures):
+                failures.append(str(error))
 
     failures += tools.failures
     codes = []
@@ -176,7 +194,14 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
         if event.type == "transition":
             stages.append(event.data["destination"])
         code = event.data.get("code") or event.type
-        if event.type in {"expired", "action_blocked", "confirmation_withheld", "evaluation_error", "error", "readback_blocked"} or (event.type == "tool_result" and event.data.get("code") == "action_outcome_unknown"):
+        if event.type in {
+            "expired",
+            "action_blocked",
+            "confirmation_withheld",
+            "evaluation_error",
+            "error",
+            "readback_blocked",
+        } or (event.type == "tool_result" and event.data.get("code") == "action_outcome_unknown"):
             if code not in codes:
                 codes.append(code)
         if event.type in {"evaluation_error", "error"}:

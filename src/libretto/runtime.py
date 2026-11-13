@@ -125,9 +125,12 @@ class Session:
     async def events(self) -> AsyncIterator[ServerEvent]:
         while not (self._events_finished and self.queue.empty()):
             event = await self.queue.get()
-            if event is None:
-                break
-            yield event
+            try:
+                if event is None:
+                    break
+                yield event
+            finally:
+                self.queue.task_done()
 
     def snapshot(self) -> StageSnapshot:
         return StageSnapshot(
