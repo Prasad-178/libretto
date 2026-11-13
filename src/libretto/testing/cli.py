@@ -51,6 +51,7 @@ def _write_evidence(output: Path, reports: list) -> None:
 def test_command(path: Path, *, machine_json: bool = False, output: Path | None = None) -> int:
     """Return 0 success, 1 failed checks/execution, or 2 invalid input/setup."""
     reports, errors = [], []
+    workflow_inputs: set[Path] = set()
     if path.is_dir():
         files = sorted(
             item
@@ -64,14 +65,15 @@ def test_command(path: Path, *, machine_json: bool = False, output: Path | None 
     for file in files:
         try:
             scenario = load_scenario(file)
+            workflow_inputs.add((file.parent / scenario.workflow).resolve())
             report = asyncio.run(run_scenario(scenario, base_dir=file.parent))
             reports.append(report)
         except (OSError, ValueError, TypeError) as error:
             errors.append(f"{file}: {_setup_message(error)}")
     if output is not None and not errors:
         try:
-            if output.resolve() in {file.resolve() for file in files}:
-                raise ValueError("Evidence output must not overwrite a scenario input")
+            if output.resolve() in workflow_inputs | {file.resolve() for file in files}:
+                raise ValueError("Evidence output must not overwrite a scenario or workflow input")
             _write_evidence(output, reports)
         except (OSError, ValueError) as error:
             errors.append(f"Evidence was not saved: {_setup_message(error)}")

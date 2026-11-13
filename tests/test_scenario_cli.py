@@ -129,3 +129,18 @@ def test_cli_export_io_error_is_setup_error_without_traceback(tmp_path):
     assert result.returncode == 2
     assert json.loads(result.stdout)["errors"]
     assert "Traceback" not in result.stderr
+
+
+def test_output_cannot_overwrite_the_workflow_under_test(tmp_path):
+    import shutil
+
+    from test_scenario_runner import REPAIR
+
+    shutil.copytree(REPAIR, tmp_path / "repair")
+    workflow = tmp_path / "repair/agent.yaml"
+    before = workflow.read_bytes()
+    data = repair_scenario()
+    data["workflow"] = str(workflow)
+    result = invoke(write(tmp_path, data), "--output", str(workflow))
+    assert result.returncode == 2
+    assert workflow.read_bytes() == before

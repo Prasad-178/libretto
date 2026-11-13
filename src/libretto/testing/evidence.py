@@ -13,6 +13,7 @@ from typing import Any
 
 from libretto.compiler import CompiledWorkflow
 from libretto.events import ServerEvent
+from libretto.state import SessionState
 
 from .schema import EvidenceContext, EvidenceEvent, Expect, Scenario, Turn
 
@@ -67,6 +68,9 @@ class EvidenceProjection:
                 for field, value in step.facts.items():
                     if field in self.fields:
                         self._remember(value)
+                if any(self.arguments.values()):
+                    for fingerprint in step.argument_fingerprints or []:
+                        self._remember(fingerprint)
                 sensitive_parameters = set().union(*self.arguments.values()) if self.arguments else set()
                 for arguments in step.action_arguments or []:
                     for parameter, value in arguments.items():
@@ -84,6 +88,15 @@ class EvidenceProjection:
                     json.dumps(value, ensure_ascii=True)[1:-1],
                 )
             )
+
+    def finalize(self, state: SessionState) -> None:
+        """Include normalized runtime values and sensitive hashes before cleaning failures."""
+        for field, value in state.values().items():
+            if field in self.fields:
+                self._remember(value)
+        for receipt in state.receipts:
+            if self.arguments.get(receipt["tool"]):
+                self._remember(receipt["argument_fingerprint"])
 
     def clean(self, value: Any) -> Any:
         if isinstance(value, str):

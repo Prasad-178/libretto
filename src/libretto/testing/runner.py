@@ -103,9 +103,9 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
     """
     source = base_dir / scenario.workflow
     tools, clock, inference = _Tools(scenario), _Clock(), _Inference(scenario)
-    compiled = compile_workflow(
-        source.read_text(encoding="utf-8"), tools=tools.registry, project_root=source.parent
-    )
+    with source.open(encoding="utf-8", newline="") as handle:
+        workflow_source = handle.read()
+    compiled = compile_workflow(workflow_source, tools=tools.registry, project_root=source.parent)
     projection = EvidenceProjection(scenario, compiled)
     runner = WorkflowRunner(
         compiled, responder=inference, evaluator=inference, delivery_mode="external", clock=clock
@@ -211,6 +211,7 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
                 "request": requests.get(receipt["request_id"], "no-request"),
             }
         )
+    projection.finalize(state)
     return ScenarioReport(
         name=projection.clean(scenario.name),
         passed=not failures,

@@ -93,3 +93,70 @@ async def test_sensitive_redaction_does_not_modify_scenario_or_runtime_assertion
     report = await run(data)
     assert report.passed
     assert json.dumps(data, sort_keys=True) == before
+
+
+async def test_sensitive_argument_hashes_are_redacted_from_assertion_failures_too():
+    import hashlib
+
+    data = repair_scenario()
+    data["sensitive_fields"] = ["address"]
+    data["steps"][-1]["argument_fingerprints"] = ["WRONG_FINGERPRINT"]
+    report = await run(data)
+    actual_hash = hashlib.sha256(
+        json.dumps(
+            {
+                "customer_name": "Taylor",
+                "address": "7 Test St",
+                "issue": "oven",
+                "window": "morning",
+            },
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+    assert not report.passed
+    assert actual_hash not in report.model_dump_json()
+    assert "WRONG_FINGERPRINT" not in report.model_dump_json()
+
+
+async def test_author_can_fix_yaml_then_save_evidence_explaining_the_changed_path(tmp_path):
+    import shutil
+
+    import yaml
+    from test_scenario_runner import REPAIR
+
+    shutil.copytree(REPAIR, tmp_path / "repair")
+    workflow_path = tmp_path / "repair/agent.yaml"
+    original = workflow_path.read_text()
+    data = repair_scenario()
+    data["workflow"] = str(workflow_path)
+    workflow = yaml.safe_load(original)
+    workflow["nodes"]["collect"]["edges"][0]["predicate"]["conditions"][-1]["value"] = False
+    workflow_path.write_text(yaml.safe_dump(workflow))
+    failed = await run(data)
+    assert not failed.passed
+    assert failed.stages == ["collect"]
+    assert any("stage" in failure or "readback" in failure for failure in failed.failures)
+    workflow_path.write_text(original)
+    passed = await run(data)
+    assert passed.passed
+    assert passed.context.workflow_sha256 != failed.context.workflow_sha256
+    assert any(
+        event.type == "transition" and event.details["destination"] == "confirm" for event in passed.timeline
+    )
+
+
+async def test_workflow_hash_preserves_crlf_source_for_studio_matching(tmp_path):
+    import hashlib
+    import shutil
+
+    from test_scenario_runner import REPAIR
+
+    shutil.copytree(REPAIR, tmp_path / "repair")
+    path = tmp_path / "repair/agent.yaml"
+    content = path.read_bytes().replace(b"\n", b"\r\n")
+    path.write_bytes(content)
+    data = repair_scenario()
+    data["workflow"] = str(path)
+    report = await run(data)
+    assert report.passed
+    assert report.context.workflow_sha256 == hashlib.sha256(content).hexdigest()
