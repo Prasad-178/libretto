@@ -1,5 +1,8 @@
 """Supported application facade over the single Libretto session engine."""
 
+import asyncio
+import time
+from collections.abc import Callable
 from copy import deepcopy
 from typing import AsyncIterator, Literal
 
@@ -19,6 +22,7 @@ class WorkflowRunner:
         responder: Responder,
         evaluator: Evaluator,
         delivery_mode: Literal["text", "external"] = "text",
+        clock: Callable[[], float] = time.monotonic,
     ):
         if delivery_mode not in {"text", "external"}:
             raise ValueError("Unsupported delivery mode")
@@ -29,6 +33,7 @@ class WorkflowRunner:
             evaluator,
             deepcopy(compiled.index),
             compiled.tools.snapshot(),
+            clock=clock,
         )
         self._session.manual_delivery = True
 
@@ -40,6 +45,15 @@ class WorkflowRunner:
             raise ValueError("Supply nonempty text and a stable turn_id")
         await self.start()
         await self._session.submit_turn(text, turn_id)
+
+    async def wait_idle(self) -> None:
+        """Wait for tracked runtime work, including work it schedules in turn.
+
+        This does not acknowledge external delivery. The caller must consume events
+        concurrently and apply a deadline if its providers or tools can stall.
+        """
+        while tasks := tuple(self._session._tasks):
+            await asyncio.gather(*tasks)
 
     async def events(self) -> AsyncIterator[ServerEvent]:
         async for event in self._session.events():
