@@ -8,7 +8,7 @@
 
 [Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
 
-Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The reusable-core branch adds an importable runner proven by Northline and a repair-visit workflow; LiveKit is now the default voice engine; live-provider acceptance remains a separate verification gate. See the roadmap for verification and release status.
+Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The importable core is exercised by Northline and a repair-visit workflow; LiveKit is now the default voice engine; live-provider acceptance remains a separate verification gate. See the roadmap for verification and release status.
 
 Libretto is a Python workflow engine and React studio for building stateful voice agents. Define stages, prompts, fields, transitions, knowledge and actions in YAML; inspect the generated workflow; then test it over voice or text while watching state, sources and tool receipts.
 
@@ -33,7 +33,7 @@ To start a conversation, open **Connection settings** and enter your own keys:
 | Text | OpenRouter |
 | Voice (default) | OpenRouter plus LiveKit Cloud API key and secret for AssemblyAI STT / Cartesia TTS through LiveKit Inference |
 
-API usage is billed by those providers. LiveKit Inference speech usage is billed by LiveKit; the existing LLM adapter uses OpenRouter billing. Direct provider keys and explicit legacy Deepgram remain options. The public demo has no funded shared provider keys. Keys stay in tab/session memory, are sent to the backend over HTTPS/WSS, and are excluded from browser storage and app-generated exports. See the [credential boundaries](docs/security.md).
+API usage is billed by those providers. LiveKit Inference speech usage is billed by LiveKit; the existing LLM adapter uses OpenRouter billing. Direct provider keys and Direct Deepgram remain options. The public demo has no funded shared provider keys. Keys stay in tab/session memory, are sent to the backend over HTTPS/WSS, and are excluded from browser storage and app-generated exports. See the [credential boundaries](docs/security.md).
 
 A few natural things to try:
 
@@ -47,6 +47,18 @@ The test panel includes **15 scenarios** with fictional data, expected sources a
 ## Use the Python core
 
 Register application tools in Python, compile your YAML with `compile_workflow`, and run it with `WorkflowRunner` and your responder/evaluator adapters. Core installation needs no web server or Studio. See the [library guide](docs/library.md) for source installation, public imports, lifecycle/delivery rules and application composition; compare the [repair example](examples/repair_visit/agent.yaml) with Northline. The repository license must still be selected before a reusable release.
+
+## Test workflows offline
+
+From a source checkout with the core installed, no provider credentials or Node are needed:
+
+```sh
+uv venv
+uv pip install -e .
+.venv/bin/libretto test examples/scenarios --output evidence.json
+```
+
+The console path above is for macOS/Linux; on Windows use `.venv\Scripts\libretto.exe`. Five repair scenarios cover booking, interruption, refusal, corrections and repeated requests using scripted inference and simulated tools. In Studio, **Test & debug → Open saved test** inspects the saved state, reasons and event sequence without running anything. Matching-YAML links open the exact connection or confirmation rule. See the [scenario/evidence guide](docs/scenario-evidence.md).
 
 ## What is implemented
 
@@ -71,7 +83,7 @@ npm --prefix web run build
 uv run libretto serve
 ```
 
-Open **http://127.0.0.1:8000** and enter keys in Connection settings. Alternatively, copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `DEEPGRAM_API_KEY` there. Never put provider credentials in YAML or `VITE_` environment variables.
+Open **http://127.0.0.1:8000** and enter keys in Connection settings. Alternatively, copy `.env.example` to `.env` and configure `OPENROUTER_API_KEY` plus `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` for default voice. Direct Deepgram uses `DEEPGRAM_API_KEY` instead of the LiveKit speech credentials. Never put provider credentials in YAML or `VITE_` environment variables.
 
 For frontend development, keep the backend running and start:
 
@@ -99,7 +111,7 @@ Open that runtime's `http://127.0.0.1:8000/studio`. Source paths are relative to
 
 Bare `libretto serve` and the hosted demo use bundled sources only. They cannot browse arbitrary local folders; selecting a YAML file in the browser does not grant filesystem access to its neighboring files. Connection settings target the same runtime that serves Studio. Provider keys stay in memory, outside YAML, sidecars and persisted drafts.
 
-Generic example graphs are in `web/src/studio/fixtures/`, including intake, branching, shared destinations and cycles. Studio supports generic graph editing; the bundled runtime still includes receptionist-specific confirmation safeguards. This work does not ship a stable importable library API or a LiveKit adapter.
+Generic example graphs are in `web/src/studio/fixtures/`, including intake, branching, shared destinations and cycles. Request/confirmation policies and application-registered tools make the runtime reusable across domains. The importable core and optional LiveKit integration are implemented in this checkout; real-provider acceptance and release gates are tracked separately in the roadmap.
 
 ## A workflow is a file
 

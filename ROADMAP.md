@@ -1,6 +1,6 @@
 # Libretto roadmap
 
-Updated 2026-11-13. Direction approved by Prasad; M1 and the LiveKit migration are implemented locally. The Studio UX rollout is locally reviewed and verified; real-provider M2 acceptance remains a separate gate. M3 is active with offline scenarios, redacted evidence exports and read-only Studio inspection verified locally. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
+Updated 2026-11-13. Direction approved by Prasad; M1 and the LiveKit migration are implemented locally. The Studio UX rollout is locally reviewed and verified; real-provider M2 acceptance remains a separate gate. M3 implementation is complete and verified locally, including offline scenarios, redacted evidence, diagnostics and source-matched Studio navigation; hosted CI/release gates remain separate. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -19,7 +19,7 @@ Accounts, billing, subscriptions, organizations, collaboration, shared workspace
 | Studio | Source-preserving visual authoring, model/voice selection, separate STT/TTS, knowledge inspection, fixed test snapshots and runtime explanations | Rollout and its review fix pass are verified locally; two minor follow-ups are documented. Routes remains a secondary index. |
 | Developer API | Python source package, provider protocols and an internal Session | WorkflowRunner and the developer registry are documented and clean-install tested; see the library guide. |
 | LiveKit | Optional pinned integration is the default voice path; Direct Deepgram remains available; core works without either | Deterministic delivery/interruption regressions pass. Real-provider voice acceptance remains pending. |
-| Testing | Unit/API/browser checks, local retrieval evaluation and offline scenario CLI | Offline scenarios, versioned/redacted evidence and saved Studio inspection are verified locally; richer blocked reasons and direct route/policy navigation remain. |
+| Testing | Unit/API/browser checks, local retrieval evaluation and offline scenario CLI | M3 is locally complete: scenarios, diagnostics, provenance, redaction and read-only replay/navigation. Hosted CI at the pushed head remains unverified. |
 | Distribution | Source checkout works; repository public | Core-only wheel install/run verified outside checkout. License and release decision remain; no registry publication. |
 
 This baseline was refreshed against source on 2026-11-12. The Nov 1 improvement review predates fixes to workflow selection, reasoning settings, import/recovery and Studio; reproduce its remaining findings before treating them as current defects. M1 moves domain-specific confirmation rules and interpretation guidance into example configuration.
@@ -104,7 +104,7 @@ Do not promise support for every LiveKit plugin/realtime-model mode. The first s
 
 ## M3 — tests and explanations developers can use
 
-Active from 2026-11-13, explicitly approved independently of pending M2 live acceptance. The [first local scenario slice](docs/milestones/2026-11-13-local-scenarios.md) is implemented: `libretto test`, strict files, scripted boundaries, runtime assertions and stable summaries. The [evidence/Studio slice](docs/milestones/2026-11-13-scenario-evidence.md) adds redacted provenance bundles and read-only saved-event inspection. This is not completion of the whole milestone.
+Implementation complete and verified locally on 2026-11-13, explicitly approved independently of pending M2 live acceptance. See the [M3 completion record](docs/milestones/2026-11-13-m3-complete.md) and [independent review/fix pass](docs/reviews/2026-11-13-m3-final-review.md). The first scenario and evidence slices remain linked there as historical handoffs. Remote CI, release and deployment are not implied by local completion.
 
 ### Scenario contract
 
@@ -183,5 +183,5 @@ For every task record: milestone, outcome, dependencies, files/interfaces, accep
 
 1. Review the locally completed [Studio UX rollout](docs/reviews/2026-11-12-studio-ux-final-review.md). Its independent review/fix pass and deterministic checks are complete. Remote CI and deployment must be verified separately if a push/deployment is requested.
 2. Complete the separately gated M2 live-provider acceptance using the [prepared six-case checklist](docs/milestones/2026-11-13-live-voice-acceptance.md), with explicit credential/budget arrangements: recognition, synthesis, interruption, playback and authorized action in the repair example. Mocked browser tests do not establish this.
-3. Continue M3 from verified scenarios and saved-evidence inspection: fill missing-fact/consent diagnostic gaps and add direct route/rule navigation. Reuse WorkflowRunner and the same events Studio observes; do not build a second runtime or a hosted platform.
-4. Improve the source-install quickstart and examples using those verified paths. Source/GitHub distribution stays the plan; no registry publication is implied.
+3. M3 local implementation is complete. Verify hosted CI at the final pushed head when a push is requested; preserve the distinction from the passing local checks.
+4. Move into M4 source-install usability and external adoption: use the verified core-only quickstart and five scenarios, resolve the owner-selected license before release claims, and arrange outside-developer trials only with explicit authorization. Source/GitHub distribution stays the plan; no registry publication is implied.

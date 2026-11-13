@@ -88,4 +88,13 @@ Each run uses an injected clock and a bounded concurrent event drain. `WorkflowR
 
 Save a versioned, inspectable evidence bundle with `--output evidence.json`. In Studio, open **Test & debug → Open saved test**, then open that file. Saved replay walks projected events; it does not connect or run anything. Navigation back to the workflow is enabled only when the open YAML matches the saved hash. Use scenario `sensitive_fields` to redact designated facts and mapped arguments before CLI/report output. The bundled examples designate `address`. See the [evidence format and privacy guide](scenario-evidence.md).
 
-M3 remains active: broader blocked-reason coverage and direct route/policy navigation remain. Existing manual scenario cards remain separate. Real voice acceptance is still the [pending M2 gate](milestones/2026-11-13-live-voice-acceptance.md).
+M3 diagnostics now include missing facts/consent/acceptance, stale or undelivered confirmation, request mismatch and unknown action outcomes. Matching-source links open exact connections and staged confirmation rules. Rule editing requires Stop during a live test. Existing manual scenario cards remain separate. Real voice acceptance is still the [pending M2 gate](milestones/2026-11-13-live-voice-acceptance.md).
+
+
+## Diagnostic and live-export evidence
+
+The [runtime diagnostic reference](runtime-diagnostics.md) defines stable codes and source/edge/policy references. Live State/Trace shows observed runtime decisions; generated success wording never grants authority. A cancelled request's late result stays in Trace without replacing the active request's notice. Unknown outcomes remain visible through the recovery transition and are never automatically retried.
+
+Live **Export session** now produces `libretto.session-evidence` version 1 with actual workflow/model/speech/test-mode provenance and request IDs. The server protocol's explicit export carries the same context. These exports deliberately include conversation/application data and apply credential-field filtering; inspect before sharing. They are separate from redacted scripted scenario bundles and cannot be opened as scripted replay files.
+
+`WorkflowRunner.wait_idle()` waits for tracked runtime tasks **and** its concurrent event consumer to finish processing emitted events. Normal internal task cancellation from workflow controls is not an error; caller cancellation and unexpected task exceptions still propagate. Scenarios collect every observed request identity, including intermediate requests and workflows that finish during startup. Event-drain failure aborts backpressured work directly rather than waiting for the stall deadline.

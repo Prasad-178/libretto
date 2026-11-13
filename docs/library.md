@@ -92,3 +92,12 @@ Limits: 100,000 Unicode characters, 64 nodes, 64 fields, 256 transitions; existi
 Action identities bind session, request and action-node IDs, with an argument fingerprint. Reentry reports already-completed instead of dispatching or replaying a success as fresh work. Changed arguments require a new request. Exceptions/cancellation after dispatch yield an uncertain `unknown` outcome; there is no automatic retry or rollback. Late callbacks retain historical identity without advancing the current request. Applications must use durable downstream idempotency where required: Libretto only tracks executions in process/session memory.
 
 LLM understanding is probabilistic. Deterministic tests prove guard/lifecycle behavior, not language understanding, voice quality or real-world delivery. M1 remains usable alone. The optional LiveKit dependency supplies the default voice engine in the current migration; see [LiveKit](livekit.md) for credential modes, custom IO and verification limits.
+
+
+## Offline workflow tests
+
+`libretto.testing` supplies strict `Scenario`/`ScenarioReport`, `load_scenario(path)` and async `run_scenario(scenario, base_dir=...)`. The CLI uses this same implementation. It registers only the simulated tool definitions/results declared by a scenario; it never imports application handlers or opens providers. The core-only wheel supports both API and scenario CLI outside a source checkout when the consuming project supplies its own YAML/Markdown files.
+
+Run the five bundled cases from a checkout with `libretto test examples/scenarios --output evidence.json`. See the [testing guide](testing.md), [evidence/privacy format](scenario-evidence.md), and [diagnostic codes](runtime-diagnostics.md). The [M3 record](milestones/2026-11-13-m3-complete.md) distinguishes local verification from external gates.
+
+`WorkflowRunner.wait_idle()` is an orchestration barrier, not a delivery acknowledgement. Consume its event stream continuously in another task and apply an appropriate deadline for your own providers/tools. It waits for tracked work and processed events, tolerates internal sibling cancellation from normal controls, and preserves external cancellation/unexpected errors. Call it from orchestration code rather than a responder/evaluator/tool callback that would wait for itself.

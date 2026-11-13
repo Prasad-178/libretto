@@ -38,3 +38,7 @@ Commits: `7cb61f1` export/redaction, `ad82210` privacy/source safeguards, `8150d
 3. Check the full debugging exit gate against those diagnostics. Saved scenario artifacts do not replace live-session exports, acoustic acceptance or semantic evaluation.
 
 This slice deliberately keeps replay as manual event inspection. It cannot import code, issue instructions to the runtime, rerun scenarios, synthesize audio or dispatch tools.
+
+## Completion follow-up
+
+The [M3 completion pass](2026-11-13-m3-complete.md) now implements the remaining diagnostic and direct route/rule navigation work, adds live provenance exports, and closes the independent review findings. The remaining-scope list above records this slice's handoff rather than the current backlog.

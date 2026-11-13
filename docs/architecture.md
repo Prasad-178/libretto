@@ -237,3 +237,12 @@ The current product is an English browser prototype with editable YAML and a vis
 Settings consumes runtime model, speech and tool manifests. HTTP and WebSocket use the same origin. Start validates and captures an exact source revision before asynchronous audio/connection setup, then pauses edits until Stop or disconnection. Test state, source evidence and receipts belong to that snapshot. The Python runtime still includes domain-specific receptionist confirmation rules; generic Studio editing is not a claim that these safeguards have become a general-purpose policy system. No stable library API or LiveKit integration is introduced by this redesign.
 
 Default voice now uses LiveKit Agents with Studio PCM/WebSocket custom IO and browser-verified playout. Direct Deepgram remains an explicit supported option. See [LiveKit](livekit.md) for credentials, delivery semantics and the separate room-application limitation.
+
+
+## Executable testing and saved evidence (M3)
+
+`libretto.testing.schema` validates inert scenario data; `runner` supplies scripted inference/simulated handlers around the same compiler and WorkflowRunner. A controlled clock, task/event-consumption barrier, bounded drain and failure watcher make checkpoints reproducible without sleeps or paid inference. Normal workflow controls can cancel runtime siblings without aborting the scenario caller. Request references are collected from every observed state, including intermediate and startup-complete requests.
+
+`libretto.diagnostics` explains existing runtime vetoes; it does not grant authority. `libretto.provenance` supplies shared non-secret identity/configuration to scripted and live exports. Scenario evidence applies field/argument-aware redaction before formatting failures and projects semantic events without dialogue or arbitrary provider/tool payloads.
+
+Studio's saved-evidence parser/viewer has no execution-client dependency. Replay walks inert saved events, and source-hash-gated references navigate through the existing connection inspector and staged confirmation-rule dialog. Live debug links additionally preserve the tested source and running-test edit lock. See [M3 evidence](milestones/2026-11-13-m3-complete.md) for checks and limitations.
