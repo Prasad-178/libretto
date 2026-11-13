@@ -63,6 +63,9 @@ class Expect(StrictModel):
     action_count: int | None = Field(default=None, ge=0)
     action_results: list[str] | None = None
     request: Name | None = None
+    request_count: int | None = Field(default=None, ge=0)
+    action_arguments: list[dict[str, str | bool]] | None = None
+    argument_fingerprints: list[str] | None = None
 
     @model_validator(mode="after")
     def has_assertions(self) -> Self:
@@ -81,6 +84,7 @@ class Scenario(StrictModel):
     tools: dict[str, SimulatedTool] = Field(default_factory=dict)
     reply: Annotated[str, StringConstraints(min_length=1, max_length=4000)] = "Scripted response."
     steps: list[Step] = Field(min_length=1, max_length=200)
+    expected_passages: list[Name] = Field(default_factory=list)
     expected_codes: list[Name] = Field(default_factory=list)
     expected_stages: list[Name] | None = None
     completed: bool | None = None
@@ -102,6 +106,7 @@ class ScenarioReport(StrictModel):
     actions: list[dict[str, Any]]
     codes: list[str]
     completed: bool
+    passages: list[str]
 
 
 def load_scenario(path: Path) -> Scenario:
@@ -122,5 +127,5 @@ def load_scenario(path: Path) -> Scenario:
             elif isinstance(event, (yaml.MappingEndEvent, yaml.SequenceEndEvent)):
                 depth -= 1
         return Scenario.model_validate(yaml.load(text, Loader=UniqueLoader))
-    except yaml.YAMLError as error:
+    except (yaml.YAMLError, TypeError) as error:
         raise ValueError("Invalid scenario YAML") from error

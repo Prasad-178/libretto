@@ -1,0 +1,69 @@
+version: 1
+name: 'Repair: delivered and approved'
+workflow: ../repair_visit/agent.yaml
+tools:
+  book_visit:
+    parameters:
+      customer_name: string
+      address: string
+      issue: string
+      window: string
+    results:
+    - booked
+    - failed
+    - unknown
+    responses:
+    - status: booked
+      data:
+        simulated: true
+steps:
+- kind: turn
+  id: details
+  text: book Taylor 7 Test St oven morning
+  evaluation:
+    updates:
+      customer_name:
+        value: Taylor
+        evidence: Taylor
+      address:
+        value: 7 Test St
+        evidence: 7 Test St
+      issue:
+        value: oven
+        evidence: oven
+      window:
+        value: morning
+        evidence: morning
+      consent:
+        value: true
+        evidence: book
+- kind: expect
+  stage: confirm
+  action_count: 0
+  request: visit
+- kind: deliver
+  policy: booking
+  completed: true
+- kind: turn
+  id: approval
+  text: 'yes'
+  evaluation:
+    updates:
+      accepted:
+        value: true
+        evidence: 'yes'
+- kind: expect
+  action_count: 1
+  action_results:
+  - booked
+  action_arguments:
+  - customer_name: Taylor
+    address: 7 Test St
+    issue: oven
+    window: morning
+  request_count: 1
+expected_stages:
+- collect
+- confirm
+- book
+- wrap

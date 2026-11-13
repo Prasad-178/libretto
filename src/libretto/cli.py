@@ -9,14 +9,24 @@ from libretto.tools import ToolRegistry
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="libretto")
-    parser.add_argument("command", choices=["validate", "graph", "serve", "evaluate"])
+    parser.add_argument("command", choices=["validate", "graph", "serve", "evaluate", "test"])
     parser.add_argument("workflow", nargs="?", default=None)
     parser.add_argument("--project-root", type=Path)
     parser.add_argument("--demo-tools", action="store_true", help="Register the bundled simulated tools")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--live", action="store_true", help="Opt in to bounded paid model evaluation")
     parser.add_argument("--output", type=Path, default=Path(".local/evaluations/latest.json"))
+    parser.add_argument("--json", action="store_true", help="Machine-readable scenario report")
     args = parser.parse_args()
+    if args.command == "test":
+        from libretto.testing.cli import test_command
+
+        if args.workflow is None:
+            parser.error("test requires a scenario file or directory")
+        status = test_command(Path(args.workflow), machine_json=args.json)
+        if status:
+            raise SystemExit(status)
+        return
     selected_workflow = args.workflow or "examples/receptionist.yaml"
     if args.command == "evaluate":
         import asyncio

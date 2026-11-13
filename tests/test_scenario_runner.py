@@ -261,14 +261,43 @@ async def test_event_budget_failure_still_drains_and_closes_runtime(monkeypatch)
 
     async def many_chunks(self, context):
         for _ in range(4000):
-            yield 'x'
+            yield "x"
 
-    monkeypatch.setattr(_Inference, 'stream_reply', many_chunks)
+    monkeypatch.setattr(_Inference, "stream_reply", many_chunks)
     data = repair_scenario()
-    data['steps'] = [
-        {'kind': 'turn', 'id': str(i), 'text': 'hello', 'evaluation': {}} for i in range(2)
-    ]
+    data["steps"] = [{"kind": "turn", "id": str(i), "text": "hello", "evaluation": {}} for i in range(2)]
     async with asyncio.timeout(1):
         report = await run(data, timeout=0.1)
     assert not report.passed
-    assert any('5,000 events' in failure for failure in report.failures)
+    assert any("5,000 events" in failure for failure in report.failures)
+
+
+@pytest.mark.parametrize("text", ["? [one, two]\n: value", "version: true\n"])
+def test_malformed_mapping_and_boolean_version_have_setup_diagnostics(tmp_path, text):
+    path = tmp_path / "bad.yaml"
+    path.write_text(text)
+    with pytest.raises(ValueError):
+        load_scenario(path)
+
+
+async def test_scenario_can_assert_action_arguments_and_distinct_request_count():
+    data = repair_scenario()
+    data["steps"][-1].update(
+        {
+            "action_arguments": [{"address": "Wrong"}],
+            "request_count": 2,
+        }
+    )
+    report = await run(data)
+    assert not report.passed
+    assert any("action_arguments" in failure and "7 Test St" in failure for failure in report.failures)
+    assert any("request_count" in failure for failure in report.failures)
+
+
+async def test_retrieved_passage_identity_assertions_use_actual_retriever():
+    data = repair_scenario(approval=False)
+    data["expected_passages"] = ["nonexistent-passage"]
+    report = await run(data)
+    assert not report.passed
+    assert report.passages
+    assert any("nonexistent-passage" in failure for failure in report.failures)

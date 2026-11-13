@@ -1,0 +1,64 @@
+version: 1
+name: 'Repair: interrupted readback blocks booking'
+workflow: ../repair_visit/agent.yaml
+tools:
+  book_visit:
+    parameters:
+      customer_name: string
+      address: string
+      issue: string
+      window: string
+    results:
+    - booked
+    - failed
+    - unknown
+    responses:
+    - status: booked
+      data:
+        simulated: true
+steps:
+- kind: turn
+  id: details
+  text: book Taylor 7 Test St oven morning
+  evaluation:
+    updates:
+      customer_name:
+        value: Taylor
+        evidence: Taylor
+      address:
+        value: 7 Test St
+        evidence: 7 Test St
+      issue:
+        value: oven
+        evidence: oven
+      window:
+        value: morning
+        evidence: morning
+      consent:
+        value: true
+        evidence: book
+- kind: expect
+  stage: confirm
+  action_count: 0
+  request: visit
+- kind: deliver
+  policy: booking
+  completed: false
+- kind: turn
+  id: approval
+  text: 'yes'
+  evaluation:
+    updates:
+      accepted:
+        value: true
+        evidence: 'yes'
+- kind: expect
+  action_count: 0
+  action_results: []
+  absent_facts:
+  - accepted
+expected_stages:
+- collect
+- confirm
+expected_codes:
+- missing_readback

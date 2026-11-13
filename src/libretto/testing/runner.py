@@ -59,18 +59,24 @@ class _Tools:
         return handle
 
 
-def _check(step: Expect, state: SessionState) -> list[str]:
+def _check(step: Expect, state: SessionState, calls: list[dict], request_count: int) -> list[str]:
     expected = {
         "stage": step.stage,
         "action_count": step.action_count,
         "action_results": step.action_results,
         "request": step.request,
+        "request_count": step.request_count,
+        "action_arguments": step.action_arguments,
+        "argument_fingerprints": step.argument_fingerprints,
     }
     actual = {
         "stage": state.active_stage,
         "action_count": len(state.receipts),
         "action_results": [item["status"] for item in state.receipts],
         "request": state.request.name if state.request else None,
+        "request_count": request_count,
+        "action_arguments": [call["arguments"] for call in calls],
+        "argument_fingerprints": [receipt["argument_fingerprint"] for receipt in state.receipts],
     }
     failures = [
         f"{key}: expected {value!r}, got {actual[key]!r}"
@@ -145,7 +151,10 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
                 state = runner.snapshot()
                 remember(state)
                 if isinstance(step, Expect):
-                    failures += [f"step {step_number}: {failure}" for failure in _check(step, state)]
+                    failures += [
+                        f"step {step_number}: {failure}"
+                        for failure in _check(step, state, tools.calls, len(requests))
+                    ]
             state = runner.snapshot()
     except TimeoutError:
         failures.append(f"step {step_number}: runtime stalled (deadline {timeout}s)")
@@ -170,6 +179,17 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
                 codes.append(code)
         if event.type in {"evaluation_error", "error"}:
             failures.append(f"runtime {event.type}: {code}")
+    passages = list(
+        dict.fromkeys(
+            passage["chunk_id"]
+            for event in events
+            if event.type == "retrieval"
+            for passage in event.data.get("passages", [])
+        )
+    )
+    for passage in scenario.expected_passages:
+        if passage not in passages:
+            failures.append(f"Expected passage {passage!r}; observed {passages!r}")
     completed = any(event.type in {"ended", "expired"} for event in events)
     for code in scenario.expected_codes:
         if code not in codes:
@@ -198,4 +218,5 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
         actions=actions,
         codes=codes,
         completed=completed,
+        passages=passages,
     )
