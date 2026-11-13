@@ -76,6 +76,12 @@ for (const width of [1440, 1024]) {
     await expect(
       dialog.getByText("missing_readback", { exact: true }),
     ).toBeVisible();
+    await expect(dialog.locator('nav button[aria-current="step"]')).toHaveCount(
+      1,
+    );
+    await expect(
+      dialog.getByRole("button", { name: /Confirmation withheld/ }),
+    ).toHaveAttribute("aria-current", "step");
     await expect(dialog.getByText("7 Test St", { exact: true })).toHaveCount(0);
     const box = (await dialog.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
@@ -83,6 +89,7 @@ for (const width of [1440, 1024]) {
     expect(box.y + box.height).toBeLessThanOrEqual(800);
     await page.screenshot({
       path: info.outputPath(`saved-evidence-${width}.png`),
+      animations: "disabled",
     });
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();

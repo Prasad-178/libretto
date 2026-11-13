@@ -31,3 +31,7 @@ Commits: `6d8fa32` plan, `9dd5631` runner, `d4fc0a5` CLI/extended assertions/exa
 5. Exercise the full author outcome: write a failing scenario, fix the YAML and inspect enough saved evidence to explain the difference.
 
 This first contract intentionally settles scripted boundaries between steps; it is not a general concurrency scheduler, model evaluator or acoustic test harness. Recognition/voice behavior remains the [separate M2 acceptance](2026-11-13-live-voice-acceptance.md). The public demo/manual scenario cards are unchanged.
+
+## Follow-up
+
+The [evidence/Studio slice](2026-11-13-scenario-evidence.md) now implements the reproducibility/redaction envelope and read-only saved-event inspection. The remaining-scope list above describes the first-slice handoff; current next work is richer diagnostics and route/rule navigation.

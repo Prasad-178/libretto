@@ -1,6 +1,7 @@
 version: 1
 name: 'Repair: delivered and approved'
 workflow: ../repair_visit/agent.yaml
+sensitive_fields: [address]
 tools:
   book_visit:
     parameters:
