@@ -50,6 +50,7 @@ import type { StudioCapabilities } from "./studio/runtime-api";
 import { SettingsPage } from "./studio/SettingsPage";
 import { DebugSummary } from "./studio/DebugSummary";
 import { TestPanel } from "./studio/TestPanel";
+import { SavedEvidence } from "./studio/SavedEvidence";
 import {
   TestScenarios,
   prepareScenario,
@@ -1025,6 +1026,15 @@ export default function App() {
               <span>
                 <Radio size={15} /> Test your agent
               </span>
+              <SavedEvidence
+                source={source}
+                disabled={connected || connecting}
+                onStep={(id) => {
+                  setSelected(id);
+                  setView("workflow");
+                  setShowTest(false);
+                }}
+              />
               <button
                 title="Back to editor"
                 aria-label="Back to editor"
