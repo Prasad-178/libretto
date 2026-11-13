@@ -2,13 +2,53 @@
 
 import asyncio
 import json
+import tempfile
 from pathlib import Path
+
+from pydantic import ValidationError
+
+from libretto.compiler import WorkflowCompileError
 
 from .runner import run_scenario
 from .schema import load_scenario
 
 
-def test_command(path: Path, *, machine_json: bool = False) -> int:
+def _setup_message(error: Exception) -> str:
+    if isinstance(error, ValidationError):
+        return "; ".join(
+            f"{'.'.join(map(str, item['loc']))}: {item['type']}" for item in error.errors(include_input=False)
+        )
+    if isinstance(error, WorkflowCompileError):
+        return "; ".join(f"{'.'.join(map(str, issue.path))}: {issue.code}" for issue in error.issues)
+    return str(error)
+
+
+def _write_evidence(output: Path, reports: list) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=output.parent, prefix=".libretto-evidence-", delete=False
+        ) as handle:
+            temporary = Path(handle.name)
+            json.dump(
+                {
+                    "format": "libretto.scenario-evidence",
+                    "version": 1,
+                    "runs": [report.model_dump() for report in reports],
+                },
+                handle,
+                indent=2,
+                ensure_ascii=False,
+            )
+            handle.write("\n")
+        temporary.replace(output)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def test_command(path: Path, *, machine_json: bool = False, output: Path | None = None) -> int:
     """Return 0 success, 1 failed checks/execution, or 2 invalid input/setup."""
     reports, errors = [], []
     if path.is_dir():
@@ -27,7 +67,14 @@ def test_command(path: Path, *, machine_json: bool = False) -> int:
             report = asyncio.run(run_scenario(scenario, base_dir=file.parent))
             reports.append(report)
         except (OSError, ValueError, TypeError) as error:
-            errors.append(f"{file}: {error}")
+            errors.append(f"{file}: {_setup_message(error)}")
+    if output is not None and not errors:
+        try:
+            if output.resolve() in {file.resolve() for file in files}:
+                raise ValueError("Evidence output must not overwrite a scenario input")
+            _write_evidence(output, reports)
+        except (OSError, ValueError) as error:
+            errors.append(f"Evidence was not saved: {_setup_message(error)}")
     passed = not errors and bool(reports) and all(report.passed for report in reports)
     if machine_json:
         print(

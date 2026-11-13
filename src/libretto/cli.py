@@ -15,7 +15,7 @@ def main() -> None:
     parser.add_argument("--demo-tools", action="store_true", help="Register the bundled simulated tools")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--live", action="store_true", help="Opt in to bounded paid model evaluation")
-    parser.add_argument("--output", type=Path, default=Path(".local/evaluations/latest.json"))
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--json", action="store_true", help="Machine-readable scenario report")
     args = parser.parse_args()
     if args.command == "test":
@@ -23,7 +23,7 @@ def main() -> None:
 
         if args.workflow is None:
             parser.error("test requires a scenario file or directory")
-        status = test_command(Path(args.workflow), machine_json=args.json)
+        status = test_command(Path(args.workflow), machine_json=args.json, output=args.output)
         if status:
             raise SystemExit(status)
         return
@@ -36,6 +36,7 @@ def main() -> None:
         report = {"retrieval": evaluate_retrieval(Path(selected_workflow))}
         if args.live:
             report["workflow"] = asyncio.run(evaluate_live(Path(selected_workflow)))
+        args.output = args.output or Path(".local/evaluations/latest.json")
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2))
         print(

@@ -10,6 +10,7 @@ from libretto.events import ServerEvent
 from libretto.state import Evaluation, GenerationContext, SessionState, ToolResult
 from libretto.tool_contracts import ActionContext
 
+from .evidence import EvidenceProjection
 from .schema import Advance, Deliver, Expect, Interrupt, Scenario, ScenarioReport, Turn
 
 
@@ -105,6 +106,7 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
     compiled = compile_workflow(
         source.read_text(encoding="utf-8"), tools=tools.registry, project_root=source.parent
     )
+    projection = EvidenceProjection(scenario, compiled)
     runner = WorkflowRunner(
         compiled, responder=inference, evaluator=inference, delivery_mode="external", clock=clock
     )
@@ -210,13 +212,15 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
             }
         )
     return ScenarioReport(
-        name=scenario.name,
+        name=projection.clean(scenario.name),
         passed=not failures,
-        failures=failures,
+        failures=projection.clean(failures),
         stages=stages,
-        facts=state.values(),
-        actions=actions,
+        facts=projection.facts(state.values()),
+        actions=[projection.action(action) for action in actions],
         codes=codes,
         completed=completed,
-        passages=passages,
+        passages=projection.clean(passages),
+        context=projection.context(),
+        timeline=projection.timeline(events, requests),
     )

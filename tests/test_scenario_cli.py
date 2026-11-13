@@ -82,3 +82,50 @@ def test_cli_core_only_does_not_import_inference_or_livekit(tmp_path):
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_cli_writes_versioned_evidence_without_sensitive_values(tmp_path):
+    data = repair_scenario()
+    data["sensitive_fields"] = ["address"]
+    path = write(tmp_path, data)
+    output = tmp_path / "evidence.json"
+    result = invoke(path, "--output", str(output), "--json")
+    assert result.returncode == 0, result.stderr
+    evidence = json.loads(output.read_text())
+    assert evidence["format"] == "libretto.scenario-evidence"
+    assert evidence["version"] == 1
+    assert evidence["runs"][0]["context"]["mode"] == "scripted"
+    assert "7 Test St" not in output.read_text()
+    assert "7 Test St" not in result.stdout
+
+
+def test_failed_assertions_still_write_evidence_and_invalid_setup_preserves_prior_file(tmp_path):
+    data = repair_scenario()
+    data["steps"][-1]["action_count"] = 99
+    output = tmp_path / "report.json"
+    path = write(tmp_path, data)
+    result = invoke(path, "--output", str(output))
+    assert result.returncode == 1
+    assert not json.loads(output.read_text())["runs"][0]["passed"]
+    previous = output.read_bytes()
+    path.write_text("version: 999")
+    result = invoke(path, "--output", str(output))
+    assert result.returncode == 2
+    assert output.read_bytes() == previous
+
+
+def test_invalid_input_diagnostics_do_not_echo_raw_values(tmp_path):
+    path = write(tmp_path, {"version": 1, "credentials": {"key": "PRIVATE_VALUE_NEVER_ECHO"}})
+    result = invoke(path, "--json")
+    assert result.returncode == 2
+    assert "PRIVATE_VALUE_NEVER_ECHO" not in result.stdout + result.stderr
+
+
+def test_cli_export_io_error_is_setup_error_without_traceback(tmp_path):
+    path = write(tmp_path, repair_scenario())
+    output = tmp_path / "is-a-directory"
+    output.mkdir()
+    result = invoke(path, "--output", str(output), "--json")
+    assert result.returncode == 2
+    assert json.loads(result.stdout)["errors"]
+    assert "Traceback" not in result.stderr

@@ -84,6 +84,7 @@ class Scenario(StrictModel):
     tools: dict[str, SimulatedTool] = Field(default_factory=dict)
     reply: Annotated[str, StringConstraints(min_length=1, max_length=4000)] = "Scripted response."
     steps: list[Step] = Field(min_length=1, max_length=200)
+    sensitive_fields: list[Name] = Field(default_factory=list)
     expected_passages: list[Name] = Field(default_factory=list)
     expected_codes: list[Name] = Field(default_factory=list)
     expected_stages: list[Name] | None = None
@@ -97,6 +98,27 @@ class Scenario(StrictModel):
         return self
 
 
+class EvidenceContext(StrictModel):
+    workflow_sha256: str
+    workflow_id: str
+    start_stage: str
+    yaml_schema_version: int
+    libretto_version: str | None
+    libretto_commit: str | None
+    source_dirty: bool | None
+    mode: Literal["scripted"] = "scripted"
+    models: dict[str, Any]
+    speech: dict[str, Any]
+    redacted_fields: list[str]
+
+
+class EvidenceEvent(StrictModel):
+    sequence: int
+    type: str
+    epoch: int
+    details: dict[str, Any]
+
+
 class ScenarioReport(StrictModel):
     name: str
     passed: bool
@@ -107,6 +129,8 @@ class ScenarioReport(StrictModel):
     codes: list[str]
     completed: bool
     passages: list[str]
+    context: EvidenceContext
+    timeline: list[EvidenceEvent]
 
 
 def load_scenario(path: Path) -> Scenario:
