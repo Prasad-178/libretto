@@ -5,43 +5,17 @@ provider/tool payloads have no place in the evidence projection.
 """
 
 import json
-import subprocess
 from copy import deepcopy
-from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 from typing import Any
 
 from libretto.compiler import CompiledWorkflow
 from libretto.events import ServerEvent
+from libretto.provenance import workflow_context
 from libretto.state import SessionState
 
 from .schema import EvidenceContext, EvidenceEvent, Expect, Scenario, Turn
 
 REDACTED = "[redacted]"
-
-
-def _source_revision() -> tuple[str | None, bool | None]:
-    root = Path(__file__).resolve().parents[3]
-    if not (root / ".git").exists():
-        return None, None
-    try:
-        commit = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=True,
-        ).stdout.strip()
-        dirty = subprocess.run(
-            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=True,
-        ).stdout
-        return commit, bool(dirty)
-    except (OSError, subprocess.SubprocessError):
-        return None, None
 
 
 class EvidenceProjection:
@@ -125,24 +99,10 @@ class EvidenceProjection:
         return self.clean(output)
 
     def context(self) -> EvidenceContext:
-        try:
-            package_version = version("libretto-voice")
-        except PackageNotFoundError:
-            package_version = None
-        commit, dirty = _source_revision()
-        workflow = self.compiled.workflow
-        return EvidenceContext(
-            workflow_sha256=self.compiled.source_hash,
-            workflow_id=self.clean(workflow.id),
-            start_stage=workflow.start,
-            yaml_schema_version=workflow.version,
-            libretto_version=package_version,
-            libretto_commit=commit,
-            source_dirty=dirty,
-            models=self.clean(workflow.models.model_dump()),
-            speech=self.clean(workflow.speech.model_dump()),
-            redacted_fields=sorted(self.fields),
-        )
+        context = workflow_context(self.compiled, mode="scripted")
+        for key in ("workflow_id", "models", "speech"):
+            context[key] = self.clean(context[key])
+        return EvidenceContext(**context, redacted_fields=sorted(self.fields))
 
     def timeline(self, events: list[ServerEvent], requests: dict[str, str]) -> list[EvidenceEvent]:
         output = []
@@ -178,7 +138,11 @@ class EvidenceProjection:
                     "tool": data["tool"],
                     "status": data["status"],
                     "request": requests.get(data.get("request_id"), "no-request"),
-                    **{key: data[key] for key in ("node", "policy", "code", "reason") if data.get(key) is not None},
+                    **{
+                        key: data[key]
+                        for key in ("node", "policy", "code", "reason")
+                        if data.get(key) is not None
+                    },
                 }
             elif event.type == "retrieval":
                 details = {"passages": [passage["chunk_id"] for passage in data.get("passages", [])]}
@@ -194,7 +158,16 @@ class EvidenceProjection:
                 "ended",
                 "expired",
             }:
-                allowed = {"source", "destination", "edge", "node", "policy", "code", "reason", "missing_fields"}
+                allowed = {
+                    "source",
+                    "destination",
+                    "edge",
+                    "node",
+                    "policy",
+                    "code",
+                    "reason",
+                    "missing_fields",
+                }
                 details = {key: value for key, value in data.items() if key in allowed}
                 if data.get("request_id"):
                     details["request"] = requests.get(data["request_id"], "no-request")

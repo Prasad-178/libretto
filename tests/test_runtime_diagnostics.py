@@ -148,3 +148,25 @@ def test_confirmation_veto_classifier_names_the_actual_failure(case, expected):
     details = action_block_details(workflow.nodes["book"], workflow, state, missing=[], fingerprint="current")
     assert details["code"] == expected
     assert "current" not in details.values() and "old" not in details.values()
+
+
+async def test_withdrawn_consent_is_explained_before_requesting_another_approval():
+    source = yaml.safe_load((ROOT / "agent.yaml").read_text())
+    source["nodes"]["collect"]["edges"].append({"id": "attempt", "to": "book", "condition": "Try"})
+    values = dict(customer_name="Taylor", address="7 Test St", issue="oven", window="morning", consent=False)
+    evaluation = Evaluation(
+        updates={
+            key: {"value": value, "evidence": value if type(value) is str else "no"}
+            for key, value in values.items()
+        },
+        matches=["attempt"],
+    )
+    events, state = await recorded(
+        compile_workflow(yaml.safe_dump(source), tools=tools(), project_root=ROOT),
+        [evaluation],
+        ["no Taylor 7 Test St oven morning"],
+    )
+    blocked = next(event.data for event in events if event.type == "action_blocked")
+    assert blocked["code"] == "missing_consent"
+    assert "consent" in blocked["missing_fields"]
+    assert state.receipts == []

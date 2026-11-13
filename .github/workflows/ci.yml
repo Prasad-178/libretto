@@ -29,6 +29,8 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check src tests app.py
       - run: uv run pytest -q
+      - name: Run bundled offline scenarios
+        run: uv run libretto test examples/scenarios --output .local/scenario-evidence.json
       - run: uv run libretto evaluate
       - run: npm --prefix web ci
       - run: npm --prefix web test

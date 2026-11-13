@@ -18,6 +18,7 @@ from libretto.api import WorkflowRunner
 from libretto.compiler import WorkflowCompileError
 from libretto.demo_tools import DemoToolRegistry as ToolRegistry
 from libretto.model_catalog import OpenRouterCatalog
+from libretto.provenance import library_identity, workflow_context
 from libretto.providers.base import ProviderError, SessionCredentials
 from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.runtime import CALL_LIMIT_SECONDS
@@ -138,6 +139,7 @@ def create_app(
 
     app = FastAPI(title="Libretto", lifespan=lifespan)
     app.state.studio_workspace = workspace
+    app.state.library_identity = library_identity()
 
     def hosted_enabled():
         setting = os.getenv("LIBRETTO_ALLOW_HOSTED_KEYS")
@@ -285,6 +287,7 @@ def create_app(
         started_at = None
         last_playback = 0.0
         session_workflow = workflow
+        session_context = None
         start_deadline = time.monotonic() + START_TIMEOUT_SECONDS
         costly_events = RequestBudget()
         frames = RequestBudget(rate=64, burst=128)
@@ -444,6 +447,10 @@ def create_app(
                         evaluator=event.evaluator_model or session_workflow.models.evaluator,
                         reasoning=session_workflow.models.reasoning,
                     )
+                    session_context = workflow_context(
+                        session_compiled, mode=event.mode, models=models.model_dump(),
+                        identity=app.state.library_identity,
+                    )
                     adapter = model_factory(credentials, models, client=app.state.pool)
                     runner = WorkflowRunner(
                         session_compiled,
@@ -481,6 +488,7 @@ def create_app(
                         credentials=credentials.public_status(),
                         call_limit_seconds=CALL_LIMIT_SECONDS,
                         models=models.model_dump(),
+                        context=session_context,
                         workflow=session_workflow.model_dump(),
                     )
                     await session.publish_state()
@@ -528,6 +536,12 @@ def create_app(
                     elif event.type == "export":
                         await control(
                             "export",
+                            format="libretto.session-evidence", version=1, context=session_context,
+                            request_ids=list(dict.fromkeys(
+                                [record.data["request"]["id"] for record in session.trace
+                                 if record.type == "state" and record.data.get("request")]
+                                + [receipt["request_id"] for receipt in session.state.receipts if receipt.get("request_id")]
+                            )),
                             events=[e.wire() for e in session.trace],
                             messages=[{"role": m.role, "content": m.content} for m in session.state.history],
                             receipts=session.state.receipts,

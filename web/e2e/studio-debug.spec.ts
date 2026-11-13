@@ -1,12 +1,27 @@
 import { expect, test } from "@playwright/test";
 import { parse } from "yaml";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 test("Test & debug presents observed blockers beside the transcript and preserves the test snapshot", async ({
   page,
 }, info) => {
-  const workflow = parse(
-    await (await page.request.get("/api/workflow.yaml")).text(),
-  );
+  const workflowSource = await (
+    await page.request.get("/api/workflow.yaml")
+  ).text();
+  const workflow = parse(workflowSource);
+  const context = {
+    workflow_sha256: createHash("sha256").update(workflowSource).digest("hex"),
+    workflow_id: workflow.id,
+    start_stage: workflow.start,
+    yaml_schema_version: 1,
+    libretto_version: "test",
+    libretto_commit: null,
+    source_dirty: null,
+    mode: "text",
+    models: workflow.models,
+    speech: workflow.speech,
+  };
   let send!: (
     type: string,
     data: Record<string, unknown>,
@@ -20,6 +35,7 @@ test("Test & debug presents observed blockers beside the transcript and preserve
       if (packet.type === "start") {
         send("ready", {
           workflow,
+          context,
           mode: "text",
           credentials: {},
           call_limit_seconds: 300,
@@ -145,4 +161,13 @@ test("Test & debug presents observed blockers beside the transcript and preserve
     }),
   ).toBeVisible();
   await ruleDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("tab", { name: "Test & debug", exact: true }).click();
+  const downloaded = page.waitForEvent("download");
+  await page.getByTitle("Export session", { exact: true }).click();
+  const file = await downloaded;
+  const artifact = JSON.parse(await readFile((await file.path())!, "utf8"));
+  expect(artifact.format).toBe("libretto.session-evidence");
+  expect(artifact.context.workflow_sha256).toBe(context.workflow_sha256);
+  expect(artifact.context.mode).toBe("text");
+  expect(artifact.request_ids).toContain("one");
 });

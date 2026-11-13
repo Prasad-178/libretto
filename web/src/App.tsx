@@ -50,6 +50,7 @@ import type { StudioCapabilities } from "./studio/runtime-api";
 import { SettingsPage } from "./studio/SettingsPage";
 import { DebugSummary } from "./studio/DebugSummary";
 import { TestPanel } from "./studio/TestPanel";
+import { buildSessionExport } from "./studio/session-export";
 import type { DiagnosticRequest, DiagnosticTarget } from "./studio/debug-navigation";
 import { SavedEvidence } from "./studio/SavedEvidence";
 import {
@@ -179,6 +180,7 @@ export default function App() {
   );
   const [scenarioStep, setScenarioStep] = useState(0);
   const [diagnosticRequest, setDiagnosticRequest] = useState<DiagnosticRequest | null>(null);
+  const [sessionContext, setSessionContext] = useState<Record<string, unknown> | null>(null);
   const [testedSource, setTestedSource] = useState<string | null>(null);
   const [runningWorkflow, setRunningWorkflow] = useState<Workflow | null>(null);
   const [trace, setTrace] = useState<EventPacket[]>([]);
@@ -225,6 +227,7 @@ export default function App() {
     if (retainEvent(event)) setTrace((old) => [...old.slice(-99), event]);
     if (event.type === "ready") {
       setRunningWorkflow(d.workflow);
+      setSessionContext(d.context || null);
       ready.current = true;
       setConnected(true);
       setConnecting(false);
@@ -600,6 +603,7 @@ export default function App() {
       if (!snapshot) return;
       dispatchDocument({ type: "test-start", snapshot });
       setConnecting(true);
+      setSessionContext(null);
       await audio.current.close();
       if (attempt !== connectionAttempt.current) return;
       audio.current.beginSession();
@@ -682,9 +686,8 @@ export default function App() {
     setShowTest(false);
   }
   function download() {
-    const content = safeExport({
-      project: "Libretto",
-      captured_at: new Date().toISOString(),
+    const content = buildSessionExport({
+      context: sessionContext,
       messages: chats,
       receipts,
       events: traceRef.current,

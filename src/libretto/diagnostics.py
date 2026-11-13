@@ -27,7 +27,8 @@ def action_block_details(
         ]
         if ordinary:
             code, reason = "missing_facts", "Collect the missing information before running this action."
-        elif policy and policy.consent_field in missing:
+        elif policy and policy.consent_field and state.values().get(policy.consent_field) is not True:
+            missing = list(dict.fromkeys([policy.consent_field, *missing]))
             code, reason = "missing_consent", "The caller must explicitly consent to this request."
         elif policy and policy.acceptance_field in missing:
             code, reason = (
