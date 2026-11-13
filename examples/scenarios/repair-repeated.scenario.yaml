@@ -1,0 +1,140 @@
+version: 1
+name: 'Repair: identical requests need separate approvals'
+workflow: ../repair_visit/agent.yaml
+sensitive_fields:
+- address
+tools:
+  book_visit:
+    parameters:
+      customer_name: string
+      address: string
+      issue: string
+      window: string
+    results:
+    - booked
+    - failed
+    - unknown
+    responses:
+    - status: booked
+      data:
+        simulated: true
+    - status: booked
+      data:
+        simulated: true
+steps:
+- kind: turn
+  id: details
+  text: book Taylor 7 Test St oven morning
+  evaluation:
+    updates:
+      customer_name:
+        value: Taylor
+        evidence: Taylor
+      address:
+        value: 7 Test St
+        evidence: 7 Test St
+      issue:
+        value: oven
+        evidence: oven
+      window:
+        value: morning
+        evidence: morning
+      consent:
+        value: true
+        evidence: book
+- kind: expect
+  stage: confirm
+  action_count: 0
+  request: visit
+- kind: deliver
+  policy: booking
+  completed: true
+- kind: turn
+  id: approval
+  text: 'yes'
+  evaluation:
+    updates:
+      accepted:
+        value: true
+        evidence: 'yes'
+- kind: expect
+  action_count: 1
+  action_results:
+  - booked
+  action_arguments:
+  - customer_name: Taylor
+    address: 7 Test St
+    issue: oven
+    window: morning
+  request_count: 1
+- kind: turn
+  id: another
+  text: another visit
+  evaluation:
+    matches:
+    - another
+- kind: expect
+  stage: collect
+  action_count: 1
+  absent_facts:
+  - address
+  - accepted
+- kind: turn
+  id: second-details
+  text: book Taylor 7 Test St oven morning
+  evaluation:
+    updates:
+      customer_name:
+        value: Taylor
+        evidence: Taylor
+      address:
+        value: 7 Test St
+        evidence: 7 Test St
+      issue:
+        value: oven
+        evidence: oven
+      window:
+        value: morning
+        evidence: morning
+      consent:
+        value: true
+        evidence: book
+- kind: expect
+  stage: confirm
+  action_count: 1
+  request: visit
+- kind: deliver
+  policy: booking
+  completed: true
+- kind: turn
+  id: second-approval
+  text: 'yes'
+  evaluation:
+    updates:
+      accepted:
+        value: true
+        evidence: 'yes'
+- kind: expect
+  action_count: 2
+  action_results:
+  - booked
+  - booked
+  action_arguments:
+  - customer_name: Taylor
+    address: 7 Test St
+    issue: oven
+    window: morning
+  - customer_name: Taylor
+    address: 7 Test St
+    issue: oven
+    window: morning
+  request_count: 2
+expected_stages:
+- collect
+- confirm
+- book
+- wrap
+- collect
+- confirm
+- book
+- wrap

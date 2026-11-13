@@ -367,3 +367,124 @@ async def test_startup_only_requests_keep_identity_after_the_session_finishes(tm
     assert request_states and request_states[0]["reference"] == "request-1"
     if with_action:
         assert report.actions[0]["request"] == "request-1"
+
+
+@pytest.mark.parametrize("control", ["cancel_request", "stop_talking", "end_call"])
+async def test_normal_control_operations_return_a_scenario_report(control):
+    data = repair_scenario()
+    data["steps"] = [
+        {"kind": "turn", "id": "control", "text": "stop", "evaluation": {"control": control}},
+        {"kind": "expect", "action_count": 0},
+    ]
+    report = await run(data)
+    assert report.passed, report.failures
+    assert report.completed is (control == "end_call")
+
+
+@pytest.mark.parametrize(
+    "checkpoint",
+    [
+        {"stage": None},
+        {"action_results": None},
+        {"facts": {}},
+        {"absent_facts": []},
+    ],
+)
+def test_empty_effective_checkpoints_are_rejected(checkpoint):
+    data = repair_scenario()
+    data["steps"] = [{"kind": "expect", **checkpoint}]
+    with pytest.raises(ValueError, match="assertion"):
+        Scenario.model_validate(data)
+
+
+@pytest.mark.parametrize("version", [True, 1.0, "1"])
+def test_scenario_version_requires_a_real_integer_in_a_complete_document(version):
+    data = repair_scenario()
+    data["version"] = version
+    with pytest.raises(ValueError):
+        Scenario.model_validate(data)
+
+
+async def test_meaningful_empty_result_assertion_remains_supported():
+    data = repair_scenario(approval=False)
+    data["steps"].append({"kind": "expect", "action_results": [], "action_arguments": []})
+    report = await run(data)
+    assert report.passed, report.failures
+
+
+async def test_caller_cancellation_is_not_swallowed_as_a_normal_control(monkeypatch):
+    import asyncio
+
+    from libretto.testing.runner import _Inference
+
+    started = asyncio.Event()
+
+    async def blocked(self, context):
+        started.set()
+        await asyncio.Future()
+
+    monkeypatch.setattr(_Inference, "evaluate", blocked)
+    before = set(asyncio.all_tasks())
+    task = asyncio.create_task(run(repair_scenario(), timeout=5))
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert set(asyncio.all_tasks()) <= before
+
+
+async def test_intermediate_requests_are_counted_before_a_checkpoint(tmp_path):
+    workflow = {
+        "version": 1,
+        "id": "requests",
+        "name": "Requests",
+        "start": "one",
+        "shared_prompt": "Help.",
+        "fields": {"stop": {"type": "boolean"}},
+        "requests": {name: {"fields": []} for name in ["first", "second", "third"]},
+        "nodes": {
+            "one": {
+                "kind": "conversation",
+                "begin_request": "first",
+                "edges": [{"id": "next", "to": "two", "condition": "next"}],
+            },
+            "two": {
+                "kind": "conversation",
+                "begin_request": "second",
+                "edges": [
+                    {
+                        "id": "next",
+                        "to": "three",
+                        "predicate": {"op": "not", "conditions": [{"op": "exists", "field": "stop"}]},
+                    },
+                ],
+            },
+            "three": {
+                "kind": "conversation",
+                "begin_request": "third",
+                "edges": [{"id": "done", "to": "end", "condition": "done"}],
+            },
+            "end": {"kind": "end"},
+        },
+    }
+    path = tmp_path / "agent.yaml"
+    path.write_text(yaml.safe_dump(workflow))
+    data = {
+        "version": 1,
+        "name": "Request boundaries",
+        "workflow": str(path),
+        "steps": [
+            {"kind": "turn", "id": "next", "text": "next", "evaluation": {"matches": ["next"]}},
+            {"kind": "expect", "request_count": 3},
+        ],
+    }
+    report = await run(data)
+    assert report.passed, report.failures
+    references = {
+        event.details["request"]["reference"]
+        for event in report.timeline
+        if event.type == "state" and event.details.get("request")
+    }
+    assert references == {"request-1", "request-2", "request-3"}
+    data["steps"][-1]["request_count"] = 2
+    assert not (await run(data)).passed

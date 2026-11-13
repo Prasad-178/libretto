@@ -10,7 +10,7 @@ from libretto.events import ServerEvent
 from libretto.state import Evaluation, GenerationContext, SessionState, ToolResult
 from libretto.tool_contracts import ActionContext
 
-from .evidence import EvidenceProjection
+from .evidence import REDACTED, EvidenceProjection
 from .schema import Advance, Deliver, Expect, Interrupt, Scenario, ScenarioReport, Turn
 
 
@@ -60,7 +60,9 @@ class _Tools:
         return handle
 
 
-def _check(step: Expect, state: SessionState, calls: list[dict], request_count: int) -> list[str]:
+def _check(
+    step: Expect, state: SessionState, calls: list[dict], request_count: int, projection: EvidenceProjection
+) -> list[str]:
     expected = {
         "stage": step.stage,
         "action_count": step.action_count,
@@ -79,18 +81,21 @@ def _check(step: Expect, state: SessionState, calls: list[dict], request_count: 
         "action_arguments": [call["arguments"] for call in calls],
         "argument_fingerprints": [receipt["argument_fingerprint"] for receipt in state.receipts],
     }
-    failures = [
-        f"{key}: expected {value!r}, got {actual[key]!r}"
-        for key, value in expected.items()
-        if value is not None and actual[key] != value
-    ]
+    failures = []
+    for key, value in expected.items():
+        if value is not None and actual[key] != value:
+            shown_expected, shown_actual = projection.assertion_operands(key, value, actual[key], calls)
+            failures.append(f"{key}: expected {shown_expected!r}, got {shown_actual!r}")
     facts = state.values()
     for key, value in step.facts.items():
         if key not in facts or type(facts[key]) is not type(value) or facts[key] != value:
-            failures.append(f"fact {key}: expected {value!r}, got {facts.get(key)!r}")
-    failures += [
-        f"fact {key}: expected absent, got {facts[key]!r}" for key in step.absent_facts if key in facts
-    ]
+            shown_expected = REDACTED if key in projection.fields else value
+            shown_actual = REDACTED if key in projection.fields else facts.get(key)
+            failures.append(f"fact {key}: expected {shown_expected!r}, got {shown_actual!r}")
+    for key in step.absent_facts:
+        if key in facts:
+            shown_actual = REDACTED if key in projection.fields else facts[key]
+            failures.append(f"fact {key}: expected absent, got {shown_actual!r}")
     return failures
 
 
@@ -159,7 +164,7 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
             if isinstance(step, Expect):
                 failures.extend(
                     f"step {step_number}: {failure}"
-                    for failure in _check(step, state, tools.calls, len(requests))
+                    for failure in _check(step, state, tools.calls, len(requests), projection)
                 )
         state = runner.snapshot()
 
@@ -246,7 +251,7 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
         actions=[projection.action(action) for action in actions],
         codes=codes,
         completed=completed,
-        passages=projection.clean(passages),
+        passages=passages,
         context=projection.context(),
         timeline=projection.timeline(events, requests),
     )

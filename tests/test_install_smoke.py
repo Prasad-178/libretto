@@ -1,8 +1,12 @@
 """Exercise the built wheel outside the source tree, with only core dependencies."""
 
+import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
+
+import yaml
 
 
 def test_clean_core_wheel_runs_without_server_demo_or_credentials(tmp_path):
@@ -17,6 +21,10 @@ def test_clean_core_wheel_runs_without_server_demo_or_credentials(tmp_path):
             "UV_PROJECT_ENVIRONMENT",
             "OPENROUTER_API_KEY",
             "DEEPGRAM_API_KEY",
+            "LIVEKIT_API_KEY",
+            "LIVEKIT_API_SECRET",
+            "ASSEMBLYAI_API_KEY",
+            "CARTESIA_API_KEY",
         }
     }
     subprocess.run(
@@ -91,3 +99,29 @@ print('core smoke passed')
     )
     assert result.returncode == 0, result.stderr
     assert "core smoke passed" in result.stdout
+
+    # The shipped scenario CLI must also work with only the installed wheel.
+    external = tmp_path / "project"
+    fixture = external / "repair"
+    fixture.mkdir(parents=True)
+    shutil.copy2(root / "examples/repair_visit/agent.yaml", fixture / "agent.yaml")
+    shutil.copytree(root / "examples/repair_visit/knowledge", fixture / "knowledge")
+    scenario = yaml.safe_load((root / "examples/scenarios/repair-booking.scenario.yaml").read_text())
+    scenario["workflow"] = "repair/agent.yaml"
+    scenario_path = external / "booking.scenario.yaml"
+    scenario_path.write_text(yaml.safe_dump(scenario))
+    evidence_path = external / "evidence.json"
+    executable = python.with_name("libretto.exe" if os.name == "nt" else "libretto")
+    result = subprocess.run(
+        [str(executable), "test", str(scenario_path), "--output", str(evidence_path)],
+        cwd=external,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    evidence = json.loads(evidence_path.read_text())
+    assert evidence["runs"][0]["passed"]
+    assert evidence["runs"][0]["context"]["libretto_commit"] is None
+    assert evidence["runs"][0]["facts"]["address"] == "[redacted]"

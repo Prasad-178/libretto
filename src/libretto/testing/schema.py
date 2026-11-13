@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
 import yaml
-from pydantic import Field, StringConstraints, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from libretto.schema import StrictModel, UniqueLoader
 from libretto.state import Evaluation, ToolResult
@@ -69,8 +69,12 @@ class Expect(StrictModel):
 
     @model_validator(mode="after")
     def has_assertions(self) -> Self:
-        if not self.model_fields_set - {"kind"}:
-            raise ValueError("A checkpoint needs at least one assertion")
+        scalars = (self.stage, self.action_count, self.request, self.request_count)
+        exact_lists = (self.action_results, self.action_arguments, self.argument_fingerprints)
+        if not (
+            any(value is not None for value in (*scalars, *exact_lists)) or self.facts or self.absent_facts
+        ):
+            raise ValueError("A checkpoint needs at least one effective assertion")
         return self
 
 
@@ -89,6 +93,13 @@ class Scenario(StrictModel):
     expected_codes: list[Name] = Field(default_factory=list)
     expected_stages: list[Name] | None = None
     completed: bool | None = None
+
+    @field_validator("version", mode="before")
+    @classmethod
+    def integer_version(cls, value: Any) -> Any:
+        if type(value) is not int:
+            raise ValueError("Scenario version must be an integer")
+        return value
 
     @model_validator(mode="after")
     def unique_turns(self) -> Self:

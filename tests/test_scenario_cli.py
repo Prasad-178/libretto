@@ -144,3 +144,15 @@ def test_output_cannot_overwrite_the_workflow_under_test(tmp_path):
     result = invoke(write(tmp_path, data), "--output", str(workflow))
     assert result.returncode == 2
     assert workflow.read_bytes() == before
+
+
+def test_cli_normal_end_control_returns_structured_success(tmp_path):
+    data = repair_scenario()
+    data["steps"] = [
+        {"kind": "turn", "id": "end", "text": "goodbye", "evaluation": {"control": "end_call"}},
+        {"kind": "expect", "action_count": 0},
+    ]
+    result = invoke(write(tmp_path, data), "--json")
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["scenarios"][0]["completed"] is True
+    assert "Traceback" not in result.stderr

@@ -1,0 +1,93 @@
+version: 1
+name: 'Repair: corrected details require fresh approval'
+workflow: ../repair_visit/agent.yaml
+sensitive_fields:
+- address
+tools:
+  book_visit:
+    parameters:
+      customer_name: string
+      address: string
+      issue: string
+      window: string
+    results:
+    - booked
+    - failed
+    - unknown
+    responses:
+    - status: booked
+      data:
+        simulated: true
+steps:
+- kind: turn
+  id: details
+  text: book Taylor 7 Test St oven morning
+  evaluation:
+    updates:
+      customer_name:
+        value: Taylor
+        evidence: Taylor
+      address:
+        value: 7 Test St
+        evidence: 7 Test St
+      issue:
+        value: oven
+        evidence: oven
+      window:
+        value: morning
+        evidence: morning
+      consent:
+        value: true
+        evidence: book
+- kind: expect
+  stage: confirm
+  action_count: 0
+  request: visit
+- kind: deliver
+  policy: booking
+  completed: true
+- kind: turn
+  id: correction
+  text: Change to 8 New St, yes
+  evaluation:
+    updates:
+      address:
+        value: 8 New St
+        evidence: 8 New St
+      accepted:
+        value: true
+        evidence: 'yes'
+- kind: expect
+  stage: confirm
+  action_count: 0
+  facts:
+    address: 8 New St
+  absent_facts:
+  - accepted
+- kind: deliver
+  policy: booking
+- kind: turn
+  id: fresh-approval
+  text: 'yes'
+  evaluation:
+    updates:
+      accepted:
+        value: true
+        evidence: 'yes'
+- kind: expect
+  action_count: 1
+  action_results:
+  - booked
+  action_arguments:
+  - customer_name: Taylor
+    address: 8 New St
+    issue: oven
+    window: morning
+  request_count: 1
+expected_stages:
+- collect
+- confirm
+- book
+- wrap
+expected_codes:
+- missing_readback

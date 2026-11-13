@@ -179,3 +179,19 @@ async def test_plain_readback_ids_compile_and_execute_literal_lookup(field_id):
         assert response.data['text'] == 'Hello Taylor. {literal}'
     finally:
         await instance.close()
+
+
+async def test_wait_idle_keeps_unexpected_task_failures_visible():
+    import pytest
+
+    instance = runner()
+
+    async def broken():
+        raise RuntimeError("unexpected runtime task failure")
+
+    instance._session._spawn(broken())
+    try:
+        with pytest.raises(RuntimeError, match="unexpected runtime task failure"):
+            await instance.wait_idle()
+    finally:
+        await instance.close()

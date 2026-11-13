@@ -37,7 +37,6 @@ class EvidenceProjection:
                 for field, patch in step.evaluation.updates.items():
                     if field in self.fields:
                         self._remember(patch.value)
-                        self._remember(patch.evidence)
             elif isinstance(step, Expect):
                 for field, value in step.facts.items():
                     if field in self.fields:
@@ -53,15 +52,16 @@ class EvidenceProjection:
         self.scenario, self.compiled = scenario, compiled
 
     def _remember(self, value: Any) -> None:
-        if isinstance(value, str) and value:
-            self.tokens.update(
-                (
-                    value,
-                    repr(value)[1:-1],
-                    json.dumps(value, ensure_ascii=False)[1:-1],
-                    json.dumps(value, ensure_ascii=True)[1:-1],
+        if isinstance(value, str):
+            for variant in {value, value.strip()} - {""}:
+                self.tokens.update(
+                    (
+                        variant,
+                        repr(variant)[1:-1],
+                        json.dumps(variant, ensure_ascii=False)[1:-1],
+                        json.dumps(variant, ensure_ascii=True)[1:-1],
+                    )
                 )
-            )
 
     def finalize(self, state: SessionState) -> None:
         """Include normalized runtime values and sensitive hashes before cleaning failures."""
@@ -83,6 +83,32 @@ class EvidenceProjection:
             return {key: self.clean(item) for key, item in value.items()}
         return value
 
+    def assertion_operands(self, key: str, expected: Any, actual: Any, calls: list[dict]) -> tuple[Any, Any]:
+        """Remove sensitive operands by identity before their repr enters a failure string."""
+        if key == "action_arguments":
+            all_sensitive = set().union(*self.arguments.values()) if self.arguments else set()
+
+            def redact(items: list[dict]) -> list[dict]:
+                output = []
+                for index, arguments in enumerate(items):
+                    fields = (
+                        self.arguments.get(calls[index]["tool"], set())
+                        if index < len(calls)
+                        else all_sensitive
+                    )
+                    output.append(
+                        {
+                            name: REDACTED if name in fields else self.clean(value)
+                            for name, value in arguments.items()
+                        }
+                    )
+                return output
+
+            return redact(expected), redact(actual)
+        if key == "argument_fingerprints" and any(self.arguments.get(call["tool"]) for call in calls):
+            return [REDACTED] * len(expected), [REDACTED] * len(actual)
+        return expected, actual
+
     def facts(self, facts: dict) -> dict:
         return {key: REDACTED if key in self.fields else self.clean(value) for key, value in facts.items()}
 
@@ -96,12 +122,10 @@ class EvidenceProjection:
         if sensitive:
             # Unsalted hashes can reveal low-entropy values through guessing.
             output["argument_fingerprint"] = REDACTED
-        return self.clean(output)
+        return output
 
     def context(self) -> EvidenceContext:
         context = workflow_context(self.compiled, mode="scripted")
-        for key in ("workflow_id", "models", "speech"):
-            context[key] = self.clean(context[key])
         return EvidenceContext(**context, redacted_fields=sorted(self.fields))
 
     def timeline(self, events: list[ServerEvent], requests: dict[str, str]) -> list[EvidenceEvent]:
@@ -173,9 +197,9 @@ class EvidenceProjection:
                     details["request"] = requests.get(data["request_id"], "no-request")
             else:
                 continue
+            if "reason" in details:
+                details["reason"] = self.clean(details["reason"])
             output.append(
-                EvidenceEvent(
-                    sequence=len(output) + 1, type=event.type, epoch=event.epoch, details=self.clean(details)
-                )
+                EvidenceEvent(sequence=len(output) + 1, type=event.type, epoch=event.epoch, details=details)
             )
         return output

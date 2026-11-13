@@ -55,7 +55,10 @@ class WorkflowRunner:
         while True:
             tasks = tuple(self._session._tasks)
             if tasks:
-                await asyncio.gather(*tasks)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                        raise result
             await self._session.queue.join()
             if not self._session._tasks:
                 return

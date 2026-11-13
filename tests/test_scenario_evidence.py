@@ -188,3 +188,77 @@ async def test_saved_diagnostic_keeps_missing_fields_route_and_policy_references
     assert "address" in blocked["missing_fields"]
     assert blocked["source"] == "collect" and blocked["edge"] == "premature"
     assert blocked["policy"] == "booking"
+
+
+async def test_sensitive_boolean_failure_operands_are_redacted_by_field_identity():
+    data = repair_scenario()
+    data["sensitive_fields"] = ["consent"]
+    data["steps"][1]["facts"] = {"consent": False}
+    report = await run(data)
+    assert not report.passed
+    failure = next(item for item in report.failures if "fact consent" in item)
+    assert "[redacted]" in failure
+    assert "False" not in failure and "True" not in failure
+
+
+async def test_earlier_normalized_sensitive_values_stay_redacted_after_replacement():
+    data = repair_scenario(approval=False)
+    data["sensitive_fields"] = ["address"]
+    data["steps"][0]["text"] = "book Taylor Hidden Address oven morning"
+    data["steps"][0]["evaluation"]["updates"]["address"] = {"value": "  Hidden Address  ", "evidence": "book"}
+    data["steps"][1]["facts"] = {"address": "Not it"}
+    data["steps"] += [
+        {
+            "kind": "turn",
+            "id": "replace",
+            "text": "New Address",
+            "evaluation": {"updates": {"address": {"value": "New Address", "evidence": "New Address"}}},
+        },
+    ]
+    report = await run(data)
+    assert not report.passed
+    assert "Hidden Address" not in report.model_dump_json()
+    assert "New Address" not in report.model_dump_json()
+
+
+async def test_sensitive_value_collisions_never_rewrite_executable_identifiers():
+    data = repair_scenario()
+    data["sensitive_fields"] = ["consent", "address"]
+    data["steps"][0]["text"] = "book Taylor book oven morning"
+    data["steps"][0]["evaluation"]["updates"]["address"] = {"value": "book", "evidence": "book"}
+    report = await run(data)
+    assert report.passed, report.failures
+    assert report.actions[0]["tool"] == "book_visit"
+    assert report.facts["address"] == "[redacted]"
+    readback = next(event for event in report.timeline if event.type == "readback")
+    assert readback.details["policy"] == "booking"
+    assert any(event.details.get("destination") == "book" for event in report.timeline)
+    assert (
+        next(event for event in report.timeline if event.type == "tool_result").details["tool"]
+        == "book_visit"
+    )
+
+
+async def test_sensitive_boolean_mapped_arguments_are_hidden_before_formatting(tmp_path):
+    import shutil
+
+    import yaml
+    from test_scenario_runner import REPAIR
+
+    shutil.copytree(REPAIR, tmp_path / "repair")
+    path = tmp_path / "repair/agent.yaml"
+    workflow = yaml.safe_load(path.read_text())
+    workflow["nodes"]["book"]["arguments"]["permission"] = "consent"
+    path.write_text(yaml.safe_dump(workflow))
+    data = repair_scenario()
+    data["workflow"] = str(path)
+    data["tools"]["book_visit"]["parameters"]["permission"] = "boolean"
+    data["sensitive_fields"] = ["consent"]
+    data["steps"][-1]["action_arguments"] = [{"permission": False}]
+    report = await run(data)
+    assert not report.passed
+    failure = next(value for value in report.failures if "action_arguments" in value)
+    assert "False" not in failure and "True" not in failure
+    assert "[redacted]" in failure
+    assert report.actions[0]["arguments"]["permission"] == "[redacted]"
+    assert report.actions[0]["tool"] == "book_visit"
