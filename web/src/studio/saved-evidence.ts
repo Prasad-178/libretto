@@ -96,10 +96,26 @@ function eventShape(event: unknown, index: number) {
     transition: ["source", "destination", "edge"],
     readback: ["node", "policy", "request"],
     confirmation_withheld: ["node", "policy", "request", "code", "reason"],
-    action_blocked: ["node", "code", "reason", "request"],
-    readback_blocked: ["reason"],
-    evaluation_error: ["code"],
-    error: ["code"],
+    action_blocked: [
+      "node",
+      "source",
+      "edge",
+      "policy",
+      "code",
+      "reason",
+      "request",
+      "missing_fields",
+    ],
+    readback_blocked: [
+      "node",
+      "policy",
+      "request",
+      "code",
+      "reason",
+      "missing_fields",
+    ],
+    evaluation_error: ["code", "node", "request"],
+    error: ["code", "node", "policy", "request"],
     interrupted: [],
     ended: [],
     expired: [],
@@ -129,7 +145,15 @@ function eventShape(event: unknown, index: number) {
     );
   } else if (event.type === "tool_result") {
     requireShape(
-      keys(d, ["tool", "status", "request"]) &&
+      keys(d, [
+        "tool",
+        "status",
+        "request",
+        "node",
+        "policy",
+        "code",
+        "reason",
+      ]) &&
         [d.tool, d.status, d.request].every((item) => typeof item === "string"),
     );
   } else if (event.type === "retrieval")
@@ -139,8 +163,10 @@ function eventShape(event: unknown, index: number) {
       Object.hasOwn(simple, event.type) && keys(d, simple[event.type]),
     );
     requireShape(
-      Object.values(d).every(
-        (item) => item === null || typeof item === "string",
+      Object.entries(d).every(([key, item]) =>
+        key === "missing_fields"
+          ? strings(item)
+          : item === null || typeof item === "string",
       ),
     );
     if (event.type === "transition")

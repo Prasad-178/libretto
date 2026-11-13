@@ -17,6 +17,7 @@ from libretto.confirmation import (
     confirmation_fingerprint,
     record_delivery,
 )
+from libretto.diagnostics import action_block_details
 from libretto.events import ServerEvent
 from libretto.prompts import compose_prompt
 from libretto.requests import begin_request, cancel_request
@@ -311,6 +312,7 @@ class Session:
                 await self.emit(
                     "error",
                     code=getattr(exc, "code", "generation_failed"),
+                    node=context.snapshot.stage, request_id=context.snapshot.request_id,
                     message=getattr(exc, "public_message", "The response could not be completed."),
                 )
 
@@ -442,6 +444,7 @@ class Session:
                 await self.emit(
                     "evaluation_error",
                     code=getattr(exc, "code", failure_code),
+                    node=context.snapshot.stage, request_id=context.snapshot.request_id,
                     message="State update rejected; existing state retained.",
                 )
 
@@ -478,11 +481,16 @@ class Session:
                 node = self.workflow.nodes[target]
                 if node.kind == "action":
                     values = self.state.values()
-                    if any(values.get(key) is None or values.get(key) == "" for key in node.requires):
+                    missing = [key for key in node.requires if values.get(key) is None or values.get(key) == ""]
+                    block_reference = {
+                        "node": target, "source": source, "edge": edge.id,
+                        "policy": node.confirmation,
+                        "request_id": self.state.request.id if self.state.request else None,
+                    }
+                    if missing:
                         await self.emit(
-                            "action_blocked",
-                            node=target,
-                            reason="Required facts or confirmation are missing.",
+                            "action_blocked", **block_reference,
+                            **action_block_details(node, self.workflow, self.state, missing=missing),
                         )
                         return
                     if node.confirmation:
@@ -508,9 +516,8 @@ class Session:
                         ):
                             await self.emit(
                                 "action_blocked",
-                                node=target,
-                                code="confirmation_required",
-                                reason="The current request needs a delivered and accepted readback.",
+                                **block_reference,
+                                **action_block_details(node, self.workflow, self.state, missing=[], fingerprint=fingerprint),
                             )
                             return
                     if self.defer_actions:
@@ -556,7 +563,7 @@ class Session:
                     self._actions[key] = {"argument_hash": argument_hash, "status": "unknown"}
                     await self.emit(
                         "tool_started",
-                        tool=node.tool,
+                        tool=node.tool, node=target,
                         arguments=arguments,
                         request_id=request_id,
                         idempotency_key=key,
@@ -585,7 +592,12 @@ class Session:
                     }
                     self._actions[key] = {"argument_hash": argument_hash, "status": result.status}
                     self.state.receipts.append(receipt)
-                    await self.emit("tool_result", **receipt)
+                    await self.emit(
+                        "tool_result", node=target, policy=node.confirmation,
+                        **({"code": "action_outcome_unknown", "reason": "The action outcome is unknown. Check the external system before retrying; Libretto will not retry automatically."}
+                           if receipt["status"] == "unknown" else {}),
+                        **receipt,
+                    )
                     if cancelled:
                         raise asyncio.CancelledError
                     current_request_id = self.state.request.id if self.state.request else None
@@ -596,7 +608,7 @@ class Session:
                     if not next_edge:
                         await self.emit(
                             "error",
-                            code="unhandled_tool_result",
+                            code="unhandled_tool_result", node=target, policy=node.confirmation,
                             message="No recovery branch for this result.",
                         )
                         return
@@ -665,11 +677,20 @@ class Session:
             values = self.state.values()
             fields = {field for _, field, _, _ in Formatter().parse(node.readback) if field is not None}
             if any(values.get(field) is None or values.get(field) == "" for field in fields):
-                await self.emit("readback_blocked", reason="Readback fields are incomplete.")
+                await self.emit(
+                    "readback_blocked", code="missing_readback_facts", node=self.state.active_stage,
+                    policy=node.confirmation, request_id=self.state.request.id if self.state.request else None,
+                    missing_fields=sorted(field for field in fields if values.get(field) is None or values.get(field) == ""),
+                    reason="Collect the missing information before reading the details back.",
+                )
                 return
             text = node.readback.format_map(values).strip()
             if len(text) > 4000:
-                await self.emit("readback_blocked", reason="Readback exceeds the output limit.")
+                await self.emit(
+                    "readback_blocked", code="readback_too_long", node=self.state.active_stage,
+                    policy=node.confirmation, request_id=self.state.request.id if self.state.request else None,
+                    reason="Shorten the configured readback; it exceeds the output limit.",
+                )
                 return
             if any(
                 m.epoch == epoch

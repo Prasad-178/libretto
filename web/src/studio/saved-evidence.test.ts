@@ -116,3 +116,26 @@ describe("saved scenario evidence", () => {
     expect(Object.getPrototypeOf({})).toBe(Object.prototype);
   });
 });
+it("accepts structured missing-field diagnostics without dropping their route reference", () => {
+  const data = bundle();
+  data.runs[0].timeline = [
+    {
+      sequence: 1,
+      type: "action_blocked",
+      epoch: 1,
+      details: {
+        node: "confirm",
+        source: "collect",
+        edge: "ready",
+        policy: "booking",
+        code: "missing_facts",
+        reason: "Collect details.",
+        missing_fields: ["address"],
+      },
+    } as any,
+  ];
+  const parsed = parseEvidence(JSON.stringify(data));
+  expect(parsed.runs[0].timeline[0].details.missing_fields).toEqual([
+    "address",
+  ]);
+});

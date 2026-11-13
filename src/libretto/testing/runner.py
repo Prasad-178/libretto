@@ -176,7 +176,7 @@ async def run_scenario(scenario: Scenario, *, base_dir: Path, timeout: float = 2
         if event.type == "transition":
             stages.append(event.data["destination"])
         code = event.data.get("code") or event.type
-        if event.type in {"expired", "action_blocked", "confirmation_withheld", "evaluation_error", "error"}:
+        if event.type in {"expired", "action_blocked", "confirmation_withheld", "evaluation_error", "error", "readback_blocked"} or (event.type == "tool_result" and event.data.get("code") == "action_outcome_unknown"):
             if code not in codes:
                 codes.append(code)
         if event.type in {"evaluation_error", "error"}:

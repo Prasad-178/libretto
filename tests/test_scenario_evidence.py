@@ -160,3 +160,31 @@ async def test_workflow_hash_preserves_crlf_source_for_studio_matching(tmp_path)
     report = await run(data)
     assert report.passed
     assert report.context.workflow_sha256 == hashlib.sha256(content).hexdigest()
+
+
+async def test_saved_diagnostic_keeps_missing_fields_route_and_policy_references(tmp_path):
+    import shutil
+
+    import yaml
+    from test_scenario_runner import REPAIR
+
+    shutil.copytree(REPAIR, tmp_path / "repair")
+    path = tmp_path / "repair/agent.yaml"
+    workflow = yaml.safe_load(path.read_text())
+    workflow["nodes"]["collect"]["edges"].append(
+        {"id": "premature", "to": "book", "condition": "Try without details"}
+    )
+    path.write_text(yaml.safe_dump(workflow))
+    data = repair_scenario()
+    data["workflow"] = str(path)
+    data["steps"] = [
+        {"kind": "turn", "id": "attempt", "text": "try", "evaluation": {"matches": ["premature"]}},
+        {"kind": "expect", "action_count": 0},
+    ]
+    data["expected_codes"] = ["missing_facts"]
+    report = await run(data)
+    assert report.passed, report.failures
+    blocked = next(event.details for event in report.timeline if event.type == "action_blocked")
+    assert "address" in blocked["missing_fields"]
+    assert blocked["source"] == "collect" and blocked["edge"] == "premature"
+    assert blocked["policy"] == "booking"

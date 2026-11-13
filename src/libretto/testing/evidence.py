@@ -178,6 +178,7 @@ class EvidenceProjection:
                     "tool": data["tool"],
                     "status": data["status"],
                     "request": requests.get(data.get("request_id"), "no-request"),
+                    **{key: data[key] for key in ("node", "policy", "code", "reason") if data.get(key) is not None},
                 }
             elif event.type == "retrieval":
                 details = {"passages": [passage["chunk_id"] for passage in data.get("passages", [])]}
@@ -193,7 +194,7 @@ class EvidenceProjection:
                 "ended",
                 "expired",
             }:
-                allowed = {"source", "destination", "edge", "node", "policy", "code", "reason"}
+                allowed = {"source", "destination", "edge", "node", "policy", "code", "reason", "missing_fields"}
                 details = {key: value for key, value in data.items() if key in allowed}
                 if data.get("request_id"):
                     details["request"] = requests.get(data["request_id"], "no-request")
