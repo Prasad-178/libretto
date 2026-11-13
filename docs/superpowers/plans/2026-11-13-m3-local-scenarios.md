@@ -26,17 +26,19 @@ Files: `src/libretto/testing/{__init__,schema,runner}.py`, `src/libretto/api.py`
 
 Interfaces: `load_scenario(path) -> Scenario`, `run_scenario(scenario, *, base_dir, timeout=2) -> ScenarioReport`. Public runner gains injectable clock and `wait_idle()` over current tracked runtime tasks; normal defaults stay unchanged.
 
-- [ ] Write failing tests for a real field/transition scenario and failed assertions.
-- [ ] Implement strict schema: turn/evaluation, delivery, interrupt, advance-clock and checkpoint assertions; explicit simulated tool parameters/results/responses.
-- [ ] Implement runner, scripted adapters, event bound, timeout/cleanup and stable report. Exercise real compiler/runner with no test-support imports.
-- [ ] Test successful/blocked/interrupted repair actions, stale approval, script exhaustion, repeated requests, runtime errors and expiry. Compare repeat-run JSON summaries.
-- [ ] Test parser ambiguity/limits and public idle/clock compatibility. Run focused checks and commit.
+- [x] Write failing tests for a real field/transition scenario and failed assertions.
+- [x] Implement strict schema: turn/evaluation, delivery, interrupt, advance-clock and checkpoint assertions; explicit simulated tool parameters/results/responses.
+- [x] Implement runner, scripted adapters, event bound, timeout/cleanup and stable report. Exercise real compiler/runner with no test-support imports.
+- [x] Test successful/blocked/interrupted repair actions, stale approval, script exhaustion, repeated requests, runtime errors and expiry. Compare repeat-run JSON summaries.
+- [x] Test parser ambiguity/limits and public idle/clock compatibility. Run focused checks and commit.
 
 ## Task 2 — CLI and examples
 
 Files: `src/libretto/testing/cli.py`, `src/libretto/cli.py`, `examples/scenarios/`, `tests/test_cli.py`, `docs/testing.md`.
 
-- [ ] Write failing subprocess tests: passing scenario, failed assertion, invalid setup, empty suite, directory discovery and machine JSON.
-- [ ] Add `libretto test <path> [--json]`: exit 0 success, 1 assertion/execution failure, 2 invalid input/setup. Sort discovery; setup errors take precedence in a mixed suite. Keep human output separate from machine JSON.
-- [ ] Add runnable repair scenarios and a compact author guide explaining scripted-language/voice limitations.
-- [ ] Run examples via CLI, complete backend suite/Ruff and clean-install check; update roadmap with remaining M3 work. Commit.
+- [x] Write failing subprocess tests: passing scenario, failed assertion, invalid setup, empty suite, directory discovery and machine JSON.
+- [x] Add `libretto test <path> [--json]`: exit 0 success, 1 assertion/execution failure, 2 invalid input/setup. Sort discovery; setup errors take precedence in a mixed suite. Keep human output separate from machine JSON.
+- [x] Add runnable repair scenarios and a compact author guide explaining scripted-language/voice limitations.
+- [x] Run examples via CLI, complete backend suite/Ruff and clean-install check; update roadmap with remaining M3 work. Commit.
+
+Verification and remaining milestone scope: [first-slice record](../../milestones/2026-11-13-local-scenarios.md). All tasks in this bounded plan are complete; this does not close M3.
