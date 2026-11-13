@@ -51,6 +51,9 @@ test("Test & debug presents observed blockers beside the transcript and preserve
         send("response_done", { message_id: "reply", turn_id: "one" });
         send("action_blocked", {
           node: "transfer",
+          policy: "transfer_destination",
+          source: "confirm_transfer",
+          edge: "approved",
           code: "confirmation_required",
           reason:
             "The current request needs a delivered and accepted readback.",
@@ -76,6 +79,24 @@ test("Test & debug presents observed blockers beside the transcript and preserve
     summary.getByRole("heading", { name: "Action blocked", exact: true }),
   ).toBeVisible();
   await expect(summary).toContainText("delivered and accepted readback");
+  await expect(
+    summary.getByRole("button", {
+      name: "Inspect confirmation rule →",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await summary
+    .getByRole("button", { name: "Inspect connection →", exact: true })
+    .click();
+  const route = page.getByRole("complementary", {
+    name: "Edit route",
+    exact: true,
+  });
+  await expect(route).toBeVisible();
+  await expect(
+    route.getByRole("textbox", { name: "Canvas label", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("tab", { name: "Test & debug", exact: true }).click();
   await expect(
     summary.getByRole("heading", { name: "Current step", exact: true }),
   ).toBeVisible();
@@ -110,4 +131,18 @@ test("Test & debug presents observed blockers beside the transcript and preserve
   await expect(
     page.getByRole("button", { name: "Open YAML", exact: true }),
   ).toBeEnabled();
+  await summary
+    .getByRole("button", { name: "Inspect confirmation rule →", exact: true })
+    .click();
+  const ruleDialog = page.getByRole("dialog", {
+    name: "Step settings",
+    exact: true,
+  });
+  await expect(
+    ruleDialog.getByRole("region", {
+      name: "Confirmation rule transfer_destination",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await ruleDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 });

@@ -50,6 +50,7 @@ import type { StudioCapabilities } from "./studio/runtime-api";
 import { SettingsPage } from "./studio/SettingsPage";
 import { DebugSummary } from "./studio/DebugSummary";
 import { TestPanel } from "./studio/TestPanel";
+import type { DiagnosticRequest, DiagnosticTarget } from "./studio/debug-navigation";
 import { SavedEvidence } from "./studio/SavedEvidence";
 import {
   TestScenarios,
@@ -177,6 +178,8 @@ export default function App() {
     null,
   );
   const [scenarioStep, setScenarioStep] = useState(0);
+  const [diagnosticRequest, setDiagnosticRequest] = useState<DiagnosticRequest | null>(null);
+  const [testedSource, setTestedSource] = useState<string | null>(null);
   const [runningWorkflow, setRunningWorkflow] = useState<Workflow | null>(null);
   const [trace, setTrace] = useState<EventPacket[]>([]);
   const [remaining, setRemaining] = useState(300);
@@ -619,6 +622,7 @@ export default function App() {
       setReceipts([]);
       setTrace([]);
       traceRef.current = [];
+      setTestedSource(snapshot.source);
       setActive(snapshot.workflow.start);
       client.current?.connect({
         mode,
@@ -670,6 +674,12 @@ export default function App() {
     setPhase("Conversation ended");
     setOrKey("");
     setVoiceKeys({});
+  }
+  function navigateDiagnostic(target: DiagnosticTarget) {
+    setDiagnosticRequest((previous) => ({ key: (previous?.key || 0) + 1, source, target }));
+    setSelected(target.kind === "route" ? target.source : target.node);
+    setView("workflow");
+    setShowTest(false);
   }
   function download() {
     const content = safeExport({
@@ -889,6 +899,7 @@ export default function App() {
                 }
                 readOnly={showingLastValid || !!studioDocument.running}
                 selectedNodeId={selected}
+                diagnosticRequest={diagnosticRequest}
                 tools={toolManifests}
                 hideInspector={showTest}
                 onInspect={() => setShowTest(false)}
@@ -1011,6 +1022,9 @@ export default function App() {
                 facts={facts}
                 events={trace}
                 onEvents={() => setTestTab("trace")}
+                navigationEnabled={testedSource === source}
+                canEditRules={!connected && !connecting && !studioDocument.running}
+                onNavigate={navigateDiagnostic}
                 onStep={(id) => {
                   setSelected(id);
                   setView("workflow");
@@ -1029,6 +1043,7 @@ export default function App() {
               <SavedEvidence
                 source={source}
                 disabled={connected || connecting}
+                onNavigate={navigateDiagnostic}
                 onStep={(id) => {
                   setSelected(id);
                   setView("workflow");

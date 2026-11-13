@@ -26,6 +26,9 @@ export function debugNotice(events: EventPacket[]): DebugNotice | null {
       }
       request = next;
     }
+    const historical =
+      data.request_id && request && data.request_id !== request;
+    if (historical && event.type === "tool_result") continue;
     if (["turn", "tool_result", "expired"].includes(event.type)) {
       notice = null;
       outcomeUnknown = false;
@@ -43,8 +46,6 @@ export function debugNotice(events: EventPacket[]): DebugNotice | null {
           )
         : undefined,
     };
-    const historical =
-      data.request_id && request && data.request_id !== request;
     if (
       event.type === "tool_result" &&
       data.status === "unknown" &&

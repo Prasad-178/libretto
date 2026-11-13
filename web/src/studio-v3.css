@@ -1618,3 +1618,20 @@
   font-size: 11px;
   color: #64748b;
 }
+
+.studio-v3 .debug-reason-code {
+  justify-self: start;
+  max-width: 100%;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #ffefc9;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.saved-diagnostic-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 12px;
+}

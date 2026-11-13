@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, FileSearch, FolderOpen, X } from "lucide-react";
 import { Select } from "../ui/Select";
 import { readWorkflow } from "../workflow";
 import { fingerprint } from "./project-files";
+import { diagnosticTargets, type DiagnosticTarget } from "./debug-navigation";
 import { humanizeId } from "./workflow-model";
 import {
   parseEvidence,
@@ -16,10 +17,12 @@ export function SavedEvidence({
   source,
   disabled,
   onStep,
+  onNavigate,
 }: {
   source: string;
   disabled: boolean;
   onStep: (id: string) => void;
+  onNavigate?: (target: DiagnosticTarget) => void;
 }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -43,6 +46,7 @@ export function SavedEvidence({
             source={source}
             onClose={close}
             onStep={onStep}
+            onNavigate={onNavigate}
           />,
           document.body,
         )}
@@ -54,10 +58,12 @@ function SavedEvidenceDialog({
   source,
   onClose,
   onStep,
+  onNavigate,
 }: {
   source: string;
   onClose: () => void;
   onStep: (id: string) => void;
+  onNavigate?: (target: DiagnosticTarget) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     input = useRef<HTMLInputElement>(null);
@@ -102,6 +108,8 @@ function SavedEvidenceDialog({
       : replay?.stage;
   const canReveal =
     matches && target && workflow && Object.hasOwn(workflow.nodes, target);
+  const targets =
+    event && workflow ? diagnosticTargets(event.details, workflow) : [];
   const stepName = (id: string) =>
     matches && workflow && Object.hasOwn(workflow.nodes, id)
       ? workflow.nodes[id].title || id
@@ -233,6 +241,35 @@ function SavedEvidenceDialog({
               {event && (
                 <article>
                   <h3>{humanizeId(event.type)}</h3>
+                  {Array.isArray(event.details.missing_fields) && (
+                    <p>
+                      Needs:{" "}
+                      {event.details.missing_fields
+                        .map((field) => humanizeId(String(field)))
+                        .join(", ")}
+                    </p>
+                  )}
+                  {onNavigate && targets.length > 0 && (
+                    <div className="saved-diagnostic-links">
+                      {targets.map((reference, i) => (
+                        <button
+                          key={i}
+                          className="button"
+                          disabled={!matches}
+                          onClick={() => {
+                            if (matches) {
+                              onClose();
+                              onNavigate(reference);
+                            }
+                          }}
+                        >
+                          {reference.kind === "route"
+                            ? "Inspect connection"
+                            : "Inspect confirmation rule"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {typeof event.details.code === "string" && (
                     <code className="saved-reason-code">
                       {event.details.code}

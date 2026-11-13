@@ -46,6 +46,7 @@ import "@xyflow/react/dist/style.css";
 import "./workflow-graph.css";
 import { WorkflowSettingsDialog } from "./studio/WorkflowSettingsDialog";
 import { StepComposer } from "./studio/StepComposer";
+import type { DiagnosticRequest } from "./studio/debug-navigation";
 import StepInspector, { type Selection } from "./StepInspector";
 import { describeRoutes, presentRoutes } from "./studio/graph-model";
 import type { ToolManifest } from "./studio/tool-manifest";
@@ -299,6 +300,7 @@ type Props = {
   hideInspector?: boolean;
   previewWorkflow?: Workflow | null;
   selectedNodeId?: string;
+  diagnosticRequest?: DiagnosticRequest | null;
   readOnly?: boolean;
   onUndo: () => void;
   canUndo: boolean;
@@ -328,6 +330,7 @@ export default function WorkflowGraph({
   hideInspector,
   previewWorkflow,
   selectedNodeId,
+  diagnosticRequest,
   readOnly = false,
 }: Props) {
   const [selection, updateSelection] = useState<Selection | null>(null);
@@ -563,6 +566,18 @@ export default function WorkflowGraph({
     if (selectedNodeId && definition?.nodes[selectedNodeId])
       setSelection({ kind: "step", id: selectedNodeId });
   }, [selectedNodeId]);
+  useEffect(() => {
+    if (!diagnosticRequest || diagnosticRequest.source !== source || !definition) return;
+    const target = diagnosticRequest.target;
+    if (target.kind === "route") {
+      if (Object.hasOwn(definition.nodes, target.source) && definition.nodes[target.source].edges?.some((edge) => edge.id === target.edgeId))
+        setSelection({ kind: "edge", source: target.source, edgeId: target.edgeId });
+    } else if (Object.hasOwn(definition.nodes, target.node)) {
+      if (target.kind === "policy" && definition.nodes[target.node].confirmation === target.policy && Object.hasOwn(definition.confirmations || {}, target.policy))
+        setSelection({ kind: "step", id: target.node, rule: target.policy, requestKey: diagnosticRequest.key });
+      else if (target.kind === "step") setSelection({ kind: "step", id: target.node });
+    }
+  }, [diagnosticRequest]);
   return (
     <section className="workflow-view" aria-label="Workflow visualization">
       <div className="workflow-toolbar">

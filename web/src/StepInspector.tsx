@@ -20,6 +20,8 @@ export type Selection =
       kind: "step";
       id: string;
       section?: "prompt" | "connections" | "knowledge";
+      rule?: string;
+      requestKey?: number;
     }
   | ({ kind: "edge" | "insert" } & EdgeSelection);
 export default function StepInspector({
@@ -57,7 +59,9 @@ export default function StepInspector({
   onSources?: (id: string) => void;
   onFields?: () => void;
 }) {
-  const [stepSettings, setStepSettings] = useState(false),
+  const [stepSettings, setStepSettings] = useState(
+      selection.kind === "step" && !!selection.rule && !readOnly,
+    ),
     [error, setError] = useState(""),
     [section, setSection] = useState(
       selection.kind === "step" ? selection.section || "prompt" : "prompt",
@@ -88,6 +92,12 @@ export default function StepInspector({
   useEffect(() => {
     if (requestedSection) setSection(requestedSection);
   }, [requestedSection]);
+  const requestedRule = selection.kind === "step" ? selection.rule : undefined;
+  const requestKey =
+    selection.kind === "step" ? selection.requestKey : undefined;
+  useEffect(() => {
+    if (requestedRule && !readOnly) setStepSettings(true);
+  }, [requestedRule, requestKey, readOnly]);
   const selectedRoute = selection.kind === "step" ? "" : selection.edgeId;
   useEffect(() => {
     const scroller = panel.current?.querySelector(".studio-inspector-scroll");
@@ -428,7 +438,11 @@ export default function StepInspector({
           source={source}
           metadata={metadata}
           nodeId={id}
-          onClose={() => setStepSettings(false)}
+          initialRule={!!requestedRule}
+          onClose={() => {
+            setStepSettings(false);
+            if (requestedRule) onSelect({ kind: "step", id });
+          }}
           onSave={(tx, nextId) => {
             if (readOnly)
               throw new Error("Stop the test before editing settings.");

@@ -1,5 +1,6 @@
 import type { EventPacket } from "../client";
 import type { Workflow } from "../workflow";
+import { diagnosticTargets, type DiagnosticTarget } from "./debug-navigation";
 import { debugNotice } from "./debug-events";
 import { humanizeId } from "./workflow-model";
 export function DebugSummary({
@@ -9,6 +10,9 @@ export function DebugSummary({
   facts,
   onStep,
   onEvents,
+  onNavigate,
+  navigationEnabled = true,
+  canEditRules = false,
 }: {
   workflow: Workflow | null | undefined;
   active: string;
@@ -16,8 +20,13 @@ export function DebugSummary({
   facts: Record<string, { value: string | boolean | null; status: string }>;
   onStep: (id: string) => void;
   onEvents: () => void;
+  onNavigate?: (target: DiagnosticTarget) => void;
+  navigationEnabled?: boolean;
+  canEditRules?: boolean;
 }) {
   const notice = debugNotice(events);
+  const targets =
+    notice && workflow ? diagnosticTargets({ ...notice }, workflow) : [];
   const name = (id: string) => workflow?.nodes[id]?.title || humanizeId(id);
   const timeline = events
     .filter((event) =>
@@ -53,10 +62,17 @@ export function DebugSummary({
       {notice && (
         <section className="debug-notice" role="status">
           <h3>{notice.title}</h3>
+          {notice.code && (
+            <code className="debug-reason-code">{notice.code}</code>
+          )}
           <p>{notice.reason}</p>
+          {!!notice.missingFields?.length && (
+            <p>Needs: {notice.missingFields.map(humanizeId).join(", ")}</p>
+          )}
           {notice.node && (
             <button
               className="inspector-link"
+              disabled={!navigationEnabled}
               onClick={() => onStep(notice.node!)}
             >
               Inspect {name(notice.node)} →
@@ -65,6 +81,34 @@ export function DebugSummary({
           {notice.policy && (
             <small>Confirmation rule · {humanizeId(notice.policy)}</small>
           )}
+          {onNavigate &&
+            targets.map((target, index) => (
+              <button
+                key={index}
+                className="inspector-link"
+                disabled={
+                  !navigationEnabled ||
+                  (target.kind === "policy" && !canEditRules)
+                }
+                title={
+                  target.kind === "policy" && !canEditRules
+                    ? "Stop the test before editing its confirmation rule"
+                    : undefined
+                }
+                onClick={() => onNavigate(target)}
+              >
+                {target.kind === "route"
+                  ? "Inspect connection →"
+                  : "Inspect confirmation rule →"}
+              </button>
+            ))}
+          {!navigationEnabled && (
+            <small>Open the tested YAML to use these links.</small>
+          )}
+          {!canEditRules &&
+            targets.some((target) => target.kind === "policy") && (
+              <small>Stop the test to edit its confirmation rule.</small>
+            )}
         </section>
       )}
       <section>

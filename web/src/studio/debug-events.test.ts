@@ -122,3 +122,21 @@ it("keeps unknown outcomes visible through the recovery transition without assig
     debugNotice([event("state", { request: { id: "two" } }), unknown]),
   ).toBeNull();
 });
+it("does not clear a current blocker when a cancelled request's result arrives late", () => {
+  expect(
+    debugNotice([
+      event("state", { request: { id: "current" } }),
+      event("action_blocked", {
+        node: "book",
+        request_id: "current",
+        code: "missing_facts",
+        reason: "Collect details.",
+      }),
+      event("tool_result", {
+        request_id: "old",
+        status: "unknown",
+        code: "action_outcome_unknown",
+      }),
+    ]),
+  ).toMatchObject({ title: "Action blocked", code: "missing_facts" });
+});

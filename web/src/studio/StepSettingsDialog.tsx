@@ -22,6 +22,7 @@ export function StepSettingsDialog({
   source,
   metadata,
   nodeId: initialId,
+  initialRule = false,
   onSave,
   onClose,
   tools = [],
@@ -29,6 +30,7 @@ export function StepSettingsDialog({
   source: string;
   metadata: StudioMetadata;
   nodeId: string;
+  initialRule?: boolean;
   tools?: ToolManifest[];
   onSave: (transaction: DocumentTransaction, nodeId: string | null) => void;
   onClose: () => void;
@@ -36,7 +38,7 @@ export function StepSettingsDialog({
   const draft = useSettingsDraft(source, metadata),
     w = draft.workflow;
   const [nodeId, setNodeId] = useState(initialId),
-    [editRule, setEditRule] = useState(false),
+    [editRule, setEditRule] = useState(initialRule),
     [detail, setDetail] = useState(""),
     [connection, setConnection] = useState<RouteRef | null>(null);
   const readback = useRef<HTMLTextAreaElement>(null);
