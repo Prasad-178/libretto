@@ -9,7 +9,7 @@ private/
 data/
 tests/
 web/node_modules/
-public/
+/public/
 **/__pycache__/
 **/.pytest_cache/
 **/.ruff_cache/
