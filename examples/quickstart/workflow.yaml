@@ -1,0 +1,36 @@
+version: 1
+id: support-request
+name: Support request
+start: collect
+shared_prompt: Collect a support request. Only claim it was recorded after a tool receipt.
+fields:
+  summary:
+    type: string
+    description: The issue the caller wants recorded
+requests:
+  support:
+    fields: [summary]
+tools: [record_request]
+nodes:
+  collect:
+    kind: conversation
+    title: Collect the issue
+    begin_request: support
+    prompt: Ask what needs fixing.
+    edges:
+      - id: details_ready
+        to: record
+        predicate: {op: exists, field: summary}
+  record:
+    kind: action
+    title: Record the request
+    tool: record_request
+    requires: [summary]
+    arguments: {summary: summary}
+    edges:
+      - {id: recorded, to: end, result: recorded}
+      - {id: failed, to: end, result: failed}
+      - {id: unknown, to: end, result: unknown}
+  end:
+    kind: end
+    title: End

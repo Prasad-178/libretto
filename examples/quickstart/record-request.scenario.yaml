@@ -1,0 +1,33 @@
+version: 1
+name: A support request needs a summary
+workflow: workflow.yaml
+tools:
+  record_request:
+    parameters: {summary: string}
+    results: [recorded, failed, unknown]
+    responses:
+      - status: recorded
+        data: {receipt: fictional-request-1}
+steps:
+  - kind: turn
+    id: greeting
+    text: Hello
+    evaluation: {}
+  - kind: expect
+    stage: collect
+    action_count: 0
+    absent_facts: [summary]
+  - kind: turn
+    id: details
+    text: Printer is jammed
+    evaluation:
+      updates:
+        summary: {value: Printer is jammed, evidence: Printer is jammed}
+  - kind: expect
+    stage: end
+    action_count: 1
+    action_results: [recorded]
+    action_arguments:
+      - summary: Printer is jammed
+expected_stages: [collect, record, end]
+completed: true
