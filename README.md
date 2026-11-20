@@ -6,7 +6,7 @@
 
 [Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [LiveKit voice](docs/livekit.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
-[Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
+[Developer quickstart](docs/quickstart.md) · [Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
 
 Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The importable core is exercised by Northline and a repair-visit workflow; LiveKit is now the default voice engine; live-provider acceptance remains a separate verification gate. See the roadmap for verification and release status.
 
@@ -45,6 +45,8 @@ A few natural things to try:
 The test panel includes **15 scenarios** with fictional data, expected sources and selectable transfer outcomes. Use **State**, **Sources** and **Trace** to inspect what happened. Calls end after five minutes; a new call starts fresh. Prefer headphones when evaluating interruptions.
 
 ## Use the Python core
+
+Start with the **[developer quickstart](docs/quickstart.md)**: a three-file support workflow, a passing offline test and a registered Python stub, with no keys or Node required.
 
 Register application tools in Python, compile your YAML with `compile_workflow`, and run it with `WorkflowRunner` and your responder/evaluator adapters. Core installation needs no web server or Studio. See the [library guide](docs/library.md) for source installation, public imports, lifecycle/delivery rules and application composition; compare the [repair example](examples/repair_visit/agent.yaml) with Northline. The repository license must still be selected before a reusable release.
 
