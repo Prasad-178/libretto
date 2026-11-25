@@ -92,9 +92,11 @@ test("a scripted test runs the validated snapshot and freezes document edits unt
   await page
     .getByRole("button", { name: "Connection settings", exact: true })
     .click();
+  // Automatic validation temporarily changes the dialog button's label.
+  // Scope this lookup so it cannot click the identically named button behind it.
   await page
+    .getByRole("dialog")
     .getByRole("button", { name: "Start test", exact: true })
-    .last()
     .click();
   await expect(
     page.getByText(/Testing revision.*editing paused/),
