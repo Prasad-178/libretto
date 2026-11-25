@@ -7,6 +7,8 @@ name = "libretto-voice"
 version = "0.1.0"
 description = "Voice workflows, written in YAML"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = ["pydantic>=2.10,<3", "pyyaml>=6,<7"]
 
 [project.optional-dependencies]

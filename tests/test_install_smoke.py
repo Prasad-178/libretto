@@ -4,7 +4,9 @@ import json
 import os
 import shutil
 import subprocess
+from email.parser import BytesParser
 from pathlib import Path
+from zipfile import ZipFile
 
 import yaml
 
@@ -38,6 +40,13 @@ def test_clean_core_wheel_runs_without_server_demo_or_credentials(tmp_path):
     subprocess.run(["uv", "venv", str(tmp_path / "venv")], env=environment, check=True, capture_output=True)
     python = tmp_path / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     wheel = next((tmp_path / "dist").glob("*.whl"))
+    with ZipFile(wheel) as archive:
+        metadata_name = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
+        metadata = BytesParser().parsebytes(archive.read(metadata_name))
+        assert metadata["Version"] == "0.1.0"
+        assert metadata["License-Expression"] == "MIT"
+        license_name = next(name for name in archive.namelist() if name.endswith("/licenses/LICENSE"))
+        assert archive.read(license_name) == (root / "LICENSE").read_bytes()
     subprocess.run(
         ["uv", "pip", "install", "--python", str(python), str(wheel)],
         cwd=tmp_path,
