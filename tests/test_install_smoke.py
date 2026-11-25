@@ -45,7 +45,8 @@ def test_clean_core_wheel_runs_without_server_demo_or_credentials(tmp_path):
         metadata = BytesParser().parsebytes(archive.read(metadata_name))
         assert metadata["Version"] == "0.1.0"
         assert metadata["License-Expression"] == "MIT"
-        license_name = next(name for name in archive.namelist() if name.endswith("/licenses/LICENSE"))
+        assert metadata.get_all("License-File") == ["LICENSE"]
+        license_name = metadata_name.rsplit("/", 1)[0] + "/licenses/LICENSE"
         assert archive.read(license_name) == (root / "LICENSE").read_bytes()
     subprocess.run(
         ["uv", "pip", "install", "--python", str(python), str(wheel)],
