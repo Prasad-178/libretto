@@ -14,19 +14,21 @@ This is a first integration exercise, not a natural-language or voice-quality te
 
 ## 1. Install the core in your own folder
 
-Prerequisites: Git, Python **3.12+**, and [uv](https://docs.astral.sh/uv/). Commands below use a macOS/Linux shell. On Windows PowerShell replace `.venv/bin/python` with `.venv\Scripts\python.exe` and `.venv/bin/libretto` with `.venv\Scripts\libretto.exe`; use `Copy-Item examples/quickstart/* ../my-agent/` for the copy step.
+Prerequisites: Git, Python **3.12+**, and [uv](https://docs.astral.sh/uv/). Commands below use a macOS/Linux shell. On Windows PowerShell replace `.venv/bin/python` with `.venv\Scripts\python.exe` and `.venv/bin/libretto` with `.venv\Scripts\libretto.exe`; use `Copy-Item starter-source/examples/quickstart/* my-agent/` for the copy step.
 
-Start in a Libretto source checkout **containing this guide and `examples/quickstart/`**. While this slice is unpublished, use the local checkout containing the new files. The published core pin below does not contain the starter; cloning that older revision and retrying the copy will not work. Once the starter is published, a new clone of remote main can supply it.
+From an empty working directory, copy the starter from the same CI-passing source pin used for the core:
 
 ```sh
-mkdir ../my-agent
-cp examples/quickstart/* ../my-agent/
-cd ../my-agent
+git clone https://github.com/Prasad-178/libretto.git starter-source
+git -C starter-source checkout --detach 3c0795bfb8d13c703fa886a94b96b09a9144a98a
+mkdir my-agent
+cp starter-source/examples/quickstart/* my-agent/
+cd my-agent
 uv venv --python 3.12
-uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@6991f77901ea45c6b91b3a643c7f0ebcc1585ab3'
+uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
 ```
 
-The core pin is a CI-verified commit, not a versioned release. It pins Libretto source, not transitive dependency versions; use your application’s lockfile to freeze those. The starter files come from your source checkout; they are not bundled in the installed core wheel. Keep their source revision with your own project when reproducing an integration. Before copying, record `git rev-parse HEAD` and `git status --short` in the source checkout. An unpublished working-tree copy has no immutable starter revision yet.
+The core pin is a CI-verified commit, not a versioned release. It pins Libretto source, not transitive dependency versions; use your application’s lockfile to freeze those. The starter files come from the pinned source checkout; they are not bundled in the installed core wheel. Keep that source revision with your own project when reproducing an integration. The source pin contains the starter, while the installed core wheel does not. See [compatibility and setup](compatibility.md) for install profiles, version evidence and upgrades.
 
 `my-agent` is independent of the checkout: the app finds YAML beside its own file. The core's required dependencies are Pydantic and PyYAML. You do not need to install the Studio or LiveKit extras for this guide.
 

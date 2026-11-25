@@ -6,7 +6,7 @@
 
 [Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [LiveKit voice](docs/livekit.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
-[Developer quickstart](docs/quickstart.md) · [Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
+[Developer quickstart](docs/quickstart.md) · [Compatibility and setup](docs/compatibility.md) · [Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
 
 Libretto is an OSS developer tool. Studio is its visual editor and testing/debugging companion. Accounts, billing, collaboration and a managed hosted product are outside the product direction. The importable core is exercised by Northline and a repair-visit workflow; LiveKit is now the default voice engine; live-provider acceptance remains a separate verification gate. See the roadmap for verification and release status.
 

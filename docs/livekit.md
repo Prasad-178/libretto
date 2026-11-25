@@ -1,6 +1,6 @@
 # LiveKit voice integration
 
-[Library API](library.md) · [Repair example](../examples/livekit_repair/README.md) · [Feasibility decision](milestones/2026-11-04-livekit-feasibility.md)
+[Library API](library.md) · [Compatibility and setup](compatibility.md) · [Repair example](../examples/livekit_repair/README.md) · [Feasibility decision](milestones/2026-11-04-livekit-feasibility.md)
 
 LiveKit Agents1.8.10 is the default voice engine. Libretto still owns the YAML workflow, facts, request/confirmation rules and actions. An SDK Agent forwards final turns into the existing Session and raises StopResponse; it does not generate independent LLM replies or execute workflow tools.
 

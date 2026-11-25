@@ -1,6 +1,6 @@
 # Using Libretto in an application
 
-[README](../README.md) · [First workflow quickstart](quickstart.md) · [Request-policy migration](migrations/request-policies.md) · [Roadmap](../ROADMAP.md)
+[README](../README.md) · [First workflow quickstart](quickstart.md) · [Compatibility](compatibility.md) · [Request-policy migration](migrations/request-policies.md) · [Roadmap](../ROADMAP.md)
 
 Libretto compiles YAML against tools registered by your Python application. `WorkflowRunner` owns one session using the existing execution engine. Your application owns providers, credentials, external side effects and deployment. Studio is optional.
 
@@ -18,7 +18,7 @@ uv pip install -e .
 For a reproducible core Git install, this commit has passing hosted CI. It is a source pin, not a release tag; the license decision remains pending:
 
 ```sh
-uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@6991f77901ea45c6b91b3a643c7f0ebcc1585ab3'
+uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
 ```
 
 Core dependencies are Pydantic and PyYAML. `.[providers]` adds HTTP support for the bundled OpenRouter adapter. `.[studio]` adds the server and browser speech dependencies. The core wheel contains Python modules, not the repository's example files or built Studio assets. A repository checkout, `uv sync --locked`, `npm --prefix web ci` and `npm --prefix web run build` are the supported Studio setup. Run `uv run libretto serve` from that checkout; open `/studio`.
