@@ -2,9 +2,9 @@
 
 [Quickstart](quickstart.md) · [Library API](library.md) · [LiveKit](livekit.md) · [Roadmap](../ROADMAP.md)
 
-This describes the source baseline at **`3c0795bfb8d13c703fa886a94b96b09a9144a98a`**, with [passing hosted CI](https://github.com/Prasad-178/libretto/actions/runs/45461716590). It includes the first-workflow starter. The Python distribution is `libretto-voice`; imports use `libretto`.
+This describes the **[v0.1.0 source release](releases/v0.1.0.md)** under the [MIT license](../LICENSE). It includes the first-workflow starter. The Python distribution is `libretto-voice`; imports use `libretto`.
 
-The distribution currently reports `0.1.0` across multiple source commits. Record the Git commit as well as the package version: `0.1.0` alone does not identify these APIs or examples. No versioned release/tag or license selection is implied. Distribution remains through source/GitHub, with no package-registry publication.
+Earlier source commits also reported `0.1.0`. Use the release tag or exact Git commit as well as the package version: `0.1.0` alone does not identify these APIs or examples. Distribution remains through source/GitHub, with no package-registry publication. The release process checks hosted CI at the tag target before publishing.
 
 ## Choose an installation profile
 
@@ -24,13 +24,13 @@ In your application's directory:
 
 ```sh
 uv venv --python 3.12
-uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@v0.1.0'
 ```
 
 The explicit `--python .venv` selects this project’s environment even when your shell has another environment active. For an optional integration, choose the extra explicitly. For example, the bundled HTTP adapters:
 
 ```sh
-uv pip install --python .venv 'libretto-voice[providers] @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice[providers] @ git+https://github.com/Prasad-178/libretto.git@v0.1.0'
 ```
 
 Use `[livekit]` or `[studio]` in the same dependency position when your application needs those dependencies. A Git pin fixes Libretto source; your application's lockfile must also fix transitive dependency versions. The repository's `uv.lock` is used by checkout installs, not automatically adopted by a consuming application using `uv pip install`.

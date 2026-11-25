@@ -15,15 +15,15 @@ uv venv
 uv pip install --python .venv -e .
 ```
 
-For a reproducible core Git install, this commit has passing hosted CI. It is a source pin, not a release tag; the license decision remains pending:
+Install the MIT-licensed v0.1.0 source release:
 
 ```sh
-uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@v0.1.0'
 ```
 
 Core dependencies are Pydantic and PyYAML. `.[providers]` adds HTTP support for the bundled OpenRouter adapter. `.[studio]` adds the server and browser speech dependencies. The core wheel contains Python modules, not the repository's example files or built Studio assets. A repository checkout, `uv sync --locked`, `npm --prefix web ci` and `npm --prefix web run build` are the supported Studio setup. Run `uv run libretto serve` from that checkout; open `/studio`.
 
-The repository license remains an owner decision before a reusable release; public source availability does not itself grant a license.
+The repository and packaged core use the [MIT license](../LICENSE). See [v0.1.0 release notes](releases/v0.1.0.md) and [compatibility guidance](compatibility.md) for the release baseline and verification limits.
 
 ## Compile and run
 

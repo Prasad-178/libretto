@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml/badge.svg)](https://github.com/Prasad-178/libretto/actions/workflows/ci.yml)
 
-[Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [LiveKit voice](docs/livekit.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
+[v0.1.0 release](https://github.com/Prasad-178/libretto/releases/tag/v0.1.0) · [MIT license](LICENSE) · [Live demo](https://libretto.prasadjs.me) · [Architecture](docs/architecture.md) · [Testing guide](docs/testing.md) · [LiveKit voice](docs/livekit.md) · [Speech adapters](docs/speech-providers.md) · [Access and security](docs/security.md)
 
 [Developer quickstart](docs/quickstart.md) · [Compatibility and setup](docs/compatibility.md) · [Python library guide](docs/library.md) · [Policy migration](docs/migrations/request-policies.md) · [Product direction](docs/product-direction.md) · [Roadmap](ROADMAP.md)
 
@@ -48,7 +48,7 @@ The test panel includes **15 scenarios** with fictional data, expected sources a
 
 Start with the **[developer quickstart](docs/quickstart.md)**: a three-file support workflow, a passing offline test and a registered Python stub, with no keys or Node required.
 
-Register application tools in Python, compile your YAML with `compile_workflow`, and run it with `WorkflowRunner` and your responder/evaluator adapters. Core installation needs no web server or Studio. See the [library guide](docs/library.md) for source installation, public imports, lifecycle/delivery rules and application composition; compare the [repair example](examples/repair_visit/agent.yaml) with Northline. The repository license must still be selected before a reusable release.
+Register application tools in Python, compile your YAML with `compile_workflow`, and run it with `WorkflowRunner` and your responder/evaluator adapters. Core installation needs no web server or Studio. See the [library guide](docs/library.md) for source installation, public imports, lifecycle/delivery rules and application composition; compare the [repair example](examples/repair_visit/agent.yaml) with Northline. Libretto v0.1.0 is distributed from GitHub under the [MIT license](LICENSE).
 
 ## Test workflows offline
 

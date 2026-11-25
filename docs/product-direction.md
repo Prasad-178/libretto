@@ -1,6 +1,6 @@
 # Libretto product direction
 
-Status: approved direction and exclusions, confirmed by Prasad on 2026-11-04. The M1 core contracts are implemented on main; later roadmap milestones remain planned.
+Status: approved direction and exclusions, confirmed by Prasad on 2026-11-04. M1–M3 and Studio are implemented; M4 adoption work is active. Prasad selected MIT licensing and the v0.1.0 source-release baseline on 2026-11-25. Real voice acceptance and external trials remain separate gates.
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -34,7 +34,7 @@ A consuming application can have its own customers/accounts and business logic. 
 
 ## Distribution and integration
 
-Keep source and tagged releases on GitHub. Support editable checkout installs and direct Git installs pinned to a tag or commit. A Python package/import is compatible with this choice; publishing to PyPI is not part of the plan.
+Libretto uses the [MIT license](../LICENSE), selected by Prasad on 2026-11-25. The first source-release baseline is [v0.1.0](releases/v0.1.0.md). Keep source and tagged releases on GitHub. Support editable checkout installs and direct Git installs pinned to a tag or commit. A Python package/import is compatible with this choice; publishing to PyPI is not part of the plan.
 
 The repository currently uses distribution name `libretto-voice` and import namespace `libretto`. Avoid an unnecessary rename. Verify clean installation outside the repository before documenting the new public API as available.
 

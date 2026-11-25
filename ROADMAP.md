@@ -1,6 +1,6 @@
 # Libretto roadmap
 
-Updated 2026-11-25. M1, the LiveKit migration, Studio UX and M3 are implemented on main. The accumulated changes were pushed and deployed on 2026-11-17 at `6991f77`, with passing hosted CI and live page/API/asset/WebSocket smoke checks. Real-provider M2 acceptance remains pending. M4 is active: the [first-workflow quickstart](docs/quickstart.md) is published at `3c0795b` with passing hosted CI, and the [compatibility/setup guide](docs/compatibility.md) is implemented locally. Outside-developer trials and license/tag decisions remain pending. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
+Updated 2026-11-25. M1, the LiveKit migration, Studio UX and M3 are implemented on main. The accumulated changes were pushed and deployed on 2026-11-17 at `6991f77`, with passing hosted CI and live page/API/asset/WebSocket smoke checks. Real-provider M2 acceptance remains pending. M4 is active: the [first-workflow quickstart](docs/quickstart.md) is published at `3c0795b` with passing hosted CI, and the [compatibility/setup guide](docs/compatibility.md) is implemented locally. Prasad selected MIT and the v0.1.0 source-release baseline; outside-developer trials remain pending. [Product charter](docs/product-direction.md) · [Core spec](docs/superpowers/specs/2026-11-04-reusable-core.md) · [First implementation plan](docs/superpowers/plans/2026-11-04-reusable-core.md).
 
 > An open-source tool that lets developers define, test, and run voice-agent workflows in YAML, with Studio as the visual editor and debugger.
 
@@ -20,7 +20,7 @@ Accounts, billing, subscriptions, organizations, collaboration, shared workspace
 | Developer API | Python source package, provider protocols and an internal Session | WorkflowRunner and the developer registry are documented and clean-install tested; see the library guide. |
 | LiveKit | Optional pinned integration is the default voice path; Direct Deepgram remains available; core works without either | Deterministic delivery/interruption regressions pass. Real-provider voice acceptance remains pending. |
 | Testing | Unit/API/browser checks, local retrieval evaluation and offline scenario CLI | M3 scenarios, diagnostics, provenance, redaction and replay/navigation are complete; hosted CI passed at published `6991f77`. |
-| Distribution | Source checkout works; repository public | Core-only wheel and pinned Git installs verified outside checkout. M4 starter/guide published at `3c0795b`; compatibility guide verified locally. License, tags and external trials remain. |
+| Distribution | Source checkout works; repository public | Core-only wheel and pinned Git installs verified outside checkout. M4 starter/guide published at `3c0795b`; compatibility guide verified locally. MIT and v0.1.0 are the selected release baseline; external trials remain. |
 
 This baseline was refreshed against source on 2026-11-12. The Nov 1 improvement review predates fixes to workflow selection, reasoning settings, import/recovery and Studio; reproduce its remaining findings before treating them as current defects. M1 moves domain-specific confirmation rules and interpretation guidance into example configuration.
 
@@ -38,7 +38,7 @@ Milestone order is not a calendar estimate. Keep one active milestone and a smal
 
 ## M1 — two agents, one reusable core
 
-M1 is merged into main. The whole-branch review, verified fix pass and [follow-up maintainability review](docs/milestones/2026-11-04-m1-follow-up-review.md) are complete locally. Check CI at the current head; license and release gates remain. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 implementation and its independent review/fix pass are now complete locally; real-provider acceptance remains pending. See the [M2 evidence](docs/milestones/2026-11-04-livekit-default-migration.md).
+M1 is merged into main. The whole-branch review, verified fix pass and [follow-up maintainability review](docs/milestones/2026-11-04-m1-follow-up-review.md) are complete locally. Check CI at the current head; MIT and the v0.1.0 source-release baseline are selected. See the [milestone evidence](docs/milestones/2026-11-04-reusable-core.md), [library API](docs/library.md) and [request-policy migration](docs/migrations/request-policies.md). M2 implementation and its independent review/fix pass are now complete locally; real-provider acceptance remains pending. See the [M2 evidence](docs/milestones/2026-11-04-livekit-default-migration.md).
 
 ### Scope
 
@@ -130,7 +130,7 @@ A new workflow author writes a failing scenario for a blocked action, fixes the 
 
 Published first slice: [developer quickstart](docs/quickstart.md), a three-file support-request starter with offline tests and a real registered Python stub, with passing CI at `3c0795b`. See its [verification record](docs/milestones/2026-11-24-m4-quickstart.md). The next [compatibility/setup slice](docs/milestones/2026-11-25-m4-compatibility.md) documents install profiles, source/version boundaries and upgrades. User Studio review and real voice checks are deferred independently; this slice adds no new runtime or UI features.
 
-1. Confirm the repository license before presenting reuse terms as settled. MIT is a candidate for Prasad to choose; no license is selected by this roadmap.
+1. MIT was selected by Prasad on 2026-11-25 and is included in source/package metadata. The first tagged GitHub source release is v0.1.0; see [release notes](docs/releases/v0.1.0.md).
 2. Write one short text-first quickstart: Git install → YAML → registered stub → test → optional Studio → optional LiveKit.
 3. Publish Git tags and migration notes; provide a pinned Git URL for reproducibility. Do not publish to PyPI.
 4. Provide core-only installation and the documented Studio resource/build strategy. Test from a directory outside the checkout and without developer `.env` files.
@@ -176,7 +176,7 @@ For every task record: milestone, outcome, dependencies, files/interfaces, accep
 
 | Decision | Resolution point | Constraint |
 | --- | --- | --- |
-| Repository license | Before reusable-release claims in M4; ideally before M1 release | Prasad chooses; do not silently add a license. |
+| Repository license | MIT selected by Prasad on 2026-11-25 | LICENSE and Python packaging declare MIT. |
 | LiveKit output/delivery hooks and supported SDK pin | M2 spike | Never treat generated text as delivered audio. |
 | Final public API naming | M1 facade/clean-install task | Small facade over existing runtime; no new engine. |
 | Broader providers, persistence or transport modes | M5, if observed need | Developer-owned integration only; no hosted product expansion. |
@@ -186,4 +186,4 @@ For every task record: milestone, outcome, dependencies, files/interfaces, accep
 1. User review remains pending for the completed [Studio UX rollout](docs/reviews/2026-11-12-studio-ux-final-review.md). Its independent review/fix pass and deterministic checks are complete. Hosted CI and production deployment were verified at `6991f77` on 2026-11-17; later local work needs its own final-head checks.
 2. Complete the separately gated M2 live-provider acceptance using the [prepared six-case checklist](docs/milestones/2026-11-13-live-voice-acceptance.md), with explicit credential/budget arrangements: recognition, synthesis, interruption, playback and authorized action in the repair example. Mocked browser tests do not establish this.
 3. M3 is published at `6991f77` with passing hosted CI. Live-provider acoustic/semantic acceptance is still separate.
-4. Finish M4 compatibility/setup documentation, then resolve the owner-selected license and tagged-release baseline before release claims. Arrange outside-developer trials only with explicit authorization. Source/GitHub distribution stays the plan; no registry publication is implied.
+4. Publish the reviewed compatibility/setup documentation and MIT-licensed v0.1.0 source release after exact-head CI. Then arrange outside-developer trials only with explicit authorization. Source/GitHub distribution stays the plan; no registry publication is implied.

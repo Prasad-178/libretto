@@ -10,25 +10,25 @@ You will create three files:
 | [`record-request.scenario.yaml`](../examples/quickstart/record-request.scenario.yaml) | Example turns, scripted evaluator proposals, simulated tool results and assertions |
 | [`app.py`](../examples/quickstart/app.py) | The registered Python handler and adapters used by your application |
 
-This is a first integration exercise, not a natural-language or voice-quality test. The repository license is still awaiting an owner decision; no reusable-release license or release tag is implied.
+This is a first integration exercise, not a natural-language or voice-quality test. This guide uses the [MIT-licensed](../LICENSE) [v0.1.0 source release](releases/v0.1.0.md).
 
 ## 1. Install the core in your own folder
 
 Prerequisites: Git, Python **3.12+**, and [uv](https://docs.astral.sh/uv/). Commands below use a macOS/Linux shell. On Windows PowerShell replace `.venv/bin/python` with `.venv\Scripts\python.exe` and `.venv/bin/libretto` with `.venv\Scripts\libretto.exe`; use `Copy-Item starter-source/examples/quickstart/* my-agent/` for the copy step.
 
-From an empty working directory, copy the starter from the same CI-passing source pin used for the core:
+From an empty working directory, copy the starter from the same release tag used for the core:
 
 ```sh
 git clone https://github.com/Prasad-178/libretto.git starter-source
-git -C starter-source checkout --detach 3c0795bfb8d13c703fa886a94b96b09a9144a98a
+git -C starter-source checkout --detach v0.1.0
 mkdir my-agent
 cp starter-source/examples/quickstart/* my-agent/
 cd my-agent
 uv venv --python 3.12
-uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@v0.1.0'
 ```
 
-The explicit `--python .venv` target keeps installation in this project even if another virtual environment is active. The core pin is a CI-verified commit, not a versioned release. It pins Libretto source, not transitive dependency versions; use your application’s lockfile to freeze those. The starter files come from the pinned source checkout; they are not bundled in the installed core wheel. Keep that source revision with your own project when reproducing an integration. The source pin contains the starter, while the installed core wheel does not. See [compatibility and setup](compatibility.md) for install profiles, version evidence and upgrades.
+The explicit `--python .venv` target keeps installation in this project even if another virtual environment is active. The source baseline is the v0.1.0 release tag. It pins Libretto source, not transitive dependency versions; use your application’s lockfile to freeze those. The starter files come from the pinned source checkout; they are not bundled in the installed core wheel. Keep that source revision with your own project when reproducing an integration. The source pin contains the starter, while the installed core wheel does not. See [compatibility and setup](compatibility.md) for install profiles, version evidence and upgrades.
 
 `my-agent` is independent of the checkout: the app finds YAML beside its own file. The core's required dependencies are Pydantic and PyYAML. You do not need to install the Studio or LiveKit extras for this guide.
 
@@ -101,4 +101,4 @@ To try the existing repair example with LiveKit, use the [LiveKit example](../ex
 | Scenario exits 2 | Fix invalid YAML, missing files, an invalid tool contract or other reported setup errors. |
 | `failed` or `unknown` result | Inspect the actual receipt. The starter ends on all outcomes; it does not retry or claim success for either. Design recovery branches for your application. |
 
-Continue with the [library API](library.md), [five repair scenarios](../examples/scenarios), and [architecture](architecture.md). Outside-developer trials, license selection and tagged compatibility releases are the remaining M4 work; the usability target has not yet been measured.
+Continue with the [library API](library.md), [five repair scenarios](../examples/scenarios), and [architecture](architecture.md). Outside-developer trials are the remaining adoption work in M4; the usability target has not yet been measured.
