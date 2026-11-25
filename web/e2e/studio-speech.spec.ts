@@ -114,27 +114,21 @@ for (const width of [1440, 1024])
     await expect(
       popup.getByRole("button", { name: /Jacqueline/ }),
     ).toBeVisible();
+    const gapFromTrigger = async () => {
+      const box = await popup.boundingBox(),
+        anchor = await trigger.boundingBox();
+      return Math.min(
+        Math.abs(box!.y - (anchor!.y + anchor!.height)),
+        Math.abs(box!.y + box!.height - anchor!.y),
+      );
+    };
+    // Opening and scrolling both schedule floating-position updates.
+    await expect.poll(gapFromTrigger).toBeLessThan(14);
     const b = await popup.boundingBox();
-    const t = await trigger.boundingBox();
     expect(b!.x).toBeGreaterThanOrEqual(0);
     expect(b!.x + b!.width).toBeLessThanOrEqual(width);
-    expect(
-      Math.min(
-        Math.abs(b!.y - (t!.y + t!.height)),
-        Math.abs(b!.y + b!.height - t!.y),
-      ),
-    ).toBeLessThan(14);
     await tts.evaluate((el) => (el.scrollTop = 35));
-    await expect
-      .poll(async () => {
-        const moved = await popup.boundingBox(),
-          anchor = await trigger.boundingBox();
-        return Math.min(
-          Math.abs(moved!.y - (anchor!.y + anchor!.height)),
-          Math.abs(moved!.y + moved!.height - anchor!.y),
-        );
-      })
-      .toBeLessThan(14);
+    await expect.poll(gapFromTrigger).toBeLessThan(14);
     await page.screenshot({
       path: info.outputPath(`voice-picker-${width}.png`),
     });
