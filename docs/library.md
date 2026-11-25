@@ -12,13 +12,13 @@ Python 3.12+ is required. No package-registry release is published. For developm
 git clone https://github.com/Prasad-178/libretto.git
 cd libretto
 uv venv
-uv pip install -e .
+uv pip install --python .venv -e .
 ```
 
 For a reproducible core Git install, this commit has passing hosted CI. It is a source pin, not a release tag; the license decision remains pending:
 
 ```sh
-uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
 ```
 
 Core dependencies are Pydantic and PyYAML. `.[providers]` adds HTTP support for the bundled OpenRouter adapter. `.[studio]` adds the server and browser speech dependencies. The core wheel contains Python modules, not the repository's example files or built Studio assets. A repository checkout, `uv sync --locked`, `npm --prefix web ci` and `npm --prefix web run build` are the supported Studio setup. Run `uv run libretto serve` from that checkout; open `/studio`.

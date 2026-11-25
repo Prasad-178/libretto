@@ -25,10 +25,10 @@ mkdir my-agent
 cp starter-source/examples/quickstart/* my-agent/
 cd my-agent
 uv venv --python 3.12
-uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
 ```
 
-The core pin is a CI-verified commit, not a versioned release. It pins Libretto source, not transitive dependency versions; use your application’s lockfile to freeze those. The starter files come from the pinned source checkout; they are not bundled in the installed core wheel. Keep that source revision with your own project when reproducing an integration. The source pin contains the starter, while the installed core wheel does not. See [compatibility and setup](compatibility.md) for install profiles, version evidence and upgrades.
+The explicit `--python .venv` target keeps installation in this project even if another virtual environment is active. The core pin is a CI-verified commit, not a versioned release. It pins Libretto source, not transitive dependency versions; use your application’s lockfile to freeze those. The starter files come from the pinned source checkout; they are not bundled in the installed core wheel. Keep that source revision with your own project when reproducing an integration. The source pin contains the starter, while the installed core wheel does not. See [compatibility and setup](compatibility.md) for install profiles, version evidence and upgrades.
 
 `my-agent` is independent of the checkout: the app finds YAML beside its own file. The core's required dependencies are Pydantic and PyYAML. You do not need to install the Studio or LiveKit extras for this guide.
 
@@ -83,7 +83,7 @@ This gives you a small development loop: change YAML or a scenario → run the t
 
 ## Optional: Studio and real voice
 
-The core wheel contains Python modules, not a prebuilt Studio or repository examples. To run Studio, return to the source checkout and follow [local setup](../README.md#run-locally); it requires Node **22.12+** (24 recommended), `uv sync --locked`, and a frontend build.
+The core wheel contains Python modules, not a prebuilt Studio or repository examples. To run Studio, return to the source checkout and follow [local setup](../README.md#run-locally); it uses Node **24**, the major used in CI, `uv sync --locked`, and a frontend build.
 
 For a local application with custom tools, use `create_app(..., tool_factory=...)` as explained in the [library guide](library.md#compilation-and-execution-limits). `libretto serve workflow.yaml` alone does not register arbitrary application handlers. `libretto validate workflow.yaml` similarly has no custom-handler import mechanism; this starter validates its tool contracts through `compile_workflow` in `app.py` and through its scenario definitions.
 

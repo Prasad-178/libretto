@@ -1,6 +1,6 @@
 # M4 compatibility and setup slice
 
-Status: compatibility guide and published quickstart refresh implemented locally; final review/checks pending. No license, release tag, registry publication, outreach or paid provider calls.
+Status: compatibility guide and published quickstart refresh implemented and verified locally; one independent review and its focused correction pass are complete. No license, release tag, registry publication, outreach or paid provider calls.
 
 ## Outcome
 
@@ -27,6 +27,17 @@ This documents the implementation as it exists; it adds no compatibility validat
 - Existing Studio sidecar, saved-evidence and session-export tests: **16 passed** across 3 files. No browser/UI change is part of this slice, so no new browser run is claimed.
 - Ruff, changed-document relative-link checks and `git diff --check`: **PASS**.
 
+## Review and correction pass
+
+A read-only GPT-6.2 Astra review of `3c0795b..b7c38cd` found one Important issue and three Minor wording issues; no Critical findings.
+
+- Reproduced the Important active-environment issue in two disposable environments: implicit `uv pip install` installed into the already active environment, leaving the new project's CLI absent. Updated core/extra/source-install examples to use `--python .venv`. The entire revised quickstart shell block, scenario and app passed with the unrelated environment still active. The providers-extra path also passed with explicit targeting.
+- Aligned short Node setup instructions to Node 24 (the CI major), keeping the detailed engine range and verification limits in this guide.
+- Clarified `compile_workflow(..., tools=...)` for custom-tool validation versus `create_app(..., tool_factory=...)` for Studio. Confirmed standalone CLI validation of the starter returns `Unregistered tool: record_request`.
+- Documented workflow-version coercion separately from the scenario reader's strict integer contract; no schema behavior was changed.
+
+These small wording fixes stay within the task's promised setup/version clarity. The Important correction was reproduced before the change and verified afterward. Focused backend checks passed again: **114/114** in 5.03 seconds; Ruff and whitespace checks passed. The earlier **16/16** frontend format results still apply; no frontend code changed. No second review or new live-provider/hosted-CI claim is made.
+
 ## Remaining gates
 
-Final local review/checks and signed commits for this slice; hosted CI at its new head after a requested push. License selection and tagged-release policy remain owner decisions. Three outside-developer trials require authorization and actual observations. User Studio review and M2 real voice acceptance remain deferred independently. No application deployment is required for this documentation-only slice.
+Signed local commits are complete for this slice; hosted CI at its new head remains to be checked after a requested push. License selection and tagged-release policy remain owner decisions. Three outside-developer trials require authorization and actual observations. User Studio review and M2 real voice acceptance remain deferred independently. No application deployment is required for this documentation-only slice.

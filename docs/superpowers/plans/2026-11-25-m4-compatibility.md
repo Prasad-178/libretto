@@ -28,22 +28,22 @@
 
 ### Task 1: Verify installation matrix
 
-- [ ] Inspect pyproject, lockfiles, CI, public exports and file readers.
-- [ ] In a temporary remote checkout at CI-verified `3c0795bfb8d13c703fa886a94b96b09a9144a98a`, execute the pinned starter/core setup and positive/negative scenarios.
-- [ ] Verify `uv sync --locked --no-default-groups` does not install optional SDK/server/HTTP dependencies; verify the providers extra adds HTTPX without LiveKit/FastAPI.
-- [ ] Record exact versions and scope; resolver-only checks must be labelled as such.
+- [x] Inspect pyproject, lockfiles, CI, public exports and file readers.
+- [x] In a temporary remote checkout at CI-verified `3c0795bfb8d13c703fa886a94b96b09a9144a98a`, execute the pinned starter/core setup and positive/negative scenarios.
+- [x] Verify `uv sync --locked --no-default-groups` does not install optional SDK/server/HTTP dependencies; verify the providers extra adds HTTPX without LiveKit/FastAPI.
+- [x] Record exact versions and scope; resolver-only checks must be labelled as such.
 
 ### Task 2: Write and integrate the guide
 
 **Create:** docs/compatibility.md, docs/milestones/2026-11-25-m4-compatibility.md.
 **Modify:** README.md, docs/library.md, docs/livekit.md, docs/quickstart.md, ROADMAP.md.
 
-- [ ] Document install profiles, version evidence, separate format contracts, public API boundaries, source-preserving upgrade/rollback checklist and existing migrations.
-- [ ] Replace temporary unpublished quickstart instructions with a remote source pin that actually includes the starter; align the core pin.
-- [ ] Link the guide and record M4 progress, leaving license/tags/outside trials pending. Commit this substantive documentation slice.
+- [x] Document install profiles, version evidence, separate format contracts, public API boundaries, source-preserving upgrade/rollback checklist and existing migrations.
+- [x] Replace temporary unpublished quickstart instructions with a remote source pin that actually includes the starter; align the core pin.
+- [x] Link the guide and record M4 progress, leaving license/tags/outside trials pending. Commit this substantive documentation slice.
 
 ### Task 3: Verify and review
 
-- [ ] Check changed relative links and whitespace; run existing install/schema/scenario/quickstart tests as appropriate to the documented claims.
-- [ ] Obtain one read-only final review of the documentation slice. Correct concrete Important/Critical findings once, using a reproduced failure and a verified corrected command/claim. No new unrelated features.
-- [ ] Record checks and limitations; make a normal signed completion commit. Do not claim hosted CI at the new head without pushing and observing it. Publication is separate unless requested.
+- [x] Check changed relative links and whitespace; run existing install/schema/scenario/quickstart tests as appropriate to the documented claims.
+- [x] Obtain one read-only final review of the documentation slice. Correct concrete Important/Critical findings once, using a reproduced failure and a verified corrected command/claim. No new unrelated features.
+- [x] Record checks and limitations; make a normal signed completion commit. Do not claim hosted CI at the new head without pushing and observing it. Publication is separate unless requested.

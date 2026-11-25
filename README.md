@@ -56,7 +56,7 @@ From a source checkout with the core installed, no provider credentials or Node 
 
 ```sh
 uv venv
-uv pip install -e .
+uv pip install --python .venv -e .
 .venv/bin/libretto test examples/scenarios --output evidence.json
 ```
 
@@ -74,7 +74,7 @@ The console path above is for macOS/Linux; on Windows use `.venv\Scripts\librett
 
 ## Run locally
 
-Requires **Python 3.12+**, [uv](https://docs.astral.sh/uv/) and **Node.js 22.12+** (24 recommended).
+Requires **Python 3.12+**, [uv](https://docs.astral.sh/uv/) and **Node.js 24** (the major used in CI; see the compatibility guide for dependency engine ranges).
 
 ```sh
 git clone https://github.com/Prasad-178/libretto.git

@@ -24,13 +24,13 @@ In your application's directory:
 
 ```sh
 uv venv --python 3.12
-uv pip install 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
 ```
 
-For an optional integration, choose the extra explicitly. For example, the bundled HTTP adapters:
+The explicit `--python .venv` selects this project’s environment even when your shell has another environment active. For an optional integration, choose the extra explicitly. For example, the bundled HTTP adapters:
 
 ```sh
-uv pip install 'libretto-voice[providers] @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
+uv pip install --python .venv 'libretto-voice[providers] @ git+https://github.com/Prasad-178/libretto.git@3c0795bfb8d13c703fa886a94b96b09a9144a98a'
 ```
 
 Use `[livekit]` or `[studio]` in the same dependency position when your application needs those dependencies. A Git pin fixes Libretto source; your application's lockfile must also fix transitive dependency versions. The repository's `uv.lock` is used by checkout installs, not automatically adopted by a consuming application using `uv pip install`.
@@ -61,7 +61,7 @@ uv run libretto serve
 
 Open `http://127.0.0.1:8000/studio`. Starting the server does not start provider inference. Deliberately starting a connected text/voice test does. A local server may load your development `.env`; use session-only Connection inputs if preferred. Never place credentials in YAML, sidecars or frontend environment variables.
 
-The default server registers Northline's simulated tools. For a workflow with application-specific tools, compose `create_app(..., tool_factory=...)` in Python; see the [library guide](library.md#compilation-and-execution-limits). Opening YAML in the public demo cannot register a handler or grant access to files beside it. Running `libretto validate` on a custom-tool workflow also requires the appropriate application composition; the CLI does not import arbitrary Python handlers.
+The default server registers Northline's simulated tools. For a workflow with application-specific tools, compose `create_app(..., tool_factory=...)` in Python; see the [library guide](library.md#compilation-and-execution-limits). Opening YAML in the public demo cannot register a handler or grant access to files beside it. Validate custom-tool workflows in application code with `compile_workflow(..., tools=your_registry)`. The standalone `libretto validate` CLI builds its own registry and cannot accept an application factory or import arbitrary Python handlers.
 
 ## Requirements and verification boundaries
 
@@ -84,7 +84,7 @@ A package version, a workflow schema number and an evidence version identify dif
 
 | Artifact | Current contract | Compatibility behavior |
 | --- | --- | --- |
-| Workflow YAML | `version: 1` | Strict schema, graph/reference and registered-tool validation. Unsupported version values are rejected; schema 1 is not a promise that every historical schema-1 document passes every later compiler. |
+| Workflow YAML | `version: 1` | Write the integer spelling `version: 1`. The compiler rejects other version numbers such as 2, but its current workflow reader also coerces `true` and `1.0` to 1; this is not the scenario reader’s exact-type rule. Graph/reference and registered-tool validation still apply. Schema 1 does not guarantee every historical document passes every later compiler. |
 | Scenario input | Integer `version: 1` | Strict scenario fields; aliases/anchors and unsupported versions are rejected. CLI setup errors exit 2; failed assertions exit 1. |
 | Saved scripted evidence | `format: libretto.scenario-evidence`, `version: 1` | Studio's saved-test reader validates this envelope. It replays projected events without running tools/providers. Navigation requires matching YAML source hash. |
 | Studio sidecar | `version: 1` in `<name>.studio.json` | Presentation only. Unsupported versions fail import; references that no longer match can be ignored with notices. It never changes execution authority. |
