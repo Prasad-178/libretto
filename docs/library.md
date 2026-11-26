@@ -94,6 +94,52 @@ Action identities bind session, request and action-node IDs, with an argument fi
 LLM understanding is probabilistic. Deterministic tests prove guard/lifecycle behavior, not language understanding, voice quality or real-world delivery. M1 remains usable alone. The optional LiveKit dependency supplies the default voice engine in the current migration; see [LiveKit](livekit.md) for credential modes, custom IO and verification limits.
 
 
+## Open an application-owned workflow in local Studio
+
+This recipe uses the source checkout with the custom-factory fix added after
+`v0.1.0`; the existing release tag is unchanged. The wheel provides Python code,
+while the checkout supplies built frontend assets. Complete the checkout's
+[local setup](../README.md#run-locally), including `uv sync --locked` and the
+frontend build, first.
+
+Beside the quickstart's `app.py` and `workflow.yaml`, create `studio.py`:
+
+```python
+from pathlib import Path
+import sys
+
+import uvicorn
+from app import create_tools
+from libretto.server import create_app
+
+project = Path(__file__).resolve().parent
+checkout = Path(sys.argv[1]).resolve()
+application = create_app(
+    load_environment=False,
+    asset_root=checkout,
+    workflow_path=project / "workflow.yaml",
+    project_root=project,
+    tool_factory=create_tools,
+)
+uvicorn.run(application, host="127.0.0.1", port=8000)
+```
+
+Use the checkout's Python environment so the Studio dependencies and backend
+match. Substitute your own absolute paths:
+
+```bash
+/path/to/libretto/.venv/bin/python /path/to/my-agent/studio.py /path/to/libretto
+```
+
+Open `http://127.0.0.1:8000/studio`. The workflow and registered tools belong to
+`my-agent`; the checkout supplies the UI assets. The core quickstart's
+`ScriptedInference` is not installed as Studio's model provider by this recipe.
+Inspecting/editing YAML needs no provider calls; starting a text or voice session
+requires the corresponding model/speech credentials. Studio can invoke the
+registered Python handlers when a test reaches an action, so keep fictional
+stubs while experimenting. The scenario CLI continues to use its own simulated
+results and does not execute those handlers.
+
 ## Offline workflow tests
 
 `libretto.testing` supplies strict `Scenario`/`ScenarioReport`, `load_scenario(path)` and async `run_scenario(scenario, base_dir=...)`. The CLI uses this same implementation. It registers only the simulated tool definitions/results declared by a scenario; it never imports application handlers or opens providers. The core-only wheel supports both API and scenario CLI outside a source checkout when the consuming project supplies its own YAML/Markdown files.

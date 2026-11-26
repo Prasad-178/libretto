@@ -85,7 +85,7 @@ This gives you a small development loop: change YAML or a scenario → run the t
 
 The core wheel contains Python modules, not a prebuilt Studio or repository examples. To run Studio, return to the source checkout and follow [local setup](../README.md#run-locally); it uses Node **24**, the major used in CI, `uv sync --locked`, and a frontend build.
 
-For a local application with custom tools, use `create_app(..., tool_factory=...)` as explained in the [library guide](library.md#compilation-and-execution-limits). `libretto serve workflow.yaml` alone does not register arbitrary application handlers. `libretto validate workflow.yaml` similarly has no custom-handler import mechanism; this starter validates its tool contracts through `compile_workflow` in `app.py` and through its scenario definitions.
+For a local application with custom tools, use `create_app(..., tool_factory=...)` as explained in the [complete local Studio recipe](library.md#open-an-application-owned-workflow-in-local-studio). `libretto serve workflow.yaml` alone does not register arbitrary application handlers. `libretto validate workflow.yaml` similarly has no custom-handler import mechanism; this starter validates its tool contracts through `compile_workflow` in `app.py` and through its scenario definitions.
 
 To try the existing repair example with LiveKit, use the [LiveKit example](../examples/livekit_repair/README.md). Speech through LiveKit Inference uses your LiveKit key/secret; the bundled language adapters use your OpenRouter key. Direct provider credentials are also supported. Those are paid provider paths; this offline quickstart does not start them. Real-provider acceptance is still pending the [bounded voice checks](milestones/2026-11-13-live-voice-acceptance.md).
 
