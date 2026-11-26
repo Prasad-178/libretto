@@ -348,6 +348,8 @@ class UniqueLoader(yaml.SafeLoader):
 def _mapping(loader: UniqueLoader, node: yaml.MappingNode):
     result = {}
     for key_node, value_node in node.value:
+        if not isinstance(key_node, yaml.ScalarNode):
+            raise ValueError("YAML mapping keys must be scalars")
         key = loader.construct_object(key_node, deep=True)
         if key in result:
             raise ValueError(f"duplicate YAML key: {key}")

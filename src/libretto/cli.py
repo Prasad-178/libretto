@@ -74,13 +74,13 @@ def main() -> None:
                 "See docs/compatibility.md.\n",
             )
 
-        uvicorn.run(
-            create_app(
+        try:
+            application = create_app(
                 workflow_path=Path(args.workflow) if args.workflow else None, project_root=args.project_root
-            ),
-            host="127.0.0.1",
-            port=args.port,
-        )
+            )
+        except (OSError, ValueError) as error:
+            parser.exit(2, f"libretto: cannot open Studio project: {error}\n")
+        uvicorn.run(application, host="127.0.0.1", port=args.port)
     else:
         if args.command == "validate":
             tools = ToolRegistry()

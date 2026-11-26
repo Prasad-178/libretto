@@ -106,3 +106,32 @@ def test_graph_formats_invalid_yaml(monkeypatch, tmp_path, capsys):
         main()
     assert error.value.code == 2
     assert "Invalid YAML" in capsys.readouterr().err
+
+
+def test_serve_reports_missing_workflow(monkeypatch, tmp_path, capsys):
+    import pytest
+
+    from libretto.cli import main
+
+    monkeypatch.setattr("sys.argv", ["libretto", "serve", str(tmp_path / "absent.yaml")])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "absent.yaml" in capsys.readouterr().err
+
+
+def test_collection_yaml_keys_are_reported_for_each_reader(monkeypatch, tmp_path, capsys):
+    import pytest
+
+    from libretto.cli import main
+
+    source = tmp_path / "broken.yaml"
+    source.write_text("? [a, b]\n: value\n")
+    for command, expected_code in [("graph", 2), ("validate", 1), ("evaluate", 2)]:
+        monkeypatch.setattr("sys.argv", ["libretto", command, str(source)])
+        with pytest.raises(SystemExit) as error:
+            main()
+        assert error.value.code == expected_code
+        output = capsys.readouterr()
+        assert "YAML" in output.out + output.err
+        assert "Traceback" not in output.out + output.err
