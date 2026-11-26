@@ -77,3 +77,32 @@ def test_validate_formats_invalid_schema_without_traceback(monkeypatch, tmp_path
         main()
     assert error.value.code == 1
     assert "name [missing]" in capsys.readouterr().out
+
+
+def test_missing_workflow_is_an_actionable_cli_error(monkeypatch, tmp_path, capsys):
+    import pytest
+
+    from libretto.cli import main
+
+    missing = tmp_path / "absent.yaml"
+    monkeypatch.setattr("sys.argv", ["libretto", "validate", str(missing)])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    message = capsys.readouterr().err
+    assert "absent.yaml" in message
+    assert "Traceback" not in message
+
+
+def test_graph_formats_invalid_yaml(monkeypatch, tmp_path, capsys):
+    import pytest
+
+    from libretto.cli import main
+
+    source = tmp_path / "broken.yaml"
+    source.write_text("version: [")
+    monkeypatch.setattr("sys.argv", ["libretto", "graph", str(source)])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "Invalid YAML" in capsys.readouterr().err

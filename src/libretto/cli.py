@@ -3,8 +3,15 @@ import json
 from pathlib import Path
 
 from libretto.compiler import WorkflowCompileError, compile_workflow
-from libretto.schema import load_workflow
+from libretto.schema import parse_workflow
 from libretto.tools import ToolRegistry
+
+
+def _read_source(path: Path, parser: argparse.ArgumentParser) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        parser.exit(2, f"libretto: cannot read {path}: {error}\n")
 
 
 def main() -> None:
@@ -33,7 +40,11 @@ def main() -> None:
 
         from libretto.evaluate import evaluate_live, evaluate_retrieval
 
-        report = {"retrieval": evaluate_retrieval(Path(selected_workflow))}
+        _read_source(Path(selected_workflow), parser)
+        try:
+            report = {"retrieval": evaluate_retrieval(Path(selected_workflow))}
+        except (OSError, ValueError) as error:
+            parser.exit(2, f"libretto: {selected_workflow}: {error}\n")
         if args.live:
             report["workflow"] = asyncio.run(evaluate_live(Path(selected_workflow)))
         args.output = args.output or Path(".local/evaluations/latest.json")
@@ -49,9 +60,19 @@ def main() -> None:
         if not all(section["passed"] for section in report.values()):
             raise SystemExit(1)
     elif args.command == "serve":
-        import uvicorn
+        try:
+            import uvicorn
 
-        from libretto.server import create_app
+            from libretto.server import create_app
+        except ModuleNotFoundError as error:
+            if error.name not in {"uvicorn", "fastapi", "httpx", "dotenv", "websockets", "livekit"}:
+                raise
+            parser.exit(
+                2,
+                "libretto: serve requires the [studio] extra. Install it from the same Git revision "
+                "as Libretto; in a source checkout run `uv sync --locked`. "
+                "See docs/compatibility.md.\n",
+            )
 
         uvicorn.run(
             create_app(
@@ -69,7 +90,7 @@ def main() -> None:
                 tools = DemoToolRegistry()
             try:
                 compiled = compile_workflow(
-                    Path(selected_workflow).read_text(),
+                    _read_source(Path(selected_workflow), parser),
                     tools=tools,
                     project_root=args.project_root or Path(selected_workflow).parent,
                 )
@@ -80,5 +101,9 @@ def main() -> None:
                 raise SystemExit(1) from None
             print(f"Valid: {workflow.name} ({len(workflow.nodes)} nodes)")
         else:
-            workflow = load_workflow(Path(selected_workflow))
+            source = _read_source(Path(selected_workflow), parser)
+            try:
+                workflow = parse_workflow(source)
+            except ValueError as error:
+                parser.exit(2, f"libretto: {selected_workflow}: {error}\n")
             print(json.dumps(workflow.model_dump(), indent=2))

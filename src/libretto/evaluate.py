@@ -9,7 +9,6 @@ from pathlib import Path
 
 from libretto.demo_tools import DemoToolRegistry as ToolRegistry
 from libretto.providers.base import SessionCredentials
-from libretto.providers.openrouter import OpenRouterAdapter
 from libretto.retrieval import build_index
 from libretto.runtime import Session
 from libretto.schema import load_workflow
@@ -72,6 +71,8 @@ async def evaluate_live(workflow_path: Path):
     and manual hosted voice acceptance; these are explicitly text workflow checks.
     """
     from dotenv import load_dotenv
+
+    from libretto.providers.openrouter import OpenRouterAdapter
 
     load_dotenv()
     key = os.getenv("OPENROUTER_API_KEY")

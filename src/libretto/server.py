@@ -112,7 +112,8 @@ def create_app(
         project_root or (selected_path.parent if workflow_path else root / "examples"),
         "local-project" if workflow_path else "hosted-demo",
     )
-    directory = json.loads((root / "examples/directory.json").read_text())
+    # Application-owned tools must not depend on the bundled receptionist's data.
+    directory = [] if tool_factory is not None else json.loads((root / "examples/directory.json").read_text())
     make_tools = tool_factory or (lambda: ToolRegistry(directory))
     workspace.tools = make_tools().snapshot()
     scenarios = [] if workflow_path else json.loads((root / "examples/test-scenarios.json").read_text())
@@ -194,7 +195,10 @@ def create_app(
                 ]
             ],
             "speechChoices": choices,
-            "limitations": ["Built-in action tools are simulations with receptionist confirmation rules."],
+            "limitations": (
+                ["Built-in action tools are simulations with receptionist confirmation rules."]
+                if tool_factory is None else []
+            ),
         }
 
     @app.get("/api/studio/source-folders")

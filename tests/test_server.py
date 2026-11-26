@@ -423,3 +423,21 @@ def test_policy_errors_have_paths_and_hosted_demo_rejects_unregistered_handlers(
         result = client.post("/api/workflow/validate", json={"source": source})
         assert result.status_code == 422
         assert result.json()["detail"][0]["code"] == "unregistered_tool"
+
+
+def test_custom_tools_do_not_require_bundled_demo_directory(tmp_path):
+    from pathlib import Path
+
+    from libretto.server import create_app
+    from libretto.tools import ToolRegistry
+
+    source = tmp_path / "workflow.yaml"
+    source.write_text(Path("examples/minimal.yaml").read_text())
+    with TestClient(create_app(
+        load_environment=False, asset_root=tmp_path, workflow_path=source,
+        project_root=tmp_path, tool_factory=ToolRegistry,
+    )) as client:
+        config = client.get("/api/config").json()
+        assert config["workflow"]["id"] == "tiny-survey"
+        assert config["directory"] == []
+        assert client.get("/api/studio/capabilities").json()["tools"] == []

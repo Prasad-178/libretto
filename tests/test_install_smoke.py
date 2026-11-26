@@ -135,3 +135,20 @@ print('core smoke passed')
     assert evidence["runs"][0]["passed"]
     assert evidence["runs"][0]["context"]["libretto_commit"] is None
     assert evidence["runs"][0]["facts"]["address"] == "[redacted]"
+
+    # Offline retrieval must not import the optional model/HTTP stack.
+    shutil.copytree(root / "examples/knowledge", external / "knowledge")
+    shutil.copy2(root / "examples/receptionist.yaml", external / "receptionist.yaml")
+    result = subprocess.run(
+        [str(executable), "evaluate", "receptionist.yaml", "--output", "retrieval.json"],
+        cwd=external, env=environment, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads((external / "retrieval.json").read_text())["retrieval"]["passed"]
+    result = subprocess.run(
+        [str(executable), "serve", "receptionist.yaml"],
+        cwd=external, env=environment, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 2
+    assert "[studio]" in result.stderr
+    assert "Traceback" not in result.stderr
